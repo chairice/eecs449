@@ -1,6 +1,6 @@
 # Everyday Agent landing page
 
-The project's landing page, written in [Jac](https://www.jaseci.org/) using the `jac-client` plugin (Jac compiles `.cl.jac` files to a React app).
+The project's landing page, written entirely in [Jac](https://www.jaseci.org/), styles included, using the `jac-client` plugin (Jac compiles `.cl.jac` files to a React app).
 
 ## Run it locally
 
@@ -24,10 +24,11 @@ If `jac` fails to download Bun with `CERTIFICATE_VERIFY_FAILED` (common with the
 
 | File | What it holds |
 |---|---|
+| `main.jac` | Entry point; mounts the page at `/`. |
 | `content.cl.jac` | All the page copy: goals, use cases, and "how it works" steps. Edit text here. |
-| `frontend.cl.jac` | Page layout: the order of sections. |
-| `components/` | `SiteHeader`, `Hero`, `CardSection` (reused for each card grid), `SiteFooter`. |
-| `assets/global.css` | Color tokens (light and dark mode), fonts, and resets. |
-| `assets/*.css` | One stylesheet per component. Classes are prefixed with the component name (`hero-`, `section-`, ...) so they don't collide. |
+| `frontend.cl.jac` | Page layout and page-wide state (dark mode, screen size). |
+| `theme.cl.jac` | Light and dark color themes, fonts, and shared style helpers. |
+| `browser.cl.jac` | Small typed wrappers for the browser APIs the page uses (media queries, fonts, page background). |
+| `components/` | `SiteHeader`, `Hero`, `CardSection` (reused for each card grid), `SiteFooter`. Each styles itself with inline style dicts built from the theme. |
 
-Check your changes with `../.venv/bin/jac check main.jac frontend.cl.jac content.cl.jac components/*.cl.jac`.
+Check your changes with `../.venv/bin/jac check main.jac *.cl.jac components/*.cl.jac`. Warnings about `any` types in `browser.cl.jac` and the `react` import are expected.
