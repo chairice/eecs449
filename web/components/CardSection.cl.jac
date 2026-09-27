@@ -58,6 +58,7 @@ def:pub CardSection(
                         >
                             {if numbered {
                                 <span
+                                    key="number"
                                     style={{
                                         "display": "inline-block",
                                         "marginBottom": "14px",

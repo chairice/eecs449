@@ -4,21 +4,28 @@ The project's landing page, written entirely in [Jac](https://www.jaseci.org/), 
 
 ## Run it locally
 
-Requirements: Python 3.12+ and Node.js 18+ (Vite, used under the hood, does not run on Node 16).
+Requirements: Python 3.12+ and Node.js 18+ (Vite, used under the hood, does not run on Node 16). The repo's `.nvmrc` pins Node 22, so with nvm just run `nvm use` in the repo root.
+
+One-time setup, from the repo root:
 
 ```bash
-# from the repo root
 python3 -m venv .venv
-.venv/bin/pip install jaclang jac-client
-
-cd web
-../.venv/bin/jac install
-../.venv/bin/jac start main.jac      # add --dev for hot reload
+source .venv/bin/activate
+pip install jaclang jac-client
 ```
 
-Then open http://localhost:8000.
+Then, each time:
 
-If `jac` fails to download Bun with `CERTIFICATE_VERIFY_FAILED` (common with the python.org installer on macOS), run the "Install Certificates.command" script in your Python folder, or run `export SSL_CERT_FILE=$(../.venv/bin/python -m certifi)` before the commands above.
+```bash
+source .venv/bin/activate   # from the repo root
+nvm use                     # switch to Node 22
+cd web
+jac run
+```
+
+Open http://localhost:8000. `jac run` serves in dev mode, so edits to `.cl.jac` files reload in the browser. Stop it with Ctrl+C.
+
+If `jac` fails to download Bun with `CERTIFICATE_VERIFY_FAILED` (common with the python.org installer on macOS), run the "Install Certificates.command" script in your Python folder, or run `export SSL_CERT_FILE=$(python -m certifi)` and try again.
 
 ## Where things are
 
@@ -31,4 +38,4 @@ If `jac` fails to download Bun with `CERTIFICATE_VERIFY_FAILED` (common with the
 | `browser.cl.jac` | Small typed wrappers for the browser APIs the page uses (media queries, fonts, page background). |
 | `components/` | `SiteHeader`, `Hero`, `CardSection` (reused for each card grid), `SiteFooter`. Each styles itself with inline style dicts built from the theme. |
 
-Check your changes with `../.venv/bin/jac check main.jac *.cl.jac components/*.cl.jac`. Warnings about `any` types in `browser.cl.jac` and the `react` import are expected.
+Check your changes with `jac check main.jac *.cl.jac components/*.cl.jac`. Warnings about `any` types in `browser.cl.jac` and the `react` import are expected.

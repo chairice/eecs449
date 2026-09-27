@@ -49,16 +49,18 @@ def:pub SiteHeader(t: Theme, narrow: bool) -> JsxElement {
                     ></span>
                     Everyday Agent
                 </a>
-                {if not narrow {
-                    <nav
-                        aria-label="Sections"
-                        style={{"display": "flex", "gap": "24px", "fontSize": "15px"}}
-                    >
-                        <a href="#goals" style={link}>Goals</a>
-                        <a href="#use-cases" style={link}>Use cases</a>
-                        <a href="#how-it-works" style={link}>How it works</a>
-                    </nav>
-                }}
+                <nav
+                    aria-label="Sections"
+                    style={{
+                        "display": "none" if narrow else "flex",
+                        "gap": "24px",
+                        "fontSize": "15px"
+                    }}
+                >
+                    <a href="#goals" style={link}>Goals</a>
+                    <a href="#use-cases" style={link}>Use cases</a>
+                    <a href="#how-it-works" style={link}>How it works</a>
+                </nav>
             </div>
         </header>;
 }

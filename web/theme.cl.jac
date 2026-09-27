@@ -5,7 +5,7 @@ active `Theme`, and the page shell picks LIGHT or DARK from the browser's
 color-scheme preference.
 """
 
-obj Theme {
+obj:pub Theme {
     has bg: str,
         surface: str,
         surfaceMuted: str,

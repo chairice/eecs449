@@ -1,6 +1,6 @@
 """Copy for the landing page, kept in one place so it is easy to edit."""
 
-obj TextCard {
+obj:pub TextCard {
     has title: str,
         body: str;
 }
