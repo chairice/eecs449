@@ -1,0 +1,28 @@
+/* Styles for components/SiteFooter.cl.jac */
+
+.footer {
+  border-top: 1px solid var(--border);
+  padding: 32px 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.footer-inner {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.footer-inner a {
+  color: var(--text);
+}
+
+@media (max-width: 640px) {
+  .footer-inner {
+    padding: 0 16px;
+  }
+}
