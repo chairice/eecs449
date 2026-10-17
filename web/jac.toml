@@ -1,9 +1,10 @@
 [project]
 name = "everyday-agent-web"
 version = "0.1.0"
+jac-version = "==0.37.14"
 description = "Landing page for the EECS 449 everyday AI agent project"
-entry-point = "main.jac"
-kind = "fullstack"
+entry-point = "main"
+kind = "web-app"
 
 [dependencies.npm]
 react = "^18.2.0"
@@ -25,6 +26,5 @@ typescript = "^5.3.3"
 watchdog = ">=3.0.0"
 
 [serve]
+host = "127.0.0.1"
 base_route_app = "app"
-
-[plugins.client]
