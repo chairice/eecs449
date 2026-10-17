@@ -94,8 +94,9 @@ once the planning loop is reliable.
 
 ## Status
 
-The repository currently contains a client-only Jac landing page. The app
-routes, server domain model, persistence, LLM parser, route providers, weather
+The repository currently contains a client-only Jac landing page, shared UI
+foundations, and [validated domain contracts](docs/domain-model.md). The app
+routes, persistence, LLM parser, route providers, weather
 provider, and recommendation engine described above are planned work. See the
 [architecture decisions](docs/design/ARCHITECTURE_DECISIONS.md) for the system
 boundaries, algorithms, API choices, data lifecycle, and design tradeoffs.
@@ -110,7 +111,8 @@ run the landing page. From the repository root, run the same checks as CI:
 bash scripts/validate.sh
 ```
 
-This type-checks every Jac source file and builds the production client.
+This type-checks every Jac source file, runs the domain regression tests, and
+builds the production client.
 
 ## Course
 

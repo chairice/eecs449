@@ -59,8 +59,8 @@ bash scripts/validate.sh
 ```
 
 The script rejects a different Jac version, checks all source files with
-`jac check .`, then builds with `jac build --as client`. It exits on either
-failure. If Jac is not on PATH, use
+`jac check .`, runs `jac test tests/domain_tests.jac -v`, then builds with
+`jac build --as client`. It exits on any failure. If Jac is not on PATH, use
 `JAC_BIN=/absolute/path/to/jac bash scripts/validate.sh`. The same script runs
 for pull requests and pushes to `main` in `.github/workflows/validate.yml`.
 The production client is emitted into `web/.jac/client/dist/`; it is not a
@@ -90,6 +90,8 @@ interaction testing as new functionality is added.
 | `theme.jac` | Light/dark themes, fonts, and shared style helpers. |
 | `styles.css` | Shared semantic color, spacing, typography, radius, elevation, focus, and responsive tokens. |
 | `browser.jac` | Typed wrappers around media queries and DOM styling. |
+| `server/models.jac` | Canonical domain objects, validation, and fixture JSON codecs. |
+| `tests/domain_tests.jac` | Domain boundary and serialization regression tests. |
 | `components/` | Shared `Brand`, `PublicHeader`, and `AppShell`, plus landing sections. |
 
 `AppShell` receives `dark`, `publicPage`, `activePath`, and
