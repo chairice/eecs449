@@ -1,0 +1,44 @@
+.dt-comparison-heading { display:flex; gap:var(--dt-space-6); align-items:flex-start; justify-content:space-between; }
+.dt-comparison-heading .dt-page-heading { margin-bottom:var(--dt-space-6); }
+.dt-comparison-heading > a { flex-shrink:0; }
+.dt-comparison-grid { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(300px,1fr); gap:var(--dt-space-6); align-items:start; }
+.dt-options-title { font-size:16px; font-weight:500; margin:0 0 var(--dt-space-4); }
+.dt-route-options { display:grid; gap:var(--dt-space-4); margin:0; padding:0; border:0; min-width:0; }
+.dt-route-card { display:block; padding:var(--dt-space-6); border:1px solid var(--dt-border); border-radius:var(--dt-radius-card); background:var(--dt-surface); cursor:pointer; transition:border-color var(--dt-duration),box-shadow var(--dt-duration); }
+.dt-route-card:hover { border-color:var(--dt-accent); }
+.dt-route-card.is-selected { border:2px solid var(--dt-accent); padding:calc(var(--dt-space-6) - 1px); box-shadow:0 0 0 3px var(--dt-accent-soft); }
+.dt-route-card:focus-within { outline:3px solid var(--dt-accent); outline-offset:4px; }
+.dt-route-card-top,.dt-route-control,.dt-route-metrics,.dt-route-times { display:flex; align-items:center; justify-content:space-between; gap:var(--dt-space-3); }
+.dt-route-card-top { flex-wrap:wrap; }
+.dt-route-control { justify-content:flex-start; min-height:44px; }
+.dt-route-control input { width:19px; height:19px; accent-color:var(--dt-accent); flex-shrink:0; }
+.dt-route-name { font-size:16px; font-weight:600; }
+.dt-route-badge { border-radius:30px; padding:4px 10px; color:var(--dt-accent); background:var(--dt-accent-soft); font-size:11px; font-weight:600; }
+.dt-route-service { display:block; color:var(--dt-muted); font-size:13px; margin-top:var(--dt-space-1); }
+.dt-route-times { margin-top:var(--dt-space-6); font-size:clamp(15px,1.8vw,20px); font-weight:500; gap:var(--dt-space-2); }
+.dt-route-arrow { color:var(--dt-muted); font-weight:400; }
+.dt-route-metrics { margin-top:var(--dt-space-2); font-size:14px; color:var(--dt-muted); }
+.dt-route-metrics strong { color:var(--dt-text); font-size:17px; font-weight:600; }
+.dt-route-risks { display:flex; flex-wrap:wrap; gap:6px 12px; color:var(--dt-muted); font-size:12px; border-top:1px solid var(--dt-border); padding-top:var(--dt-space-4); margin-top:var(--dt-space-4); }
+.dt-route-source { display:block; color:var(--dt-muted); font-size:11px; margin-top:var(--dt-space-3); letter-spacing:.02em; }
+.dt-recommendation { position:sticky; top:112px; }
+.dt-recommendation .dt-kicker { margin-bottom:var(--dt-space-3); }
+.dt-recommendation h2 { font-family:var(--dt-font-display); font-size:27px; line-height:1.2; margin-bottom:var(--dt-space-2); }
+.dt-recommendation > .dt-muted { font-size:14px; margin-top:0; }
+.dt-recommendation h3 { font-size:14px; margin:var(--dt-space-6) 0 var(--dt-space-3); font-weight:600; }
+.dt-score-line { display:flex; justify-content:space-between; gap:var(--dt-space-3); align-items:center; font-size:13px; padding-top:var(--dt-space-4); border-top:1px solid var(--dt-border); }
+.dt-score-line strong { font-size:22px; color:var(--dt-accent); }
+.dt-score-line strong span { font-size:12px; font-weight:400; color:var(--dt-muted); }
+.dt-reasons { padding-left:20px; margin:0; font-size:13px; }
+.dt-reasons li { margin-bottom:var(--dt-space-2); }
+.dt-itinerary { padding-left:20px; font-size:12px; }
+.dt-itinerary li { padding-left:var(--dt-space-2); margin-bottom:var(--dt-space-4); }
+.dt-itinerary li > span { display:block; color:var(--dt-muted); margin-top:4px; }
+.dt-itinerary strong { font-weight:600; }
+.dt-source-details { border-top:1px solid var(--dt-border); padding-top:var(--dt-space-3); font-size:12px; color:var(--dt-muted); }
+.dt-source-details summary { cursor:pointer; min-height:44px; padding-block:var(--dt-space-2); color:var(--dt-text); }
+.dt-source-details ul { padding-left:18px; }
+.dt-source-details li { margin-bottom:var(--dt-space-2); }
+.dt-confirm-placeholder { margin-top:var(--dt-space-6); width:100%; }
+@media(max-width:850px) { .dt-comparison-grid { grid-template-columns:minmax(0,1fr); } .dt-recommendation { position:static; } }
+@media(max-width:640px) { .dt-comparison-heading { display:block; margin-bottom:var(--dt-space-6); } .dt-route-card { padding:var(--dt-space-4); } .dt-route-card.is-selected { padding:calc(var(--dt-space-4) - 1px); } .dt-route-times { font-size:15px; } .dt-route-metrics strong { font-size:15px; } }

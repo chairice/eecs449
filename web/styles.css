@@ -137,3 +137,5 @@
 .dt-draft-summary dt { color: var(--dt-muted); font-size: 13px; }
 .dt-draft-summary dd { margin: 0; overflow-wrap: anywhere; }
 @media (max-width: 640px) { .dt-form-grid { grid-template-columns: minmax(0, 1fr); } }
+.dt-composer-controls { border: 0; padding: 0; margin: 0; min-width: 0; }
+.dt-composer-controls:disabled { opacity: .75; }

@@ -33,10 +33,13 @@ def:pub DraftSummary(draft: ComposerDraft) -> JsxElement {
 def:pub TripComposer(
     initial: ComposerInput | None = None,
     earliestDate: str = "",
-    onValidDraft: Callable[[ComposerDraft], None] | None = None
+    onValidDraft: Callable[[ComposerDraft], None] | None = None,
+    busy: bool = False,
+    submitLabel: str = "Check trip details"
 ) -> JsxElement {
     has form: ComposerInput = initial if initial is not None else ComposerInput();
     has errors: list[FieldError] = [], validated: ComposerDraft | None = None;
+    has submitting: bool = False;
 
     def setField(field: str, text: str) {
         form = update_input(form, field, text);
@@ -51,17 +54,23 @@ def:pub TripComposer(
         errors = [];
         validated = None;
     }
-    def submit(e: FormEvent) {
+    async def submit(e: FormEvent) {
         e.preventDefault();
+        if busy or submitting { return; }
         result = validate_composer(form, earliestDate);
         errors = result.errors;
         validated = result.draft;
-        if result.draft is not None and onValidDraft is not None { onValidDraft(result.draft); }
+        if result.draft is not None and onValidDraft is not None {
+            submitting = True;
+            try { await onValidDraft(result.draft); }
+            finally { submitting = False; }
+        }
     }
     can with [errors] entry { if len(errors) > 0 { focus_composer_errors(); } }
 
     return <div>
         <form className="dt-panel dt-composer" noValidate={True} onSubmit={submit}>
+            <fieldset className="dt-composer-controls" disabled={busy or submitting}>
             <div className="dt-example-action">
                 <button className="dt-secondary" type="button" onClick={useExample}>Use the October 23 demo trip</button>
                 <p className="dt-caption">Fills empty fields with an Ann Arbor → Chicago example for October 23, 2026. Keeps your existing details.</p>
@@ -90,8 +99,9 @@ def:pub TripComposer(
                 <label><input type="checkbox" checked={form.allow_bus} onChange={lambda (e: ChangeEvent) { setMode("BUS", e.target.checked); }}/>Bus</label>
                 <ComposerError errors={errors} field="modes"/>
             </fieldset>
-            <div className="dt-actions dt-actions-between"><span className="dt-caption">* Required details · nothing is booked or saved</span><button className="dt-primary" type="submit">Check trip details <span aria-hidden="true">→</span></button></div>
+            <div className="dt-actions dt-actions-between"><span className="dt-caption">* Required details · nothing is booked or saved</span><button className="dt-primary" type="submit" disabled={busy or submitting}>{"Finding demo routes…" if busy or submitting else submitLabel} <span aria-hidden="true">→</span></button></div>
+            </fieldset>
         </form>
-        {if validated is not None { <DraftSummary draft={validated}/> }}
+        {if validated is not None and onValidDraft is None { <DraftSummary draft={validated}/> }}
     </div>;
 }
