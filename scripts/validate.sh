@@ -14,5 +14,5 @@ if [[ -z "$expected_version" || "$actual_version" != "jac $expected_version "* ]
 fi
 
 "$jac_bin" check .
-"$jac_bin" test tests/domain_tests.jac -v
+"$jac_bin" test -d tests/ -v
 "$jac_bin" build --as client
