@@ -2,3 +2,4 @@
 .jac/
 __pycache__/
 .DS_Store
+web/dist/

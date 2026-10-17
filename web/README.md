@@ -2,9 +2,12 @@
 
 The current application has a Detour landing page and directly reachable
 planning, results, trips, trip-detail, settings, and not-found routes. The
-composer validates a structured request locally; preferences remain a disabled
-preview and there is no route search or trip persistence yet. Results recover from a missing draft, trips show an
-empty state, and unavailable trip IDs show a not-found state.
+composer validates a structured request locally, calls the stateless fixture
+planner, and displays ranked synthetic routes. Preferences remain a disabled
+preview; there is no live provider access or trip persistence. Results recover
+from a missing request, trips show an empty state, and unavailable trip IDs
+show a not-found state. See [planning preview](../docs/planning-preview.md)
+for the current end-to-end boundary and remaining work.
 
 ## Toolchain and first setup
 
@@ -114,8 +117,8 @@ in `styles.css`; the legacy `Theme` helpers reference those same variables.
 | Route | Current behavior |
 |---|---|
 | `/` | Detour overview, illustrative request, and working planning link. |
-| `/plan` | Working local validation and typed draft preview; no provider or LLM calls. |
-| `/plan/results` | Missing-request recovery; no invented search results. |
+| `/plan` | Local validation, pending/retry states, and read-only synthetic fixture search; no LLM calls. |
+| `/plan/results` | Ranked fixture routes or explicit errors; missing-request recovery on direct links. |
 | `/trips` | Empty saved-trips state. |
 | `/trips/:id` | Unavailable-trip state until persistence is connected. |
 | `/settings` | Disabled preference preview and disconnected provider statuses. |
@@ -123,12 +126,14 @@ in `styles.css`; the legacy `Theme` helpers reference those same variables.
 
 Use `Link` from `@jac/runtime` for internal navigation. Keep route components
 in `pages/`; do not add a second manual router. Loading and provider-error
-states will be wired to real planning state in their dedicated feature.
+states reflect the actual fixture planning request; no fixed loading timer is used.
 
 ## Composer contract
 
 `TripComposer` accepts an optional initial `ComposerInput`, an optional
-`earliestDate`, and `onValidDraft: Callable[[ComposerDraft], None]`. Input is
+`earliestDate`, `busy`, `submitLabel`, and an async
+`onValidDraft: Callable[[ComposerDraft], None]` (awaited by the form; Jac types
+async functions by their resolved return value). Input is
 copied on changes and is never cleared after a failed submission. The callback
 fires only for a complete, locally valid structured request. Natural-language
 text is optional while using the structured fallback and cannot overwrite
@@ -143,8 +148,20 @@ intent. The caller can inject an earliest date resolved in the departure or
 arrival location's time zone; the current page does not guess that boundary
 from the device's time zone. No current-date restriction is applied yet.
 
-The built-in summary demonstrates the callback payload without claiming that
-a search ran or a plan was saved. Run the pure validation tests with
-`jac test tests/composer_tests.jac -v` from `web/`. Browser checks should cover
+Without a callback, the built-in summary demonstrates the payload without
+claiming that a search ran or a plan was saved. The planning page instead calls
+`server.api.plan_trip` with the nine explicit canonical fields; optional prose
+is never sent to this endpoint. Controls are disabled during the request, a
+synchronous guard rejects duplicates, and responses after unmount are ignored.
+Transport failures retain the form and allow another submission. Browser Back
+and Edit restore the submitted request and description through history state;
+this is not durable storage. The mapper rejects malformed history state.
+
+Run pure validation with `jac test tests/composer_tests.jac -v` from `web/`.
+After a full `jac build main.jac`, run
+`node --test ../scripts/test-client-composer.mjs` for the emitted browser
+payload/restoration boundary. It deliberately checks plain JavaScript records:
+Jac 0.37.14's `isinstance(value, dict)` does not recognize history-state objects.
+Browser checks should cover
 blank submission, summary focus, field error links, successful validation,
 retained structured fields after editing the description, and mobile layout.

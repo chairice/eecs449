@@ -94,10 +94,17 @@ once the planning loop is reliable.
 
 ## Status
 
-The repository currently contains a routed Jac client with static page
-skeletons, shared UI foundations, and [validated domain contracts](docs/domain-model.md).
-Persistence, the LLM parser, route providers, weather
-provider, and recommendation engine described above are planned work. See the
+The repository implements a read-only, fixture-backed planning preview:
+accessible structured input, a validated server endpoint, three synthetic
+Ann Arbor–Chicago routes, deterministic feasibility/scoring, and selectable
+route comparisons with explicit provenance and unknown conditions. See the
+[preview contract and limitations](docs/planning-preview.md),
+[domain contracts](docs/domain-model.md), [fixture adapter](docs/fixture-provider.md),
+and [scoring rules](docs/scoring.md).
+
+Authentication, expiring server drafts, confirmed saved trips, natural-language
+parsing, and live weather/transit integrations remain planned work. The Trips
+and Settings pages are honest placeholders; confirmation is disabled. See the
 [architecture decisions](docs/design/ARCHITECTURE_DECISIONS.md) for the system
 boundaries, algorithms, API choices, data lifecycle, and design tradeoffs.
 
@@ -111,8 +118,8 @@ run the application. From the repository root, run the same checks as CI:
 bash scripts/validate.sh
 ```
 
-This type-checks every Jac source file, runs the domain regression tests, and
-builds the production client.
+This checks every Jac source, runs all Jac regression suites, builds the full
+application from current sources, and tests the emitted comparison adapter.
 
 ## Course
 
