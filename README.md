@@ -1,27 +1,104 @@
-# EECS 449 Project: An AI Agent for Ground Commuting
+# Detour: an AI copilot for ground commuting
+
+> **Working product name.** Detour is the current design direction for the
+> EECS 449 team project; the name can change without changing the product
+> contract below.
 
 For a lot of cross-state commuters, there are a lot of tasks that go into making sure they reach their destinations: buying tickets, sorting through confirmation emails, scheduling around conflicts and delays, keeping track of tickets, checking the weather. None of them are hard. Together they take up a lot of time and attention.
 
-This project builds a conversational AI agent that takes over some of that work. Instead of giving it step-by-step instructions, you describe what you want done, and the agent plans the steps, uses the right tools, reports back, and keeps you up-to-date with your commuter plans.
+This project builds a conversational AI agent that takes over some of that
+work. A commuter describes the trip they need in plain language, compares a
+small set of feasible routes, sees weather and disruption risks, and confirms
+one plan. Detour keeps the confirmed plan in one place without booking or
+changing anything behind the user's back.
 
-## Goals
+## Product design
 
-1. **Automate routine travel tasks.** Find everyday tasks that are repetitive and follow predictable rules, and let the agent handle them from start to finish.
-2. **Keep it conversational.** Users should be able to talk to the agent in plain language, ask follow-up questions, and fix its mistakes without learning special commands.
-3. **Use real tools.** Connect the agent to the services people already use (for example, calendar, email, to-do lists) so it can act, not just make suggestions.
-4. **Keep the user in control.** The agent should ask before doing anything important or hard to undo, explain what it did, and respect the user's privacy.
-5. **Measure the benefit.** Check whether the agent really saves time and effort compared with doing the same tasks by hand.
+The first implementation target is one narrow, complete path:
 
-## Example Use Cases
+**Describe a trip -> compare options -> understand the recommendation ->
+confirm -> view the saved trip.**
 
-- Summarizing and prioritizing an Amtrak delay notification
-- Finding bus times and managing calendar conflicts
-- Tracking train schedules, bus schedules, payments, with reminders
-- Drafting commuting routes based on weather risk
+The complete behavior, component boundaries, data contracts, external API
+choices, ranking algorithm, failure states, and architectural decisions are in
+the [design plan](docs/design/README.md). The interactive reference can be
+opened locally from [`docs/design/prototype.html`](docs/design/prototype.html).
+
+### Screen designs
+
+All screens use the same responsive shell and visual system. These images are
+design targets, not claims that the corresponding functionality is already
+implemented.
+
+#### 1. Landing page
+
+![Detour marketing landing page](docs/design/screens/01-landing.jpg)
+
+#### 2. Plan a trip
+
+![Conversational trip planning form](docs/design/screens/02-plan.jpg)
+
+#### 3. Compare routes and confirm
+
+![Route comparison and recommendation view](docs/design/screens/03-results.jpg)
+
+#### 4. Saved trips
+
+![Upcoming and previous trips list](docs/design/screens/04-trips.jpg)
+
+#### 5. Trip detail
+
+![Confirmed trip detail and status view](docs/design/screens/05-trip-detail.jpg)
+
+#### 6. Settings
+
+![Routing preferences and data source settings](docs/design/screens/06-settings.jpg)
+
+#### 7. Planning/loading state
+
+![Route search loading state](docs/design/screens/07-loading.jpg)
+
+#### 8. No feasible routes
+
+![No routes recovery state](docs/design/screens/08-no-routes.jpg)
+
+#### 9. Not found
+
+![Detour 404 page](docs/design/screens/09-404.jpg)
+
+## Product principles
+
+1. **Conversation for intent, code for decisions.** The LLM converts plain
+   language into a typed trip request. Deterministic code validates, scores,
+   and ranks routes so recommendations are reproducible.
+2. **Make tradeoffs legible.** Every recommendation identifies the concrete
+   reasons it won: time, cost, transfers, reliability, and weather exposure.
+3. **Keep the user in control.** Nothing is booked, messaged, or added to an
+   external service without an explicit confirmation.
+4. **Design for incomplete data.** Missing real-time data means “unknown,” not
+   “on time.” The interface exposes freshness and confidence.
+5. **Ship a complete vertical slice first.** The MVP uses deterministic route
+   fixtures where necessary, then swaps in live providers behind stable
+   interfaces.
+
+## MVP use case
+
+A student asks: “Get me from Ann Arbor to Chicago Friday after 4 PM. Keep it
+under $50 and avoid tight transfers.” Detour returns up to three ground-transit
+options, incorporates forecast and disruption information, explains its
+recommendation, and saves the selected plan after confirmation.
+
+The MVP does **not** purchase tickets, connect email or calendars, continuously
+monitor trips, or promise nationwide coverage. Those are later capabilities
+once the planning loop is reliable.
 
 ## Status
 
-This project is in its early stages. More details on architecture, setup, and usage will be added as development goes on.
+The repository currently contains a client-only Jac landing page. The app
+routes, server domain model, persistence, LLM parser, route providers, weather
+provider, and recommendation engine described above are planned work. See the
+[architecture decisions](docs/design/ARCHITECTURE_DECISIONS.md) for the system
+boundaries, algorithms, API choices, data lifecycle, and design tradeoffs.
 
 ## Course
 
