@@ -9,7 +9,6 @@ import from .content { GOALS, USE_CASES, STEPS }
 import from .theme {
     LIGHT,
     DARK,
-    FONT_SANS,
     FONTS_URL,
     DARK_QUERY,
     NARROW_QUERY,
@@ -17,7 +16,7 @@ import from .theme {
     REDUCED_MOTION_QUERY
 }
 import from .browser { mediaMatches, watchMedia, loadStylesheet, paintPage }
-import from .components.SiteHeader { SiteHeader }
+import from .components.AppShell { AppShell }
 import from .components.Hero { Hero }
 import from .components.CardSection { CardSection }
 import from .components.SiteFooter { SiteFooter }
@@ -55,19 +54,7 @@ def:pub app -> JsxElement {
     }
 
     return
-        <div
-            style={{
-                "background": t.bg,
-                "color": t.text,
-                "fontFamily": FONT_SANS,
-                "fontSize": "17px",
-                "lineHeight": "1.6",
-                "WebkitFontSmoothing": "antialiased",
-                "minHeight": "100vh"
-            }}
-        >
-            <SiteHeader t={t} narrow={narrow}/>
-            <main>
+        <AppShell dark={dark} publicPage={True} footer={<SiteFooter t={t} narrow={narrow}/>}>
                 <Hero t={t} narrow={narrow} wide={wide}/>
                 <CardSection
                     t={t}
@@ -99,7 +86,5 @@ def:pub app -> JsxElement {
                     cards={STEPS}
                     numbered={True}
                 />
-            </main>
-            <SiteFooter t={t} narrow={narrow}/>
-        </div>;
+        </AppShell>;
 }
