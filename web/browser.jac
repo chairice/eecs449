@@ -38,5 +38,6 @@ def:pub paintPage(background: str, dark: bool, smoothScroll: bool) {
     body.style.margin = "0";
     body.style.background = background;
     html.style.colorScheme = "dark" if dark else "light";
+    html.dataset.theme = "dark" if dark else "light";
     html.style.scrollBehavior = "smooth" if smoothScroll else "auto";
 }

@@ -88,5 +88,15 @@ interaction testing as new functionality is added.
 | `content.jac` | Goals, use cases, and workflow copy. |
 | `frontend.jac` | Page layout, color scheme, and screen-size state. |
 | `theme.jac` | Light/dark themes, fonts, and shared style helpers. |
+| `styles.css` | Shared semantic color, spacing, typography, radius, elevation, focus, and responsive tokens. |
 | `browser.jac` | Typed wrappers around media queries and DOM styling. |
-| `components/` | `SiteHeader`, `Hero`, `CardSection`, and `SiteFooter`. |
+| `components/` | Shared `Brand`, `PublicHeader`, and `AppShell`, plus landing sections. |
+
+`AppShell` receives `dark`, `publicPage`, `activePath`, and
+`navigationEnabled` from its caller and accepts page content through
+`children`, plus an optional `footer` rendered outside the main landmark.
+The current landing mounts its public variant; application
+navigation is prepared for the routing feature. The guest profile is
+display-only until authentication exists. Mobile navigation stays visible,
+and controls use at least 44px targets. Shell theme colors are centralized
+in `styles.css`; the legacy `Theme` helpers reference those same variables.
