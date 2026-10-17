@@ -100,6 +100,18 @@ provider, and recommendation engine described above are planned work. See the
 [architecture decisions](docs/design/ARCHITECTURE_DECISIONS.md) for the system
 boundaries, algorithms, API choices, data lifecycle, and design tradeoffs.
 
+## Development
+
+Use **Jac 0.37.14** (standalone compiler); the JavaScript tooling baseline is
+**Node 22.11.0** in `.nvmrc`. Follow [web setup](web/README.md) to install and
+run the landing page. From the repository root, run the same checks as CI:
+
+```bash
+bash scripts/validate.sh
+```
+
+This type-checks every Jac source file and builds the production client.
+
 ## Course
 
 This project is being developed for EECS 449 (Conversational AI) at the University of Michigan.

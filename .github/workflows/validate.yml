@@ -1,0 +1,32 @@
+name: Validate Jac app
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Install pinned Jac toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          jac_version="$(sed -n 's/^jac-version = "==\([^"]*\)"$/\1/p' web/jac.toml)"
+          test -n "$jac_version"
+          curl -fsSL https://raw.githubusercontent.com/jaseci-labs/jaseci/main/scripts/install.sh | bash -s -- --version "$jac_version"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Install project dependencies
+        working-directory: web
+        run: jac install
+      - name: Type-check and build production client
+        run: bash scripts/validate.sh

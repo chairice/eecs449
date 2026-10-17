@@ -4,10 +4,8 @@ The site is client-only for now and written entirely in Jac, styles included: no
 landing page mounted at `/`.
 """
 
-cl {
-    import from .frontend { app as LandingPage }
+import from .frontend { app as LandingPage }
 
-    def:pub app -> JsxElement {
-        return <LandingPage/>;
-    }
+def:pub app -> JsxElement {
+    return <LandingPage/>;
 }

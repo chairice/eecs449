@@ -1,41 +1,92 @@
-# Everyday Agent landing page
+# Jac landing page
 
-The project's landing page, written entirely in [Jac](https://www.jaseci.org/), styles included, using the `jac-client` plugin (Jac compiles `.cl.jac` files to a React app).
+The current implementation is the Everyday Agent landing page. The Detour
+screens in `docs/design/` are design targets for subsequent features.
 
-## Run it locally
+## Toolchain and first setup
 
-Requirements: Python 3.12+ and Node.js 18+ (Vite, used under the hood, does not run on Node 16). The repo's `.nvmrc` pins Node 22, so with nvm just run `nvm use` in the repo root.
+The supported compiler is **Jac 0.37.14**, pinned in `jac.toml`. Jac syntax is
+version-sensitive: this release infers client placement from JSX and imports,
+uses ordinary `.jac` filenames, and no longer accepts `cl { ... }` wrappers.
+Its standalone binary includes Python, Bun, and the client compiler; do not
+install the former `jaclang`/`jac-client` pip plugins into a separate virtualenv.
+The repository also pins **Node 22.11.0** in `.nvmrc` for JavaScript tooling and
+CI; Jac's own dependency installation and bundling use its bundled Bun runtime.
 
-One-time setup, from the repo root:
+Install the pinned compiler with the official installer:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install jaclang jac-client
+curl -fsSL https://raw.githubusercontent.com/jaseci-labs/jaseci/main/scripts/install.sh | bash -s -- --version 0.37.14
+export PATH="$HOME/.local/bin:$PATH"
+jac --version
 ```
 
-Then, each time:
+From the repository root:
 
 ```bash
-source .venv/bin/activate   # from the repo root
-nvm use                     # switch to Node 22
+nvm install                 # optional when using nvm for Node tooling
+nvm use
 cd web
-jac run
+jac install
 ```
 
-Open http://localhost:8000. `jac run` serves in dev mode, so edits to `.cl.jac` files reload in the browser. Stop it with Ctrl+C.
+Initial installation/build needs network access for dependencies. Jac stores
+generated packages, bundles, and local runtime data under ignored `web/.jac/`.
+`jac.toml` is the dependency source of truth; the generated client package
+manifest and Bun lockfile live under `.jac/client/`. Dependency ranges are
+resolved on a fresh install, so the compiler is pinned but transitive npm
+dependencies are not yet frozen in the repository.
 
-If `jac` fails to download Bun with `CERTIFICATE_VERIFY_FAILED` (common with the python.org installer on macOS), run the "Install Certificates.command" script in your Python folder, or run `export SSL_CERT_FILE=$(python -m certifi)` and try again.
+## Development server
 
-## Where things are
+From `web/`:
 
-| File | What it holds |
+```bash
+jac run --dev main.jac
+```
+
+Open http://localhost:8000. Client edits hot-reload; restart for server changes.
+The development API uses port 8001. Stop with Ctrl+C. `jac run --show` prints
+the resolved entry point and serving mode. Run Jac commands from `web/` so
+they use this project's configuration.
+
+## Baseline validation
+
+From the repository root:
+
+```bash
+bash scripts/validate.sh
+```
+
+The script rejects a different Jac version, checks all source files with
+`jac check .`, then builds with `jac build --as client`. It exits on either
+failure. If Jac is not on PATH, use
+`JAC_BIN=/absolute/path/to/jac bash scripts/validate.sh`. The same script runs
+for pull requests and pushes to `main` in `.github/workflows/validate.yml`.
+The production client is emitted into `web/.jac/client/dist/`; it is not a
+deployed app or a bundled server. Browser smoke check: load the page, follow
+the Goals/Use cases/How it works anchors, and resize to mobile width.
+
+Jac 0.37.14 currently reports these nonfatal diagnostics on this landing page.
+They remain visible; no diagnostic classes are globally suppressed:
+
+- `W1037`: deliberate `any` values at the browser API boundary in `browser.jac`.
+- `W2001`: intrinsic HTML closing tags are reported as possibly undefined.
+- `W2003`: compiler-generated React state setters are reported as unused.
+- `W3030`: `CardSection` has nine typed props, above the lint threshold of seven.
+
+Missing-import warnings (`W1100`/`W1051`) before dependency installation should
+disappear after `jac install`; investigate new warnings rather than treating
+them as part of this baseline. A successful check/build does not replace
+interaction testing as new functionality is added.
+
+## Source map
+
+| File | Responsibility |
 |---|---|
-| `main.jac` | Entry point; mounts the page at `/`. |
-| `content.cl.jac` | All the page copy: goals, use cases, and "how it works" steps. Edit text here. |
-| `frontend.cl.jac` | Page layout and page-wide state (dark mode, screen size). |
-| `theme.cl.jac` | Light and dark color themes, fonts, and shared style helpers. |
-| `browser.cl.jac` | Small typed wrappers for the browser APIs the page uses (media queries, fonts, page background). |
-| `components/` | `SiteHeader`, `Hero`, `CardSection` (reused for each card grid), `SiteFooter`. Each styles itself with inline style dicts built from the theme. |
-
-Check your changes with `jac check main.jac *.cl.jac components/*.cl.jac`. Warnings about `any` types in `browser.cl.jac` and the `react` import are expected.
+| `main.jac` | Entry point; mounts the landing page. |
+| `content.jac` | Goals, use cases, and workflow copy. |
+| `frontend.jac` | Page layout, color scheme, and screen-size state. |
+| `theme.jac` | Light/dark themes, fonts, and shared style helpers. |
+| `browser.jac` | Typed wrappers around media queries and DOM styling. |
+| `components/` | `SiteHeader`, `Hero`, `CardSection`, and `SiteFooter`. |
