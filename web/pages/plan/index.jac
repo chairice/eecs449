@@ -1,21 +1,18 @@
-"""Trip composer layout. Input behavior is added in the next feature."""
+"""Local planning input. Validation does not invoke a provider or save a trip."""
 
 import from ...components.PageHeading { PageHeading }
+import from ...components.TripComposer { TripComposer }
 
 def:pub PlanPage -> JsxPage {
     return <>
         <PageHeading eyebrow="NEW TRIP" title="Where do you need to be?" description="Describe the outcome. Detour will work out the options and show its reasoning."/>
         <div className="dt-two-column">
-            <section className="dt-panel">
-                <p id="composer-status" className="dt-notice">Trip planning is being built. This preview shows where your request will go.</p>
-                <label className="dt-field" htmlFor="trip-request"><span>Describe your trip</span>
-                    <textarea id="trip-request" rows={5} disabled={True} aria-describedby="composer-status" placeholder="Example: Get me from Ann Arbor to Chicago Friday evening. I care more about reliability than price."/>
-                </label>
-                <div className="dt-actions dt-actions-between"><span className="dt-caption">Natural language is fine</span><button className="dt-primary" disabled={True} type="button">Plan trip →</button></div>
-            </section>
+            <TripComposer/>
             <aside className="dt-panel">
-                <h2 className="dt-kicker">TRY AN EXAMPLE</h2>
-                <ul className="dt-example-list"><li>“Get me to O’Hare by 7 AM tomorrow.”</li><li>“Cheapest route to Detroit after class.”</li><li>“Avoid transfers if snow is expected.”</li></ul>
+                <h2 className="dt-kicker">START WITH THE CORRIDOR</h2>
+                <p>Our first planning demo will connect Ann Arbor and Chicago.</p>
+                <ul className="dt-example-list"><li>“Leave Ann Arbor after 4 PM. Keep the trip under $50.”</li><li>“Get me to Chicago before 9 PM, with at least 30 minutes between connections.”</li><li>“Prefer a direct train, even if it costs more.”</li></ul>
+                <p className="dt-caption">For now, check the details locally. Route search and natural-language interpretation are not connected yet.</p>
             </aside>
         </div>
         <section className="dt-section"><h2 className="dt-kicker">WHAT DETOUR WILL CONSIDER</h2>

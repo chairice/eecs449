@@ -2,8 +2,8 @@
 
 The current application has a Detour landing page and directly reachable
 planning, results, trips, trip-detail, settings, and not-found routes. The
-composer and preferences are disabled previews; there is no route search or
-trip persistence yet. Results recover from a missing draft, trips show an
+composer validates a structured request locally; preferences remain a disabled
+preview and there is no route search or trip persistence yet. Results recover from a missing draft, trips show an
 empty state, and unavailable trip IDs show a not-found state.
 
 ## Toolchain and first setup
@@ -95,6 +95,9 @@ interaction testing as new functionality is added.
 | `theme.jac` | Light/dark themes, fonts, and shared style helpers. |
 | `styles.css` | Shared semantic color, spacing, typography, radius, elevation, focus, and responsive tokens. |
 | `browser.jac` | Typed wrappers around media queries and DOM styling. |
+| `client/composer_model.jac` | Raw form input, exact local validation, and the typed client draft. |
+| `components/TripComposer.jac` | Accessible input form and honest validated-request summary. |
+| `tests/composer_tests.jac` | Calendar, time, currency, required-field, mode, and input-preservation tests. |
 | `server/models.jac` | Canonical domain objects, validation, and fixture JSON codecs. |
 | `tests/domain_tests.jac` | Domain boundary and serialization regression tests. |
 | `components/` | Shared `Brand`, `PublicHeader`, and `AppShell`, plus landing sections. |
@@ -111,7 +114,7 @@ in `styles.css`; the legacy `Theme` helpers reference those same variables.
 | Route | Current behavior |
 |---|---|
 | `/` | Detour overview, illustrative request, and working planning link. |
-| `/plan` | Disabled composer preview. |
+| `/plan` | Working local validation and typed draft preview; no provider or LLM calls. |
 | `/plan/results` | Missing-request recovery; no invented search results. |
 | `/trips` | Empty saved-trips state. |
 | `/trips/:id` | Unavailable-trip state until persistence is connected. |
@@ -121,3 +124,27 @@ in `styles.css`; the legacy `Theme` helpers reference those same variables.
 Use `Link` from `@jac/runtime` for internal navigation. Keep route components
 in `pages/`; do not add a second manual router. Loading and provider-error
 states will be wired to real planning state in their dedicated feature.
+
+## Composer contract
+
+`TripComposer` accepts an optional initial `ComposerInput`, an optional
+`earliestDate`, and `onValidDraft: Callable[[ComposerDraft], None]`. Input is
+copied on changes and is never cleared after a failed submission. The callback
+fires only for a complete, locally valid structured request. Natural-language
+text is optional while using the structured fallback and cannot overwrite
+explicit fields. It is retained in `request_text` for a future parser.
+
+The draft uses the server contract's field names and string enum values;
+currency is exact integer USD cents, an absent budget is `None`, and zero is
+a valid budget. Validation rejects impossible Gregorian dates, malformed
+24-hour times, identical locations, invalid decimal budgets, fractional or
+negative transfer buffers, and an empty mode selection. Date/time remain local
+intent. The caller can inject an earliest date resolved in the departure or
+arrival location's time zone; the current page does not guess that boundary
+from the device's time zone. No current-date restriction is applied yet.
+
+The built-in summary demonstrates the callback payload without claiming that
+a search ran or a plan was saved. Run the pure validation tests with
+`jac test tests/composer_tests.jac -v` from `web/`. Browser checks should cover
+blank submission, summary focus, field error links, successful validation,
+retained structured fields after editing the description, and mobile layout.
