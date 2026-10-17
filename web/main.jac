@@ -1,11 +1,5 @@
-"""Everyday Agent - landing page entry point.
+"""File-based router wrapper. Route discovery supplies the child tree."""
 
-The site is client-only for now and written entirely in Jac, styles included: no server endpoints, just the
-landing page mounted at `/`.
-"""
-
-import from .frontend { app as LandingPage }
-
-def:pub app -> JsxElement {
-    return <LandingPage/>;
+def:pub app(children: any = None) -> JsxElement {
+    return <>{children}</>;
 }

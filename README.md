@@ -94,9 +94,9 @@ once the planning loop is reliable.
 
 ## Status
 
-The repository currently contains a client-only Jac landing page, shared UI
-foundations, and [validated domain contracts](docs/domain-model.md). The app
-routes, persistence, LLM parser, route providers, weather
+The repository currently contains a routed Jac client with static page
+skeletons, shared UI foundations, and [validated domain contracts](docs/domain-model.md).
+Persistence, the LLM parser, route providers, weather
 provider, and recommendation engine described above are planned work. See the
 [architecture decisions](docs/design/ARCHITECTURE_DECISIONS.md) for the system
 boundaries, algorithms, API choices, data lifecycle, and design tradeoffs.
@@ -105,7 +105,7 @@ boundaries, algorithms, API choices, data lifecycle, and design tradeoffs.
 
 Use **Jac 0.37.14** (standalone compiler); the JavaScript tooling baseline is
 **Node 22.11.0** in `.nvmrc`. Follow [web setup](web/README.md) to install and
-run the landing page. From the repository root, run the same checks as CI:
+run the application. From the repository root, run the same checks as CI:
 
 ```bash
 bash scripts/validate.sh

@@ -1,8 +1,10 @@
 """Shared brand link; the route mark is decorative beside the product name."""
 
+import from "@jac/runtime" { Link }
+
 def:pub Brand -> JsxElement {
-    return <a className="dt-brand" href="/">
+    return <Link className="dt-brand" to="/">
         <span className="dt-logo" aria-hidden="true">↝</span>
         <span>Detour</span>
-    </a>;
+    </Link>;
 }

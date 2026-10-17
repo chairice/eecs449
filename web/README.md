@@ -1,7 +1,10 @@
-# Jac landing page
+# Detour web application
 
-The current implementation is the Everyday Agent landing page. The Detour
-screens in `docs/design/` are design targets for subsequent features.
+The current application has a Detour landing page and directly reachable
+planning, results, trips, trip-detail, settings, and not-found routes. The
+composer and preferences are disabled previews; there is no route search or
+trip persistence yet. Results recover from a missing draft, trips show an
+empty state, and unavailable trip IDs show a not-found state.
 
 ## Toolchain and first setup
 
@@ -64,18 +67,20 @@ The script rejects a different Jac version, checks all source files with
 `JAC_BIN=/absolute/path/to/jac bash scripts/validate.sh`. The same script runs
 for pull requests and pushes to `main` in `.github/workflows/validate.yml`.
 The production client is emitted into `web/.jac/client/dist/`; it is not a
-deployed app or a bundled server. Browser smoke check: load the page, follow
-the Goals/Use cases/How it works anchors, and resize to mobile width.
+deployed app or a bundled server. Browser smoke check: open every route below
+directly, follow internal links, use browser back/forward, and resize to mobile.
+Jac serves extensionless paths through its SPA fallback. Another production
+host must serve the app HTML for those same paths.
 
-Jac 0.37.14 currently reports these nonfatal diagnostics on this landing page.
+Jac 0.37.14 currently reports these nonfatal diagnostics on this client.
 They remain visible; no diagnostic classes are globally suppressed:
 
-- `W1037`: deliberate `any` values at the browser API boundary in `browser.jac`.
+- `W1037`: deliberate `any` values at browser and JSX children boundaries.
 - `W2001`: intrinsic HTML closing tags are reported as possibly undefined.
 - `W2003`: compiler-generated React state setters are reported as unused.
-- `W3030`: `CardSection` has nine typed props, above the lint threshold of seven.
+- `W1051`: some built-in `@jac/runtime` routing exports lack resolved checker types.
 
-Missing-import warnings (`W1100`/`W1051`) before dependency installation should
+Missing-import warnings (`W1100`) before dependency installation should
 disappear after `jac install`; investigate new warnings rather than treating
 them as part of this baseline. A successful check/build does not replace
 interaction testing as new functionality is added.
@@ -84,9 +89,9 @@ interaction testing as new functionality is added.
 
 | File | Responsibility |
 |---|---|
-| `main.jac` | Entry point; mounts the landing page. |
-| `content.jac` | Goals, use cases, and workflow copy. |
-| `frontend.jac` | Page layout, color scheme, and screen-size state. |
+| `main.jac` | Renders the generated file-based router's children. |
+| `pages/layout.jac` | Persistent shell, active navigation, and color-scheme subscription. |
+| `pages/` | Public `JsxPage` exports declare routes; `JsxLayout` declares the shared layout. |
 | `theme.jac` | Light/dark themes, fonts, and shared style helpers. |
 | `styles.css` | Shared semantic color, spacing, typography, radius, elevation, focus, and responsive tokens. |
 | `browser.jac` | Typed wrappers around media queries and DOM styling. |
@@ -94,11 +99,25 @@ interaction testing as new functionality is added.
 | `tests/domain_tests.jac` | Domain boundary and serialization regression tests. |
 | `components/` | Shared `Brand`, `PublicHeader`, and `AppShell`, plus landing sections. |
 
-`AppShell` receives `dark`, `publicPage`, `activePath`, and
+`AppShell` receives `dark`, `publicPage`, `minimalHeader`, `activePath`, and
 `navigationEnabled` from its caller and accepts page content through
 `children`, plus an optional `footer` rendered outside the main landmark.
-The current landing mounts its public variant; application
-navigation is prepared for the routing feature. The guest profile is
+The landing uses its public variant, application routes share primary
+navigation, and unknown public URLs use the minimal brand-only header. The guest profile is
 display-only until authentication exists. Mobile navigation stays visible,
 and controls use at least 44px targets. Shell theme colors are centralized
 in `styles.css`; the legacy `Theme` helpers reference those same variables.
+
+| Route | Current behavior |
+|---|---|
+| `/` | Detour overview, illustrative request, and working planning link. |
+| `/plan` | Disabled composer preview. |
+| `/plan/results` | Missing-request recovery; no invented search results. |
+| `/trips` | Empty saved-trips state. |
+| `/trips/:id` | Unavailable-trip state until persistence is connected. |
+| `/settings` | Disabled preference preview and disconnected provider statuses. |
+| Any other path | 404 and link back to planning; no app navigation. |
+
+Use `Link` from `@jac/runtime` for internal navigation. Keep route components
+in `pages/`; do not add a second manual router. Loading and provider-error
+states will be wired to real planning state in their dedicated feature.
