@@ -213,9 +213,6 @@
 .dt-search-placeholder { color: var(--dt-muted); }
 .dt-when-panel { position: absolute; z-index: 20; top: calc(100% + var(--dt-space-2)); left: 0; right: 0; padding: var(--dt-space-8); border: 1px solid var(--dt-border); border-radius: var(--dt-radius-panel); background: var(--dt-surface); box-shadow: var(--dt-shadow); }
 .dt-when-panel[hidden] { display: none; }
-.dt-when-kind { display: flex; width: fit-content; margin: 0 auto; padding: var(--dt-space-1); border-radius: var(--dt-radius-pill); background: var(--dt-surface-muted); }
-.dt-when-kind button { min-height: 36px; min-width: 128px; padding: 0 var(--dt-space-6); border: 0; border-radius: var(--dt-radius-pill); background: transparent; color: var(--dt-text); font: var(--dt-body); cursor: pointer; }
-.dt-when-kind button[aria-checked="true"] { background: var(--dt-surface); box-shadow: 0 1px 3px rgb(17 17 17 / 12%); }
 .dt-calendar { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--dt-space-12); margin-top: var(--dt-space-6); outline: none; }
 .dt-calendar-nav { position: absolute; top: 0; display: inline-grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 50%; background: transparent; color: var(--dt-text); cursor: pointer; }
 .dt-calendar-nav:hover:not(:disabled) { background: var(--dt-surface-muted); }
@@ -229,7 +226,13 @@
 .dt-day { width: 40px; height: 40px; border: 1px solid transparent; border-radius: 50%; background: transparent; color: var(--dt-text); font: var(--dt-body); cursor: pointer; }
 .dt-day:hover:not(:disabled) { border-color: var(--dt-text); }
 .dt-day:disabled { color: var(--dt-border); cursor: default; }
-.dt-day[aria-pressed="true"] { background: var(--dt-accent); border-color: var(--dt-accent); color: var(--dt-accent-text); }
+.dt-day[aria-pressed="true"], .dt-day-cell.is-end .dt-day { background: var(--dt-accent); border-color: var(--dt-accent); color: var(--dt-accent-text); }
+/* Range band between departure and return (or the hovered day), as on Airbnb:
+   the band runs edge to edge through the middle days and starts and stops at
+   the centres of the two ends. */
+.dt-day-cell.in-range { background: var(--dt-surface-muted); }
+.dt-day-cell.is-start { background: linear-gradient(to right, transparent 50%, var(--dt-surface-muted) 50%); }
+.dt-day-cell.is-end { background: linear-gradient(to left, transparent 50%, var(--dt-surface-muted) 50%); }
 @media (max-width: 743px) {
   .dt-when-panel { padding: var(--dt-space-6) var(--dt-space-4); }
   .dt-calendar { grid-template-columns: minmax(0, 1fr); }

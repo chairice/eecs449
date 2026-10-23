@@ -103,10 +103,12 @@ def time_label(value: str) -> str {
     return str(12 if hour % 12 == 0 else hour % 12) + ":" + minutes + (" AM" if hour < 12 else " PM");
 }
 
-def when_summary(form: ComposerInput) -> str {
+def when_summary(form: ComposerInput, returnDate: str) -> str {
     if form.local_date == "" and form.local_time == "" { return ""; }
-    day = day_label(form.local_date, today_iso()) if form.local_date != "" else "Add date";
-    time = ("Leave after " if form.time_kind == "DEPART_AFTER" else "Arrive by ") + time_label(form.local_time) if form.local_time != "" else "Add time";
+    today = today_iso();
+    day = day_label(form.local_date, today) if form.local_date != "" else "Add date";
+    if returnDate != "" { day += " – " + day_label(returnDate, today); }
+    time = time_label(form.local_time) if form.local_time != "" else "Add time";
     return day + " · " + time;
 }
 
@@ -144,6 +146,9 @@ def:pub TripComposer(
     has form: ComposerInput = starting_form(initial);
     has errors: list[FieldError] = [], validated: ComposerDraft | None = None;
     has submitting: bool = False, panel: str = "", monthOffset: int = 0;
+    # Airbnb-style range: the first pick is the departure, the second the return.
+    # Only the departure reaches the planner, which plans one-way trips.
+    has returnDate: str = "", hoverDate: str = "";
     has searchBox: Ref[HTMLDivElement] = Ref();
     # Where the sliding pill last sat, so it fades out in place when a panel closes.
     has pillAt: Ref[str] = Ref("where");
@@ -151,6 +156,15 @@ def:pub TripComposer(
     def setField(field: str, text: str) {
         form = update_input(form, field, text);
         validated = None;
+    }
+    def pickDay(iso: str) {
+        if form.local_date == "" or returnDate != "" or iso <= form.local_date {
+            setField("local_date", iso);
+            returnDate = "";
+        } else {
+            returnDate = iso;
+        }
+        hoverDate = "";
     }
     async def submit(e: FormEvent) {
         e.preventDefault();
@@ -181,7 +195,9 @@ def:pub TripComposer(
     showWhere = panel == "where" and not showWhen;
     suggestions = destination_matches(form.destination_text);
     if showWhen { pillAt.current = "when"; } elif showWhere { pillAt.current = "where"; }
-    summary = when_summary(form);
+    summary = when_summary(form, returnDate);
+    choosingReturn = form.local_date != "" and returnDate == "";
+    rangeEnd = returnDate if returnDate != "" else hoverDate if choosingReturn and hoverDate > form.local_date else "";
     today = today_iso();
     months = [calendar_month(monthOffset, today), calendar_month(monthOffset + 1, today)];
     stops = [stop for stop in [known_stop(form.origin_text), known_stop(form.destination_text)] if stop is not None];
@@ -216,11 +232,7 @@ def:pub TripComposer(
                 {if len(suggestions) == 0 { <p>Detour's demo plans trips from Ann Arbor to Chicago, IL for now.</p> }}
             </div>
             <div id="dt-when" className="dt-when-panel" role="group" aria-label="When" hidden={not showWhen} onKeyDown={lambda (e: KeyboardEvent) { if e.key == "Escape" { panel = ""; } }}>
-                <div className="dt-when-kind" role="radiogroup" aria-label="Time preference" id="time_kind">
-                    <button type="button" role="radio" aria-checked={form.time_kind == "DEPART_AFTER"} onClick={lambda { setField("time_kind", "DEPART_AFTER"); }}>Leave after</button>
-                    <button type="button" role="radio" aria-checked={form.time_kind == "ARRIVE_BY"} onClick={lambda { setField("time_kind", "ARRIVE_BY"); }}>Arrive by</button>
-                </div>
-                <div id="local_date" className="dt-calendar" tabIndex={-1} aria-describedby="error-local_date">
+                <div id="local_date" className="dt-calendar" tabIndex={-1} aria-describedby="error-local_date" onMouseLeave={lambda { hoverDate = ""; }}>
                     <button type="button" className="dt-calendar-nav dt-calendar-prev" aria-label="Previous month" disabled={monthOffset == 0} onClick={lambda { monthOffset = max(0, monthOffset - 1); }}><Icon name="chevron.left" size={16}/></button>
                     <button type="button" className="dt-calendar-nav dt-calendar-next" aria-label="Next month" disabled={monthOffset >= MONTHS_AHEAD} onClick={lambda { monthOffset = min(MONTHS_AHEAD, monthOffset + 1); }}><Icon name="chevron.right" size={16}/></button>
                     {for month in months {
@@ -229,8 +241,8 @@ def:pub TripComposer(
                             <div className="dt-month-grid">
                                 {for (index, name) in enumerate(WEEKDAYS) { <span key={"w" + str(index)} className="dt-weekday" aria-hidden="true">{name}</span> }}
                                 {for (index, day) in enumerate(month.days) {
-                                    <span key={"d" + str(index)} className="dt-day-cell">{(
-                                        <button type="button" className="dt-day" aria-label={day.label} aria-pressed={form.local_date == day.iso} disabled={day.disabled} onClick={lambda { setField("local_date", day.iso); }}>{day.day}</button> if day.iso != "" else None
+                                    <span key={"d" + str(index)} className={"dt-day-cell" + (" is-start" if day.iso != "" and day.iso == form.local_date and rangeEnd != "" else "") + (" is-end" if day.iso != "" and day.iso == rangeEnd else "") + (" in-range" if day.iso != "" and form.local_date < day.iso and day.iso < rangeEnd else "")}>{(
+                                        <button type="button" className="dt-day" aria-label={day.label + (", departure" if day.iso == form.local_date else ", return" if day.iso == returnDate else "")} aria-pressed={day.iso == form.local_date or day.iso == returnDate} disabled={day.disabled} onClick={lambda { pickDay(day.iso); }} onMouseEnter={lambda { if choosingReturn { hoverDate = day.iso; } }} onFocus={lambda { if choosingReturn { hoverDate = day.iso; } }}>{day.day}</button> if day.iso != "" else None
                                     )}</span>
                                 }}
                             </div>
@@ -239,14 +251,14 @@ def:pub TripComposer(
                 </div>
                 <ComposerError errors={errors} field="local_date"/>
                 <div className="dt-stepper-row">
-                    <span className="dt-stepper-text"><span className="dt-stepper-title">{"Leave after" if form.time_kind == "DEPART_AFTER" else "Arrive by"}</span><span>Local time {"in Ann Arbor" if form.time_kind == "DEPART_AFTER" else "at your destination"}</span></span>
-                    <span id="local_time" className="dt-stepper" role="group" tabIndex={-1} aria-label={"Departure time" if form.time_kind == "DEPART_AFTER" else "Arrival time"} aria-describedby="error-local_time time-help">
+                    <span className="dt-stepper-text"><span className="dt-stepper-title">Leave after</span><span>Local time in Ann Arbor</span></span>
+                    <span id="local_time" className="dt-stepper" role="group" tabIndex={-1} aria-label="Departure time" aria-describedby="error-local_time time-help">
                         <button type="button" className="dt-step" aria-label="30 minutes earlier" disabled={form.local_time == "00:00"} onClick={lambda { setField("local_time", shift_time(form.local_time, -30)); }}><Icon name="minus" size={16}/></button>
                         <output className="dt-step-value" aria-live="polite">{time_label(form.local_time) if form.local_time != "" else "Add time"}</output>
                         <button type="button" className="dt-step" aria-label="30 minutes later" disabled={form.local_time == "23:30"} onClick={lambda { setField("local_time", shift_time(form.local_time, 30)); }}><Icon name="plus" size={16}/></button>
                     </span>
                 </div>
-                <span id="time-help" className="dt-sr-only">Local time at your {"starting point" if form.time_kind == "DEPART_AFTER" else "destination"}.</span>
+                <span id="time-help" className="dt-sr-only">Local time at your starting point.</span>
                 <ComposerError errors={errors} field="local_time"/><ComposerError errors={errors} field="time_kind"/>
             </div>
             </div>
