@@ -7,7 +7,13 @@
 /* Options and map take 7 columns, the booking card 5; stacked below 984. */
 .dt-comparison-grid { display:grid; grid-template-columns:repeat(var(--grid-cols),minmax(0,1fr)); column-gap:var(--grid-gutter); row-gap:var(--dt-space-8); align-items:start; }
 .dt-comparison-grid > * { grid-column:1 / -1; min-width:0; }
-@media (min-width:984px) { .dt-comparison-grid > :first-child { grid-column:span 7; } .dt-comparison-grid > :last-child { grid-column:span 5; } }
+@media (min-width:984px) {
+  .dt-comparison-grid > :first-child { grid-column:span 7; }
+  .dt-comparison-grid > :last-child { grid-column:span 5; }
+  /* Side by side, the card's top meets the list box rather than its heading:
+     one line of body text (1lh) plus the heading's gap below. */
+  .dt-comparison-grid > .dt-booking { margin-top:calc(1lh + var(--dt-space-4)); }
+}
 
 /* One box, rows split by hairlines; the selected row is tinted, not outlined. */
 /* Outbound and return lists, then the map, in one column. */
