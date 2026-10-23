@@ -1,7 +1,7 @@
 """Light basemap showing a trip's stops and the line between them.
 
-It pins only the stops it is given. With none, it frames the Ann Arbor to
-Chicago demo corridor without marking anything.
+It pins only the stops it is given. With fewer than two, it frames the Ann
+Arbor to Chicago demo corridor.
 """
 
 import "leaflet/dist/leaflet.css";
@@ -32,11 +32,8 @@ def:pub RouteMap(stops: list[ComparisonStop], label: str) -> JsxElement {
             endpoint = index == 0 or index == len(stops) - 1;
             circleMarker([stop.latitude, stop.longitude], {"radius": 8 if endpoint else 5, "color": "#ffffff", "weight": 3, "fillColor": ROUTE_GREEN, "fillOpacity": 1}).bindTooltip(stop.name).addTo(group);
         }
-        if len(points) == 1 {
-            m.setView(points[0], 9);
-        } else {
-            m.fitBounds(points if len(points) > 0 else CORRIDOR, {"padding": [56, 56]});
-        }
+        # A lone stop sits inside the corridor's frame rather than filling the map.
+        m.fitBounds(points if len(points) > 1 else CORRIDOR, {"padding": [56, 56]});
     }
 
     useEffect(lambda {

@@ -2,7 +2,7 @@
    Light mode only: white and green, laid on the v3 portfolio grid, with two
    type styles:
      title    24/32 medium, black
-     body     16/24 regular, grey
+     body     14/20 regular, grey
    Interactive text (buttons, links, inputs) and key figures use those sizes
    in black or green; nothing adds a third. */
 :root {
@@ -19,14 +19,14 @@
 
   /* The two type styles. */
   --dt-title: 500 24px/32px var(--dt-font-body);
-  --dt-body: 400 16px/24px var(--dt-font-body);
+  --dt-body: 400 14px/20px var(--dt-font-body);
 
   /* Spacing on an 8px base (plus 4 for hairline offsets), named in quarters. */
   --dt-space-1: 4px; --dt-space-2: 8px; --dt-space-4: 16px; --dt-space-6: 24px;
   --dt-space-8: 32px; --dt-space-10: 40px; --dt-space-12: 48px; --dt-space-16: 64px;
   --dt-space-20: 80px; --dt-space-24: 96px;
   --dt-radius-control: 12px; --dt-radius-card: 24px; --dt-radius-panel: 24px; --dt-radius-pill: 999px;
-  --dt-control-height: 48px; --dt-duration: 300ms;
+  --dt-control-height: 40px; --dt-duration: 300ms;
 
   /* Grid, matching the v3 portfolio: 56px columns; 4 / 6 / 9 / 12 of them at
      the phone / 464 / 744 / 984 tiers; gutters 16 / 16 / 24 / 24, then 48 from
@@ -175,34 +175,35 @@
 .dt-composer-controls { border: 0; padding: 0; margin: 0; min-width: 0; }
 .dt-composer-controls:disabled { opacity: .75; }
 
-/* Trip search, after Airbnb's: one rounded bar with dividers between fields
-   and a round green search button; filters and the map sit underneath. */
-.dt-composer { display: grid; gap: var(--dt-space-6); }
-.dt-search-bar { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; align-items: center; padding: var(--dt-space-2); border: 1px solid var(--dt-border); border-radius: var(--dt-radius-pill); background: var(--dt-surface); box-shadow: var(--dt-shadow); }
-.dt-search-field { display: grid; align-content: center; gap: 0; min-height: 64px; padding: var(--dt-space-2) var(--dt-space-6); border-radius: var(--dt-radius-pill); color: var(--dt-text); transition: background-color var(--dt-duration); }
-.dt-search-field + .dt-search-field { box-shadow: -1px 0 0 var(--dt-border); }
+/* Trip search, after Airbnb's: Where and When in one rounded bar, split by
+   straight hairlines, with a round search button. The demo button and map sit
+   underneath. */
+.dt-composer { display: grid; gap: var(--dt-space-4); }
+.dt-search-bar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: center; max-width: calc(8 * var(--grid-col) + 7 * var(--grid-gutter)); padding: var(--dt-space-2); border: 1px solid var(--dt-border); border-radius: var(--dt-radius-pill); background: var(--dt-surface); box-shadow: var(--dt-shadow); }
+.dt-search-field { position: relative; display: grid; align-content: center; min-height: 48px; padding: var(--dt-space-1) var(--dt-space-6); border-radius: var(--dt-radius-pill); color: var(--dt-text); cursor: pointer; transition: background-color var(--dt-duration); }
+.dt-search-field + .dt-search-field::before { content: ""; position: absolute; left: 0; top: 25%; height: 50%; width: 1px; background: var(--dt-border); }
 .dt-search-field:hover, .dt-search-field:focus-within { background: var(--dt-surface-muted); }
-.dt-search-field :is(input, select) { width: 100%; min-width: 0; border: 0; padding: 0; background: transparent; color: var(--dt-muted); font: var(--dt-body); outline: none; }
-.dt-search-field :is(input, select):focus-visible { color: var(--dt-text); }
+.dt-search-field:hover::before, .dt-search-field:focus-within::before, .dt-search-field:hover + .dt-search-field::before, .dt-search-field:focus-within + .dt-search-field::before { opacity: 0; }
+.dt-search-field input { width: 100%; min-width: 0; border: 0; padding: 0; background: transparent; color: var(--dt-muted); font: var(--dt-body); outline: none; cursor: pointer; }
+.dt-search-field input:focus-visible, .dt-search-field input:valid { color: var(--dt-text); }
 .dt-search-field input::placeholder { color: var(--dt-muted); opacity: 1; }
-.dt-search-field select { color: var(--dt-text); cursor: pointer; appearance: none; }
-.dt-search-submit { display: inline-flex; align-items: center; gap: var(--dt-space-2); min-height: 56px; padding: 0 var(--dt-space-6); border: 0; border-radius: var(--dt-radius-pill); background: var(--dt-accent); color: var(--dt-accent-text); font: var(--dt-body); cursor: pointer; transition: scale var(--dt-duration), box-shadow var(--dt-duration); }
-.dt-search-submit:hover { scale: 1.02; box-shadow: var(--dt-shadow); }
-.dt-search-extras { display: flex; flex-wrap: wrap; gap: var(--dt-space-2); }
-.dt-filters .dt-form-grid { align-items: start; }
-.dt-filters .dt-field:last-child { margin-bottom: 0; }
+.dt-search-when { display: flex; gap: var(--dt-space-2); }
+.dt-search-when input[type="time"] { max-width: 96px; }
+/* No calendar or clock glyphs: the picker opens from anywhere on its input. */
+.dt-search-field input { position: relative; }
+.dt-search-field input::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: auto; height: auto; margin: 0; padding: 0; opacity: 0; cursor: pointer; }
+.dt-search-submit { display: inline-grid; place-items: center; width: 48px; height: 48px; padding: 0; border: 0; border-radius: 50%; background: var(--dt-accent); color: var(--dt-accent-text); cursor: pointer; transition: scale var(--dt-duration), box-shadow var(--dt-duration); }
+.dt-search-submit:hover { scale: 1.04; box-shadow: var(--dt-shadow); }
+.dt-search-extras { display: flex; flex-wrap: wrap; gap: var(--dt-space-2); margin-top: var(--dt-space-6); }
+.dt-search-extras .dt-secondary { min-height: 36px; padding-inline: var(--dt-space-4); }
 .dt-map { height: 440px; border-radius: var(--dt-radius-panel); border: 1px solid var(--dt-border); background: var(--dt-surface-muted); overflow: hidden; z-index: 0; }
 .dt-map .leaflet-tile { filter: grayscale(1) contrast(.85) brightness(1.08); }
 .dt-map .leaflet-control-attribution { font: 400 11px/16px var(--dt-font-body); background: rgb(255 255 255 / 80%); }
 .dt-map .leaflet-tooltip { font: var(--dt-body); color: var(--dt-text); border-radius: var(--dt-radius-control); }
-@media (max-width: 983px) {
-  .dt-search-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); border-radius: var(--dt-radius-panel); }
-  .dt-search-field { border-radius: var(--dt-radius-control); }
-  .dt-search-field:nth-child(odd) { box-shadow: none; }
-  .dt-search-submit { grid-column: 1 / -1; justify-content: center; }
-  .dt-map { height: 320px; }
-}
+@media (max-width: 983px) { .dt-map { height: 320px; } }
 @media (max-width: 463px) {
-  .dt-search-bar { grid-template-columns: minmax(0, 1fr); }
-  .dt-search-field + .dt-search-field { box-shadow: 0 -1px 0 var(--dt-border); }
+  .dt-search-bar { grid-template-columns: minmax(0, 1fr) auto; border-radius: var(--dt-radius-panel); }
+  .dt-search-field { border-radius: var(--dt-radius-control); }
+  .dt-search-field:first-child { grid-column: 1 / -1; }
+  .dt-search-field + .dt-search-field::before { left: var(--dt-space-6); right: var(--dt-space-6); top: 0; width: auto; height: 1px; }
 }
