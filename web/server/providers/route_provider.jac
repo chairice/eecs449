@@ -1,4 +1,5 @@
-"""Route providers return normalized candidates; the planner applies constraints."""
+"""
+Route providers return normalized candidates; the planner applies constraints."""
 
 import from server.models { ProviderResult, RouteOption, TripRequest }
 

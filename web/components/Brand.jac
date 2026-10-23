@@ -1,4 +1,5 @@
-"""Shared brand link; the route mark is decorative beside the product name."""
+"""
+Shared brand link; the route mark is decorative beside the product name."""
 
 import from "@jac/runtime" { Link }
 import from .Icon { Icon }

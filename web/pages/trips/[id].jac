@@ -7,7 +7,7 @@ import from ...components.PageHeading { PageHeading }
 import from ...components.EmptyState { EmptyState }
 import from ...components.RouteMap { RouteMap }
 import from ...components.comparison_view { ComparisonStop }
-import from ...client.saved_trips { find_trip, remove_trip }
+import from ...client.saved_trips { find_trip, remove_trip, trip_countdown }
 
 """Stops saved with a leg; anything without numeric coordinates is skipped."""
 def leg_stops(leg: any) -> list[ComparisonStop] {
@@ -35,7 +35,7 @@ def:pub TripDetailPage -> JsxPage {
     }
     stops = leg_stops(trip["legs"][0]);
     return <>
-        <div className="dt-comparison-heading"><PageHeading title={trip["title"]} description={trip["days"]}/>
+        <div className="dt-comparison-heading"><PageHeading title={trip["title"]} description={trip["days"] + " · " + trip_countdown(trip)}/>
             <Link className="dt-secondary" to="/trips">All trips</Link></div>
         <div className="dt-comparison-grid">
             <div className="dt-legs">

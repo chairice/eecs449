@@ -110,7 +110,7 @@ def:pub RouteComparison(preview: any = None, requestText: str = "", submittedReq
         legs = [saved_leg("Outbound", selected)];
         if returnRequested and returnSelected is not None { legs.append(saved_leg("Return", returnSelected)); }
         now: any = new(Date);
-        trip = {"id": new_trip_id(), "title": view.title, "days": days, "total": booking_total(selected, returnSelected if returnRequested else None),
+        trip = {"id": new_trip_id(), "title": view.title, "days": days, "start_date": view.date, "total": booking_total(selected, returnSelected if returnRequested else None),
             "saved_at": str(now.toISOString()), "legs": legs};
         if save_trip(trip) { navigate("/trips"); } else { saveFailed = True; }
     }
