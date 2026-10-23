@@ -6,6 +6,7 @@ import from .PageHeading { PageHeading }
 import from .EmptyState { EmptyState }
 import from .comparison_view { ComparisonRoute, comparison_view }
 import from .Icon { Icon }
+import from .RouteMap { RouteMap }
 
 """Provenance codes stay uppercase in data; the interface reads sentence case."""
 def:pub source_label(source: str) -> str {
@@ -14,17 +15,16 @@ def:pub source_label(source: str) -> str {
 
 def:pub RouteCard(route: ComparisonRoute, index: int, selected: bool, recommended: bool, onSelect: Callable[[str], None]) -> JsxElement {
     return <label className={"dt-route-card" + (" is-selected" if selected else "")} htmlFor={"route-" + str(index)}>
-        <span className="dt-route-card-top">
-            <span className="dt-route-control"><input id={"route-" + str(index)} type="radio" name="route-selection" checked={selected} onChange={lambda (_e: ChangeEvent) { onSelect(route.id); }} aria-labelledby={"route-title-" + str(index)} aria-describedby={"route-summary-" + str(index) + " route-risks-" + str(index)}/>
+        <input id={"route-" + str(index)} className="dt-route-radio" type="radio" name="route-selection" checked={selected} onChange={lambda (_e: ChangeEvent) { onSelect(route.id); }} aria-labelledby={"route-title-" + str(index)} aria-describedby={"route-summary-" + str(index)}/>
+        <span className="dt-route-visual"><Icon name={"tram" if route.legs[0].mode == "Train" else "bus"} size={28}/></span>
+        <span className="dt-route-body">
+            <span className="dt-route-card-top">
                 <span id={"route-title-" + str(index)} className="dt-route-name">{route.modes} · {route.transfers}{if recommended { <span className="dt-sr-only"> · Recommended</span> }}</span>
+                {if recommended { <span className="dt-route-badge">Recommended</span> }}
             </span>
-            {if recommended { <span className="dt-route-badge">Recommended</span> }}
+            <span className="dt-route-times"><span>{route.departure}</span><span className="dt-route-arrow"><Icon name="arrow.right" size={16}/></span><span>{route.arrival}</span></span>
+            <span id={"route-summary-" + str(index)} className="dt-route-metrics"><span>{route.duration} · {route.name}</span><strong>{route.price}</strong></span>
         </span>
-        <span className="dt-route-service">{route.name}</span>
-        <span className="dt-route-times"><span>{route.departure}</span><span className="dt-route-arrow"><Icon name="arrow.right"/></span><span>{route.arrival}</span></span>
-        <span id={"route-summary-" + str(index)} className="dt-route-metrics"><span>{route.duration}</span><strong>{route.price}</strong></span>
-        <span id={"route-risks-" + str(index)} className="dt-route-risks"><span>Delay: {route.delay}</span><span>Weather: {route.weather}</span><span>Connections: {route.transfer_risk}</span></span>
-        <span className="dt-route-source">{source_label(route.source)} · {route.freshness}</span>
     </label>;
 }
 
@@ -33,6 +33,7 @@ def:pub RecommendationPanel(route: ComparisonRoute, recommended: bool) -> JsxEle
         <h2 id="selection-heading">{route.modes} · {route.transfers}</h2>
         <p className="dt-muted">{route.name}</p>
         <div className="dt-score-line"><span>Preference score</span><strong>{route.score}<span> / 100</span></strong></div>
+        <p>Delay: {route.delay} · Weather: {route.weather} · Connections: {route.transfer_risk}</p>
         <h3>Why this option</h3>
         <ul className="dt-reasons">{for reason in route.reasons { <li key={reason}>{reason}</li> }}</ul>
         <h3>Your journey</h3>
@@ -73,7 +74,10 @@ def:pub RouteComparison(preview: any = None, requestText: str = "", submittedReq
                     {for (index, route) in enumerate(view.routes) { <RouteCard key={route.id} route={route} index={index} selected={selected.id == route.id} recommended={index == 0} onSelect={lambda (id: str) { selectedId = id; }}/> }}
                 </fieldset>
             </section>
-            <RecommendationPanel route={selected} recommended={selected.id == view.routes[0].id}/>
+            <div className="dt-results-side">
+                <RouteMap stops={selected.stops} label={"Map of the selected route: " + " to ".join([stop.name for stop in selected.stops]) if len(selected.stops) > 0 else "Map of the Ann Arbor to Chicago demo corridor"}/>
+                <RecommendationPanel route={selected} recommended={selected.id == view.routes[0].id}/>
+            </div>
         </div>
         <p className="dt-sr-only" role="status" aria-live="polite">Selected {selected.name}. {selected.price}. {selected.duration}.</p>
     </>;

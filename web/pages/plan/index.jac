@@ -41,21 +41,9 @@ def:pub PlanPage -> JsxPage {
         }
     }
     return <>
-        <PageHeading title="Where do you need to be?" description="Describe the outcome. Detour will work out the options and show its reasoning."/>
-        <div className="dt-two-column">
-            <div>
-                {if failure { <div className="dt-error-summary" role="alert">{failure}</div> }}
-                <p role="status" aria-live="polite">{"Checking synthetic schedules and ranking demo routes…" if busy else ""}</p>
-                <TripComposer initial={restore_composer(location.state)} onValidDraft={findRoutes} busy={busy} submitLabel="Find demo routes"/>
-            </div>
-            <aside className="dt-panel">
-                <h2>Start with the corridor</h2>
-                <p>This fixture demo connects Ann Arbor and Chicago using synthetic schedules and prices. Delay and weather signals remain unknown.</p>
-                <ul className="dt-example-list"><li>“Leave Ann Arbor after 4 PM. Keep the trip under $50.”</li><li>“Get me to Chicago before 9 PM, with at least 30 minutes between connections.”</li><li>“Prefer a direct train, even if it costs more.”</li></ul>
-            </aside>
-        </div>
-        <section className="dt-section"><h2 className="dt-section-title">What Detour will consider</h2>
-            <div className="dt-feature-grid"><article><h3>Schedule fit</h3><p>Arrival targets and buffers</p></article><article><h3>Transfer risk</h3><p>Connections and fallback time</p></article><article><h3>Conditions</h3><p>Weather and active alerts</p></article></div>
-        </section>
+        <PageHeading title="Where are you headed?" description="Search demo trips between Ann Arbor and Chicago."/>
+        {if failure { <div className="dt-error-summary" role="alert">{failure}</div> }}
+        <p className="dt-sr-only" role="status" aria-live="polite">{"Checking synthetic schedules and ranking demo routes…" if busy else ""}</p>
+        <TripComposer initial={restore_composer(location.state)} onValidDraft={findRoutes} busy={busy} submitLabel="Search"/>
     </>;
 }

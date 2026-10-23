@@ -8,23 +8,24 @@
 @media (min-width:984px) { .dt-comparison-grid > :first-child { grid-column:span 7; } .dt-comparison-grid > :last-child { grid-column:span 5; } }
 .dt-options-title { font:var(--dt-body); color:var(--dt-muted); margin-bottom:var(--dt-space-4); }
 .dt-route-options { display:grid; gap:var(--dt-space-4); margin:0 0 var(--dt-space-4); padding:0; border:0; min-width:0; }
-.dt-route-card { display:block; padding:var(--dt-space-6); border:1px solid var(--dt-border); border-radius:var(--dt-radius-card); background:var(--dt-surface); cursor:pointer; transition:border-color var(--dt-duration),box-shadow var(--dt-duration),scale var(--dt-duration); }
+.dt-route-card { position:relative; display:flex; gap:var(--dt-space-4); align-items:flex-start; padding:var(--dt-space-6); border:1px solid var(--dt-border); border-radius:var(--dt-radius-card); background:var(--dt-surface); cursor:pointer; transition:border-color var(--dt-duration),box-shadow var(--dt-duration),scale var(--dt-duration); }
 .dt-route-card:hover { scale:1.02; box-shadow:var(--dt-shadow); }
 .dt-route-card.is-selected { border:2px solid var(--dt-accent); padding:calc(var(--dt-space-6) - 1px); }
 .dt-route-card:focus-within { outline:2px solid var(--dt-accent); outline-offset:4px; }
-.dt-route-card-top,.dt-route-control,.dt-route-metrics,.dt-route-times { display:flex; align-items:center; justify-content:space-between; gap:var(--dt-space-2); }
+.dt-route-card-top,.dt-route-metrics,.dt-route-times { display:flex; align-items:center; justify-content:space-between; gap:var(--dt-space-2); }
 .dt-route-card-top { flex-wrap:wrap; }
-.dt-route-control { justify-content:flex-start; min-height:var(--dt-control-height); gap:var(--dt-space-4); }
-.dt-route-control input { width:16px; height:16px; accent-color:var(--dt-accent); flex-shrink:0; }
+/* The radio stays in the form and the focus order; the whole card is its target. */
+.dt-route-radio { position:absolute; opacity:0; pointer-events:none; }
+.dt-route-visual { display:inline-grid; place-items:center; flex-shrink:0; width:64px; height:64px; border-radius:var(--dt-radius-control); background:var(--dt-accent-soft); color:var(--dt-accent); }
+.dt-route-body { display:grid; gap:var(--dt-space-1); flex:1; min-width:0; }
 .dt-route-name { font:var(--dt-title); color:var(--dt-text); }
 .dt-route-badge { border-radius:var(--dt-radius-pill); padding:var(--dt-space-1) var(--dt-space-4); color:var(--dt-accent); background:var(--dt-accent-soft); font:var(--dt-body); }
 .dt-route-service { display:block; font:var(--dt-body); }
-.dt-route-times { margin-top:var(--dt-space-6); color:var(--dt-text); }
+.dt-route-times { justify-content:flex-start; color:var(--dt-text); }
 .dt-route-metrics { margin-top:var(--dt-space-1); }
-.dt-route-risks { display:flex; flex-wrap:wrap; gap:var(--dt-space-1) var(--dt-space-4); font:var(--dt-body); border-top:1px solid var(--dt-border); padding-top:var(--dt-space-4); margin-top:var(--dt-space-4); }
-.dt-route-source { display:block; font:var(--dt-body); margin-top:var(--dt-space-2); }
-.dt-recommendation { position:sticky; top:112px; }
-.dt-recommendation > .dt-muted { font:var(--dt-body); }
+.dt-results-side { display:grid; gap:var(--dt-space-6); }
+.dt-results-side .dt-map { height:320px; }
+.dt-recommendation > p + p { margin-top:var(--dt-space-2); }
 .dt-recommendation h3 { font:var(--dt-body); color:var(--dt-text); margin:var(--dt-space-6) 0 var(--dt-space-2); }
 .dt-score-line { display:flex; justify-content:space-between; gap:var(--dt-space-2); align-items:center; margin-top:var(--dt-space-6); padding-top:var(--dt-space-4); border-top:1px solid var(--dt-border); }
 .dt-score-line strong { font:var(--dt-title); }
@@ -39,6 +40,5 @@
 .dt-source-details :is(p, ul) { margin-bottom:var(--dt-space-2); }
 .dt-source-details ul { padding-left:var(--dt-space-4); }
 .dt-confirm-placeholder { margin:var(--dt-space-6) 0 var(--dt-space-2); width:100%; }
-@media (max-width:983px) { .dt-recommendation { position:static; } }
 @media (max-width:743px) { .dt-comparison-heading { display:block; } .dt-comparison-heading > a { margin-top:var(--dt-space-4); } .dt-route-card { padding:var(--dt-space-4); } .dt-route-card.is-selected { padding:calc(var(--dt-space-4) - 1px); } }
 .dt-route-arrow { display:inline-flex; color:var(--dt-muted); }
