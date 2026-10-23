@@ -6,9 +6,9 @@
    Interactive text (buttons, links, inputs) and key figures use those sizes
    in black or green; nothing adds a third. */
 :root {
-  --dt-bg: #ffffff; --dt-surface: #ffffff; --dt-surface-muted: #f2f7f3;
+  --dt-bg: #ffffff; --dt-surface: #ffffff; --dt-surface-muted: #f7f7f7;
   --dt-text: #111111; --dt-muted: #646a66; --dt-border: #e3ebe5; --dt-surface-sunken: #ebeeec;
-  --dt-accent: #1f7a3d; --dt-accent-text: #ffffff; --dt-accent-soft: #e6f4ea;
+  --dt-accent: #1f7a3d; --dt-accent-text: #ffffff; --dt-accent-soft: #f1f8f3;
   --dt-highlight: #1f7a3d;
   --dt-warning-bg: #fbf0d9; --dt-warning-text: #6c4d00;
   --dt-danger-bg: #fbe9e5; --dt-danger-text: #b53333;
@@ -244,26 +244,10 @@
 .dt-panel-heading.dt-panel-error { color: var(--dt-danger-text); }
 .dt-place { display: flex; align-items: center; gap: var(--dt-space-4); width: 100%; padding: var(--dt-space-2); border: 0; border-radius: var(--dt-radius-control); background: transparent; font: var(--dt-body); text-align: left; cursor: pointer; }
 .dt-place:hover, .dt-place[aria-selected="true"] { background: var(--dt-surface-muted); }
-.dt-place-icon { display: inline-grid; place-items: center; flex-shrink: 0; width: 56px; height: 56px; border-radius: var(--dt-radius-control); background: var(--dt-accent-soft); color: var(--dt-accent); }
+.dt-place-icon { display: inline-grid; place-items: center; flex-shrink: 0; width: 56px; height: 56px; border: 1px solid var(--dt-border); border-radius: var(--dt-radius-control); background: var(--dt-surface); color: var(--dt-accent); }
 .dt-place-text { display: grid; color: var(--dt-muted); }
 .dt-place-name { color: var(--dt-text); }
 
-/* Time: a counter row like Airbnb's guest picker, in 30-minute steps. */
-.dt-stepper-row { display: flex; align-items: center; justify-content: space-between; gap: var(--dt-space-4); margin-top: var(--dt-space-6); padding-top: var(--dt-space-6); border-top: 1px solid var(--dt-border); }
-.dt-stepper-text { display: grid; color: var(--dt-muted); }
-.dt-stepper-title { color: var(--dt-text); }
-.dt-stepper { display: inline-flex; align-items: center; gap: var(--dt-space-2); outline: none; }
-.dt-step { display: inline-grid; place-items: center; width: 32px; height: 32px; border: 1px solid var(--dt-border); border-radius: 50%; background: var(--dt-surface); color: var(--dt-text); cursor: pointer; transition: border-color var(--dt-duration); }
-.dt-step:hover:not(:disabled) { border-color: var(--dt-text); }
-.dt-step:disabled { opacity: .3; cursor: default; }
-/* The time reads as plain text and is typed over in place: a soft fill on
-   hover says it can be edited, a hairline green ring while typing. */
-.dt-step-value { width: 96px; min-height: 32px; padding: 0 var(--dt-space-2); border: 1px solid transparent; border-radius: var(--dt-radius-control); background: transparent; color: var(--dt-text); font: var(--dt-body); text-align: center; cursor: text; transition: background-color var(--dt-duration), border-color var(--dt-duration); }
-.dt-step-value::placeholder { color: var(--dt-muted); opacity: 1; }
-.dt-step-value:hover { background: var(--dt-surface-muted); }
-.dt-app .dt-step-value:focus { outline: none; background: var(--dt-surface); border-color: var(--dt-accent); }
-.dt-step-value::selection { background: var(--dt-accent-soft); }
-.dt-stepper-note.is-warning { color: var(--dt-danger-text); }
 .dt-map { height: 440px; border-radius: var(--dt-radius-panel); border: 1px solid var(--dt-border); background: var(--dt-surface-muted); overflow: hidden; z-index: 0; }
 .dt-map .leaflet-tile { filter: grayscale(1) contrast(.85) brightness(1.08); }
 .dt-map .leaflet-control-attribution { font: 400 11px/16px var(--dt-font-body); background: rgb(255 255 255 / 80%); }

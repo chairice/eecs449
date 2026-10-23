@@ -18,24 +18,39 @@ def money(cents: int) -> str {
     return "$" + str(cents // 100) + "." + ("0" if remainder < 10 else "") + str(remainder) + " USD";
 }
 
-def:pub RouteCard(route: ComparisonRoute, index: int, selected: bool, recommended: bool, onSelect: Callable[[str], None], group: str = "route") -> JsxElement {
+"""Clock time without its zone: "6:00 PM EDT" reads as "6:00 PM"."""
+def clock(label: str) -> str {
+    return " ".join(label.split(" ")[:2]);
+}
+
+"""Travel time as people say it: "5h 30m" as "5 hr 30 min", "6h 0m" as "6 hr"."""
+def travel_time(duration: str) -> str {
+    parts = duration.split(" ");
+    hours = parts[0].replace("h", "");
+    minutes = parts[1].replace("m", "") if len(parts) > 1 else "0";
+    return hours + " hr" + ("" if minutes == "0" else " " + minutes + " min");
+}
+
+def:pub RouteCard(route: ComparisonRoute, index: int, selected: bool, onSelect: Callable[[str], None], group: str = "route") -> JsxElement {
     key = group + "-" + str(index);
     return <label className={"dt-route-row" + (" is-selected" if selected else "")} htmlFor={key}>
         <input id={key} className="dt-route-radio" type="radio" name={group + "-selection"} checked={selected} onChange={lambda (_e: ChangeEvent) { onSelect(route.id); }} aria-labelledby={key + "-title"} aria-describedby={key + "-summary"}/>
         <span className="dt-route-main">
-            <span id={key + "-title"} className="dt-route-name">{route.modes} · {route.transfers}{if recommended { <span className="dt-route-recommended"> · Recommended</span> }}</span>
-            <span id={key + "-summary"} className="dt-muted">{route.departure} – {route.arrival} · {route.duration}</span>
+            <span id={key + "-title"} className="dt-route-times">{clock(route.departure)} – {clock(route.arrival)}</span>
+            <span className="dt-muted">{route.modes}{"" if route.transfers == "Direct" else " · " + route.transfers}</span>
         </span>
+        <span className="dt-route-duration">{travel_time(route.duration)}</span>
         <strong className="dt-route-price">{route.price}</strong>
+        <span id={key + "-summary"} className="dt-sr-only">{route.departure} to {route.arrival}, {route.price}</span>
     </label>;
 }
 
-"""One direction's options as a hairline-divided list under a day heading."""
+"""One direction's options as a hairline-divided list under a plain heading."""
 def:pub RouteList(title: str, routes: list[ComparisonRoute], selectedId: str, group: str, onSelect: Callable[[str], None]) -> JsxElement {
     return <section className="dt-leg" aria-labelledby={group + "-heading"}>
         <h2 id={group + "-heading"} className="dt-leg-title">{title}</h2>
         <fieldset className="dt-route-list"><legend className="dt-sr-only">Choose a route. Use the arrow keys to move between options.</legend>
-            {for (index, route) in enumerate(routes) { <RouteCard key={route.id} route={route} index={index} selected={selectedId == route.id} recommended={index == 0} onSelect={onSelect} group={group}/> }}
+            {for (index, route) in enumerate(routes) { <RouteCard key={route.id} route={route} index={index} selected={selectedId == route.id} onSelect={onSelect} group={group}/> }}
         </fieldset>
     </section>;
 }
@@ -82,10 +97,10 @@ def:pub RouteComparison(preview: any = None, requestText: str = "", submittedReq
             <Link className="dt-secondary" to="/plan" state={editState}>Edit request</Link></div>
         <div className="dt-comparison-grid">
             <div className="dt-legs">
-                {(<RouteList title={"Outbound · " + trip_day(view.date)} routes={view.routes} selectedId={selected.id} group="outbound" onSelect={lambda (id: str) { selectedId = id; mapLeg = "outbound"; }}/> if returnRequested else
+                {(<RouteList title="Outbound" routes={view.routes} selectedId={selected.id} group="outbound" onSelect={lambda (id: str) { selectedId = id; mapLeg = "outbound"; }}/> if returnRequested else
                   <RouteList title={str(len(view.routes)) + " options"} routes={view.routes} selectedId={selected.id} group="route" onSelect={lambda (id: str) { selectedId = id; }}/>)}
-                {(<RouteList title={"Return · " + trip_day(returnDate)} routes={returnRoutes} selectedId={returnSelected.id} group="return" onSelect={lambda (id: str) { returnSelectedId = id; mapLeg = "return"; }}/> if returnRequested and returnSelected is not None else None)}
-                {(<section className="dt-leg" role="status"><h2 className="dt-leg-title">Return · {trip_day(returnDate)}</h2><p className="dt-muted">No return routes for this day. Try another return date.</p></section> if returnRequested and returnSelected is None and returnDate else None)}
+                {(<RouteList title="Return" routes={returnRoutes} selectedId={returnSelected.id} group="return" onSelect={lambda (id: str) { returnSelectedId = id; mapLeg = "return"; }}/> if returnRequested and returnSelected is not None else None)}
+                {(<section className="dt-leg" role="status"><h2 className="dt-leg-title">Return</h2><p className="dt-muted">No return routes for this day. Try another return date.</p></section> if returnRequested and returnSelected is None and returnDate else None)}
                 <RouteMap stops={mapped.stops} label={"Map of the selected route: " + " to ".join([stop.name for stop in mapped.stops]) if len(mapped.stops) > 0 else "Map of the Ann Arbor to Chicago demo corridor"}/>
             </div>
             <RecommendationPanel route={selected} recommended={selected.id == view.routes[0].id} returnRoute={returnSelected if returnRequested else None}/>

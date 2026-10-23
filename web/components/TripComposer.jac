@@ -16,6 +16,8 @@ glob DEFAULT_ORIGIN: str = "Ann Arbor, MI";
 def starting_form(initial: ComposerInput | None) -> ComposerInput {
     form = copy_input(initial) if initial is not None else ComposerInput();
     if form.origin_text == "" { form.origin_text = DEFAULT_ORIGIN; }
+    # No time is asked for: a trip leaves any time on its day, and the results show when.
+    if form.local_time == "" { form.local_time = "00:00"; }
     return form;
 }
 
@@ -75,14 +77,6 @@ def calendar_month(offset: int, today: str) -> CalendarMonth {
     return CalendarMonth(key=str(year) + "-" + two_digits(month + 1), title=title, days=days);
 }
 
-"""Step a 24-hour "HH:MM" by `minutes`, held within one day; unset starts at 9:00 AM."""
-def shift_time(value: str, minutes: int) -> str {
-    if value == "" { return "09:00"; }
-    parts = value.split(":");
-    total = max(0, min(23 * 60 + 30, int(parts[0]) * 60 + int(parts[1]) + minutes));
-    return two_digits(total // 60) + ":" + two_digits(total % 60);
-}
-
 """A destination the Where menu can offer."""
 obj:pub Destination { has name: str, note: str, icon: str; }
 
@@ -96,61 +90,12 @@ def destination_matches(text: str) -> list[Destination] {
     return [place for place in DESTINATIONS if query == "" or query in place.name.lower() or (alias != "" and alias in place.name.lower())];
 }
 
-"""24-hour "16:00" as "4:00 PM"."""
-def time_label(value: str) -> str {
-    hour = int(value.split(":")[0]);
-    minutes = value.split(":")[1];
-    return str(12 if hour % 12 == 0 else hour % 12) + ":" + minutes + (" AM" if hour < 12 else " PM");
-}
-
-"""Read a typed time such as "4pm", "4:30 PM", "16:30" or "1630" as 24-hour
-"HH:MM"; "" when it cannot be read."""
-def parse_time(text: str) -> str {
-    source: any = text;
-    raw: any = source.toLowerCase().replaceAll(" ", "").replaceAll(".", "");
-    meridiem = "";
-    for (suffix, tag) in [("am", "am"), ("pm", "pm"), ("a", "am"), ("p", "pm")] {
-        if raw.endsWith(suffix) {
-            meridiem = tag;
-            raw = raw.slice(0, raw.length - len(suffix));
-            break;
-        }
-    }
-    parts: any = raw.split(":");
-    if parts.length > 2 { return ""; }
-    digits: any = parts.join("");
-    if digits.length == 0 or digits.length > 4 { return ""; }
-    for char in digits.split("") {
-        if char not in "0123456789" { return ""; }
-    }
-    if parts.length == 2 {
-        if parts[0].length == 0 or parts[1].length != 2 { return ""; }
-        hour = int(parts[0]);
-        minute = int(parts[1]);
-    } elif digits.length <= 2 {
-        hour = int(digits);
-        minute = 0;
-    } else {
-        hour = int(digits.slice(0, digits.length - 2));
-        minute = int(digits.slice(digits.length - 2));
-    }
-    if minute > 59 { return ""; }
-    if meridiem != "" {
-        if hour < 1 or hour > 12 { return ""; }
-        hour = hour % 12 + (12 if meridiem == "pm" else 0);
-    } elif hour > 23 {
-        return "";
-    }
-    return two_digits(hour) + ":" + two_digits(minute);
-}
-
 def when_summary(form: ComposerInput) -> str {
-    if form.local_date == "" and form.local_time == "" { return ""; }
+    if form.local_date == "" { return ""; }
     today = today_iso();
-    day = day_label(form.local_date, today) if form.local_date != "" else "Add date";
+    day = day_label(form.local_date, today);
     if form.return_date != "" { day += " – " + day_label(form.return_date, today); }
-    time = time_label(form.local_time) if form.local_time != "" else "Add time";
-    return day + " · " + time;
+    return day;
 }
 
 """A field's error; `missing` replaces it in plain words when the field was simply left empty."""
@@ -192,10 +137,6 @@ def:pub TripComposer(
     # Airbnb-style range: the first pick is the departure, the second the return,
     # which is searched as its own trip back. hoverDate previews the range.
     has hoverDate: str = "";
-    # The time reads as text and is typed over in place; the draft holds what is
-    # being typed until Enter or leaving the field commits it.
-    has timeDraft: str = "", editingTime: bool = False, timeUnreadable: bool = False;
-    has cancelTime: Ref[bool] = Ref(False);
     has searchBox: Ref[HTMLDivElement] = Ref();
     # Where the sliding pill last sat, so it fades out in place when a panel closes.
     has pillAt: Ref[str] = Ref("where");
@@ -205,26 +146,6 @@ def:pub TripComposer(
         validated = None;
         # Editing a field settles its error; the rest wait for the next search.
         if field_error(errors, field) != "" { errors = [error for error in errors if error.field != field]; }
-    }
-    def startTimeEdit(e: FocusEvent) {
-        timeDraft = time_label(form.local_time) if form.local_time != "" else "";
-        editingTime = True;
-        timeUnreadable = False;
-        field: any = e.target;
-        field.select();
-    }
-    def commitTime {
-        if not editingTime { return; }
-        editingTime = False;
-        if cancelTime.current { cancelTime.current = False; return; }
-        if timeDraft.strip() == "" { return; }
-        parsed = parse_time(timeDraft);
-        timeUnreadable = parsed == "";
-        if parsed != "" { setField("local_time", parsed); }
-    }
-    def stepTime(minutes: int) {
-        timeUnreadable = False;
-        setField("local_time", shift_time(form.local_time, minutes));
     }
     def pickDay(iso: str) {
         if form.local_date == "" or form.return_date != "" or iso <= form.local_date {
@@ -289,7 +210,7 @@ def:pub TripComposer(
                 <div className={"dt-search-field dt-search-segment" + (" is-open" if showWhen else "")}>
                     <button className="dt-search-trigger" type="button" aria-expanded={showWhen} aria-controls="dt-when" onClick={lambda { panel = "" if showWhen else "when"; }}>
                         <span>When</span>
-                        <span className={"dt-search-value" if summary != "" else "dt-search-placeholder"}>{summary if summary != "" else "Add date and time"}</span>
+                        <span className={"dt-search-value" if summary != "" else "dt-search-placeholder"}>{summary if summary != "" else "Add dates"}</span>
                     </button>
                     <button className="dt-search-submit" type="submit" disabled={busy or submitting} aria-label={"Searching" if busy or submitting else submitLabel}><Icon name="magnifyingglass"/></button>
                 </div>
@@ -324,24 +245,6 @@ def:pub TripComposer(
                     }}
                 </div>
                 <ComposerError errors={errors} field="local_date" missing={"Pick a departure date" if form.local_date == "" else ""}/><ComposerError errors={errors} field="return_date"/>
-                <div className="dt-stepper-row">
-                    <span className="dt-stepper-text"><label className="dt-stepper-title" htmlFor="local_time_text">Leave after</label><span className={"dt-stepper-note" + (" is-warning" if timeUnreadable else "")} aria-live="polite">{"Couldn’t read that. Try 4:30 PM" if timeUnreadable else "Local time in Ann Arbor"}</span></span>
-                    <span id="local_time" className="dt-stepper" role="group" tabIndex={-1} aria-label="Departure time" aria-describedby="error-local_time time-help">
-                        <button type="button" className="dt-step" aria-label="30 minutes earlier" disabled={form.local_time == "00:00"} onClick={lambda { stepTime(-30); }}><Icon name="minus" size={16}/></button>
-                        <input id="local_time_text" className="dt-step-value" type="text" autoComplete="off" spellCheck={False} placeholder="Add time"
-                            value={timeDraft if editingTime else time_label(form.local_time) if form.local_time != "" else ""}
-                            aria-describedby="time-help" onFocus={startTimeEdit} onBlur={lambda { commitTime(); }}
-                            onChange={lambda (e: ChangeEvent) { timeDraft = e.target.value; }}
-                            onKeyDown={lambda (e: KeyboardEvent) {
-                                field: any = e.target;
-                                if e.key == "Enter" { e.preventDefault(); field.blur(); }
-                                elif e.key == "Escape" { e.stopPropagation(); cancelTime.current = True; field.blur(); }
-                            }}/>
-                        <button type="button" className="dt-step" aria-label="30 minutes later" disabled={form.local_time == "23:30"} onClick={lambda { stepTime(30); }}><Icon name="plus" size={16}/></button>
-                    </span>
-                </div>
-                <span id="time-help" className="dt-sr-only">Local time at your starting point. Type a time such as 4:30 PM, or use the buttons to move by 30 minutes.</span>
-                <ComposerError errors={errors} field="local_time" missing={"Add a departure time" if form.local_time == "" else ""}/><ComposerError errors={errors} field="time_kind"/>
             </div>
             </div>
             </fieldset>
