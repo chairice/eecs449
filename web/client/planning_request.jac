@@ -1,6 +1,6 @@
 """Explicit RPC payload and defensive restoration from browser history state."""
 
-import from .composer_model { ComposerDraft, ComposerInput, validate_composer }
+import from .composer_model { ComposerDraft, ComposerInput, valid_date, validate_composer }
 
 def plain_record(value: any) -> bool {
     # Jac 0.37.14's isinstance(dict) does not recognize browser JSON objects.
@@ -16,6 +16,18 @@ def:pub request_payload(draft: ComposerDraft) -> dict[str, any] {
         "time_kind": draft.time_kind, "max_price_cents": draft.max_price_cents,
         "min_transfer_minutes": draft.min_transfer_minutes,
         "allowed_modes": list(draft.allowed_modes), "priority": draft.priority};
+}
+
+"""The trip home on the return date: ends swapped, open to any departure that day."""
+def:pub return_payload(draft: ComposerDraft) -> dict[str, any] | None {
+    if not draft.return_date { return None; }
+    payload = request_payload(draft);
+    payload["origin_text"] = draft.destination_text;
+    payload["destination_text"] = draft.origin_text;
+    payload["local_date"] = draft.return_date;
+    payload["local_time"] = "00:00";
+    payload["time_kind"] = "DEPART_AFTER";
+    return payload;
 }
 
 """History is untrusted plain JSON. Invalid state produces a fresh empty form."""
@@ -47,6 +59,9 @@ def:pub restore_composer(state: any) -> ComposerInput {
         local_date=request["local_date"], local_time=request["local_time"],
         time_kind=request["time_kind"], budget=budget, transfer_minutes=str(transfer),
         priority=request["priority"], allow_train="TRAIN" in modes, allow_bus="BUS" in modes);
+    # A return day that no longer fits is dropped rather than discarding the form.
+    returning: any = state.get("returnDate", "");
+    if isinstance(returning, str) and valid_date(returning) and returning > restored.local_date { restored.return_date = returning; }
     if validate_composer(restored).draft is None { return empty; }
     return restored;
 }

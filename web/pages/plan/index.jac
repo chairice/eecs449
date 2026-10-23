@@ -6,7 +6,15 @@ import from server.api { plan_trip }
 import from ...components.PageHeading { PageHeading }
 import from ...components.TripComposer { TripComposer }
 import from ...client.composer_model { ComposerDraft }
-import from ...client.planning_request { request_payload, restore_composer }
+import from ...client.planning_request { request_payload, restore_composer, return_payload }
+
+def checked_envelope(response: str) -> any {
+    envelope: any = JSON.parse(response);
+    if not envelope or envelope["schema_version"] != 1 or envelope["mode"] != "FIXTURE" {
+        raise ValueError("Unexpected planning response");
+    }
+    return envelope;
+}
 
 def:pub PlanPage -> JsxPage {
     location = useLocation();
@@ -21,16 +29,20 @@ def:pub PlanPage -> JsxPage {
         busy = True;
         failure = "";
         payload = request_payload(draft);
+        homeward = return_payload(draft);
         # Replace this history entry so browser Back restores the submitted form.
-        navigate("/plan", {"replace": True, "state": {"draft": payload, "requestText": draft.request_text}});
+        navigate("/plan", {"replace": True, "state": {"draft": payload, "returnDate": draft.return_date, "requestText": draft.request_text}});
         try {
-            response = await plan_trip(JSON.stringify(payload));
+            envelope = checked_envelope(await plan_trip(JSON.stringify(payload)));
             if not lifecycle.current["active"] { return; }
-            envelope: any = JSON.parse(response);
-            if not envelope or envelope["schema_version"] != 1 or envelope["mode"] != "FIXTURE" {
-                raise ValueError("Unexpected planning response");
+            # The trip home is its own search; if it fails, the outbound results still show.
+            returnEnvelope: any = None;
+            if homeward is not None {
+                try { returnEnvelope = checked_envelope(await plan_trip(JSON.stringify(homeward))); }
+                except Exception { returnEnvelope = None; }
+                if not lifecycle.current["active"] { return; }
             }
-            navigate("/plan/results", {"state": {"preview": envelope, "draft": payload, "requestText": draft.request_text}});
+            navigate("/plan/results", {"state": {"preview": envelope, "returnPreview": returnEnvelope, "returnRequested": homeward is not None, "draft": payload, "returnDate": draft.return_date, "requestText": draft.request_text}});
         } except Exception {
             if lifecycle.current["active"] {
                 failure = "We couldn't load the demo routes. Your details are still here. Check your connection and try Find demo routes again.";

@@ -10,7 +10,10 @@
 @media (min-width:984px) { .dt-comparison-grid > :first-child { grid-column:span 7; } .dt-comparison-grid > :last-child { grid-column:span 5; } }
 
 /* One box, rows split by hairlines; the selected row is tinted, not outlined. */
-.dt-route-list { margin:0 0 var(--dt-space-8); padding:0; min-width:0; border:1px solid var(--dt-border); border-radius:var(--dt-radius-control); overflow:hidden; }
+/* Outbound and return lists, then the map, in one column. */
+.dt-legs { display:grid; gap:var(--dt-space-8); min-width:0; }
+.dt-leg .dt-leg-title { margin-bottom:var(--dt-space-4); font:var(--dt-body); color:var(--dt-text); }
+.dt-route-list { margin:0; padding:0; min-width:0; border:1px solid var(--dt-border); border-radius:var(--dt-radius-control); overflow:hidden; }
 .dt-route-row { position:relative; display:flex; align-items:center; justify-content:space-between; gap:var(--dt-space-4); padding:var(--dt-space-4) var(--dt-space-6); cursor:pointer; transition:background-color var(--dt-duration); }
 .dt-route-row + .dt-route-row { border-top:1px solid var(--dt-border); }
 .dt-route-row:hover { background:var(--dt-surface-muted); }

@@ -13,6 +13,8 @@ obj:pub ComparisonRoute {
     has source: str, provider: str, freshness: str, source_time: str, source_warnings: list[str];
     has reasons: list[str], legs: list[ComparisonLeg];
     has stops: list[ComparisonStop] = [];
+    # Fare in cents for totals; -1 when the fare is unknown.
+    has price_cents: int = -1;
 }
 obj:pub ComparisonView {
     has valid: bool = False, error: str = "", error_code: str = "";
@@ -158,7 +160,8 @@ def route_view(raw: any, as_of: str) -> ComparisonRoute {
         score=str(score_value.toFixed(1)), delay=risk_label(raw["risk"]["delay"]), weather=risk_label(raw["risk"]["weather"]),
         transfer_risk=risk_label(raw["risk"]["transfer"]), source=source_mode, provider=required_text(source["provider"]),
         freshness=freshness, source_time=utc_label(required_text(source["fetched_at"])) if source["fetched_at"] else "Timestamp unavailable", source_warnings=warnings,
-        reasons=reasons, legs=legs, stops=route_stops(raw_legs));
+        reasons=reasons, legs=legs, stops=route_stops(raw_legs),
+        price_cents=-1 if option["price_cents"] is None else int(required_number(option["price_cents"])));
 }
 
 def:pub comparison_view(preview: any) -> ComparisonView {

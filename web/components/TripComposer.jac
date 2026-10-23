@@ -144,11 +144,11 @@ def parse_time(text: str) -> str {
     return two_digits(hour) + ":" + two_digits(minute);
 }
 
-def when_summary(form: ComposerInput, returnDate: str) -> str {
+def when_summary(form: ComposerInput) -> str {
     if form.local_date == "" and form.local_time == "" { return ""; }
     today = today_iso();
     day = day_label(form.local_date, today) if form.local_date != "" else "Add date";
-    if returnDate != "" { day += " – " + day_label(returnDate, today); }
+    if form.return_date != "" { day += " – " + day_label(form.return_date, today); }
     time = time_label(form.local_time) if form.local_time != "" else "Add time";
     return day + " · " + time;
 }
@@ -187,9 +187,9 @@ def:pub TripComposer(
     has form: ComposerInput = starting_form(initial);
     has errors: list[FieldError] = [], validated: ComposerDraft | None = None;
     has submitting: bool = False, panel: str = "", monthOffset: int = 0;
-    # Airbnb-style range: the first pick is the departure, the second the return.
-    # Only the departure reaches the planner, which plans one-way trips.
-    has returnDate: str = "", hoverDate: str = "";
+    # Airbnb-style range: the first pick is the departure, the second the return,
+    # which is searched as its own trip back. hoverDate previews the range.
+    has hoverDate: str = "";
     # The time reads as text and is typed over in place; the draft holds what is
     # being typed until Enter or leaving the field commits it.
     has timeDraft: str = "", editingTime: bool = False, timeUnreadable: bool = False;
@@ -223,11 +223,12 @@ def:pub TripComposer(
         setField("local_time", shift_time(form.local_time, minutes));
     }
     def pickDay(iso: str) {
-        if form.local_date == "" or returnDate != "" or iso <= form.local_date {
-            setField("local_date", iso);
-            returnDate = "";
+        if form.local_date == "" or form.return_date != "" or iso <= form.local_date {
+            # Both fields in one update: a second setField would start from the stale form.
+            form = update_input(update_input(form, "local_date", iso), "return_date", "");
+            validated = None;
         } else {
-            returnDate = iso;
+            setField("return_date", iso);
         }
         hoverDate = "";
     }
@@ -255,14 +256,14 @@ def:pub TripComposer(
     }, []);
     can with [errors] entry { if len(errors) > 0 { focus_composer_errors(); } }
 
-    whenError = any(field_error(errors, field) != "" for field in ["local_date", "local_time", "time_kind"]);
+    whenError = any(field_error(errors, field) != "" for field in ["local_date", "return_date", "local_time", "time_kind"]);
     showWhen = panel == "when" or whenError;
     showWhere = panel == "where" and not showWhen;
     suggestions = destination_matches(form.destination_text);
     if showWhen { pillAt.current = "when"; } elif showWhere { pillAt.current = "where"; }
-    summary = when_summary(form, returnDate);
-    choosingReturn = form.local_date != "" and returnDate == "";
-    rangeEnd = returnDate if returnDate != "" else hoverDate if choosingReturn and hoverDate > form.local_date else "";
+    summary = when_summary(form);
+    choosingReturn = form.local_date != "" and form.return_date == "";
+    rangeEnd = form.return_date if form.return_date != "" else hoverDate if choosingReturn and hoverDate > form.local_date else "";
     today = today_iso();
     months = [calendar_month(monthOffset, today), calendar_month(monthOffset + 1, today)];
     stops = [stop for stop in [known_stop(form.origin_text), known_stop(form.destination_text)] if stop is not None];
@@ -307,14 +308,14 @@ def:pub TripComposer(
                                 {for (index, name) in enumerate(WEEKDAYS) { <span key={"w" + str(index)} className="dt-weekday" aria-hidden="true">{name}</span> }}
                                 {for (index, day) in enumerate(month.days) {
                                     <span key={"d" + str(index)} className={"dt-day-cell" + (" is-start" if day.iso != "" and day.iso == form.local_date and rangeEnd != "" else "") + (" is-end" if day.iso != "" and day.iso == rangeEnd else "") + (" in-range" if day.iso != "" and form.local_date < day.iso and day.iso < rangeEnd else "")}>{(
-                                        <button type="button" className="dt-day" aria-label={day.label + (", departure" if day.iso == form.local_date else ", return" if day.iso == returnDate else "")} aria-pressed={day.iso == form.local_date or day.iso == returnDate} disabled={day.disabled} onClick={lambda { pickDay(day.iso); }} onMouseEnter={lambda { if choosingReturn { hoverDate = day.iso; } }} onFocus={lambda { if choosingReturn { hoverDate = day.iso; } }}>{day.day}</button> if day.iso != "" else None
+                                        <button type="button" className="dt-day" aria-label={day.label + (", departure" if day.iso == form.local_date else ", return" if day.iso == form.return_date else "")} aria-pressed={day.iso == form.local_date or day.iso == form.return_date} disabled={day.disabled} onClick={lambda { pickDay(day.iso); }} onMouseEnter={lambda { if choosingReturn { hoverDate = day.iso; } }} onFocus={lambda { if choosingReturn { hoverDate = day.iso; } }}>{day.day}</button> if day.iso != "" else None
                                     )}</span>
                                 }}
                             </div>
                         </section>
                     }}
                 </div>
-                <ComposerError errors={errors} field="local_date"/>
+                <ComposerError errors={errors} field="local_date"/><ComposerError errors={errors} field="return_date"/>
                 <div className="dt-stepper-row">
                     <span className="dt-stepper-text"><label className="dt-stepper-title" htmlFor="local_time_text">Leave after</label><span className={"dt-stepper-note" + (" is-warning" if timeUnreadable else "")} aria-live="polite">{"Couldn’t read that. Try 4:30 PM" if timeUnreadable else "Local time in Ann Arbor"}</span></span>
                     <span id="local_time" className="dt-stepper" role="group" tabIndex={-1} aria-label="Departure time" aria-describedby="error-local_time time-help">

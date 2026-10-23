@@ -9,7 +9,7 @@ obj:pub ComposerInput {
     has local_date: str = "", local_time: str = "", time_kind: str = "DEPART_AFTER";
     has budget: str = "", transfer_minutes: str = "30", priority: str = "BALANCED";
     has allow_train: bool = True, allow_bus: bool = True;
-    # Optional return day; searched as its own Chicago-bound-home trip.
+    # Optional return day, searched as its own trip from the destination back home.
     has return_date: str = "";
 }
 
