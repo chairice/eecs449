@@ -179,8 +179,10 @@
    straight hairlines, with a round search button. The demo button and map sit
    underneath. */
 .dt-composer { display: grid; gap: var(--dt-space-4); }
-.dt-search-bar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; padding: var(--dt-space-2); border: 1px solid var(--dt-border); border-radius: var(--dt-radius-pill); background: var(--dt-surface); box-shadow: var(--dt-shadow); }
-.dt-search-field { position: relative; display: grid; align-content: center; min-height: 48px; padding: var(--dt-space-1) var(--dt-space-6); border-radius: var(--dt-radius-pill); color: var(--dt-text); cursor: pointer; }
+.dt-search-bar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; padding: 0; border: 1px solid var(--dt-border); border-radius: var(--dt-radius-pill); background: var(--dt-surface); box-shadow: var(--dt-shadow); }
+.dt-search-field { position: relative; display: grid; align-content: center; min-height: 64px; padding: 0 var(--dt-space-8); border-radius: var(--dt-radius-pill); color: var(--dt-text); cursor: pointer; }
+/* Fields overlap the bar's 1px border, so an open pill reaches its very edge. */
+.dt-search-bar > .dt-search-field { margin: -1px; }
 .dt-search-field + .dt-search-field::before { content: ""; position: absolute; left: 0; top: 25%; height: 50%; width: 1px; background: var(--dt-border); }
 .dt-search-field input { width: 100%; min-width: 0; border: 0; padding: 0; background: transparent; color: var(--dt-muted); font: var(--dt-body); cursor: pointer; }
 /* The open pill marks focus here, so the inputs draw no box of their own. */
@@ -196,7 +198,7 @@
 .dt-search-bar.is-active .dt-search-field::before { opacity: 0; }
 .dt-search-field.is-open { background: var(--dt-surface); box-shadow: var(--dt-shadow); }
 /* When and the search button share one segment, so its open pill wraps the button. */
-.dt-search-segment { display: flex; align-items: center; gap: var(--dt-space-2); padding-right: var(--dt-space-1); }
+.dt-search-segment { display: flex; align-items: center; gap: var(--dt-space-2); padding-right: var(--dt-space-2); }
 .dt-search-trigger { display: grid; flex: 1; min-width: 0; padding: 0; border: 0; background: transparent; font: var(--dt-body); text-align: left; cursor: pointer; }
 .dt-search-trigger > span:first-child { color: var(--dt-text); }
 .dt-search-value { color: var(--dt-text); }
