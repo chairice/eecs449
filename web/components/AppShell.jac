@@ -34,10 +34,6 @@ def:pub AppShell(
                         <NavItem label="Trips" href="/trips" active={activePath == "/trips"} enabled={navigationEnabled}/>
                         <NavItem label="Settings" href="/settings" active={activePath == "/settings"} enabled={navigationEnabled}/>
                     </nav>
-                    <span className="dt-profile" aria-label="Guest profile, sign-in is not available yet">
-                        <span className="dt-profile-mark" aria-hidden="true">G</span>
-                        <span className="dt-profile-label">Guest</span>
-                    </span>
                 </div>
             </header>
         )}
