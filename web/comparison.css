@@ -23,15 +23,17 @@
 .dt-route-recommended { color:var(--dt-accent); }
 .dt-route-price { flex-shrink:0; }
 
-/* Booking card: lifted like Airbnb's reservation box, sticky beside the list. */
+/* Booking card: lifted like Airbnb's reservation box, sticky beside the list.
+   Rules carry the .dt-booking parent so they outrank the shared margin reset in
+   styles.css, which loads after this file. */
 .dt-booking { position:sticky; top:112px; padding:var(--dt-space-6); border:1px solid var(--dt-border); border-radius:var(--dt-radius-control); background:var(--dt-surface); box-shadow:0 6px 16px rgb(0 0 0 / 12%); }
-.dt-booking-price { font:var(--dt-title); color:var(--dt-text); }
-.dt-booking-box { display:grid; grid-template-columns:1fr 1fr; margin:var(--dt-space-6) 0; border:1px solid var(--dt-muted); border-radius:var(--dt-radius-control); }
+.dt-booking .dt-booking-price { font:var(--dt-title); color:var(--dt-text); }
+.dt-booking .dt-booking-box { display:grid; grid-template-columns:1fr 1fr; margin:var(--dt-space-6) 0; border:1px solid var(--dt-muted); border-radius:var(--dt-radius-control); }
 .dt-booking-box > div { padding:var(--dt-space-2) var(--dt-space-4); }
 .dt-booking-box > div + div { border-left:1px solid var(--dt-muted); }
 .dt-booking-box dt { color:var(--dt-text); }
 .dt-booking-box dd { margin:0; }
 .dt-booking-action { width:100%; }
-.dt-booking-note { margin-top:var(--dt-space-4); text-align:center; }
+.dt-booking .dt-booking-note { margin-top:var(--dt-space-4); text-align:center; }
 @media (max-width:983px) { .dt-booking { position:static; } }
 @media (max-width:743px) { .dt-comparison-heading { display:block; } .dt-comparison-heading > a { margin-top:var(--dt-space-4); } .dt-route-row { padding-inline:var(--dt-space-4); } }
