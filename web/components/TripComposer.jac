@@ -5,7 +5,7 @@ import from ..client.composer_model {
     ComposerInput, ComposerDraft, FieldError, copy_input, field_error, update_input, validate_composer
 }
 import from "react" { useEffect }
-import from .composer_dom { focus_composer_errors }
+import from .composer_dom { focus_field }
 import from .Icon { Icon }
 import from .RouteMap { RouteMap }
 import from .comparison_view { ComparisonStop }
@@ -153,8 +153,10 @@ def when_summary(form: ComposerInput) -> str {
     return day + " · " + time;
 }
 
-def:pub ComposerError(errors: list[FieldError], field: str) -> JsxElement {
-    return <span id={"error-" + field} className="dt-field-error">{field_error(errors, field)}</span>;
+"""A field's error; `missing` replaces it in plain words when the field was simply left empty."""
+def:pub ComposerError(errors: list[FieldError], field: str, missing: str = "") -> JsxElement {
+    message = field_error(errors, field);
+    return <span id={"error-" + field} className="dt-field-error">{missing if message != "" and missing != "" else message}</span>;
 }
 
 def price_label(cents: int | None) -> str {
@@ -201,6 +203,8 @@ def:pub TripComposer(
     def setField(field: str, text: str) {
         form = update_input(form, field, text);
         validated = None;
+        # Editing a field settles its error; the rest wait for the next search.
+        if field_error(errors, field) != "" { errors = [error for error in errors if error.field != field]; }
     }
     def startTimeEdit(e: FocusEvent) {
         timeDraft = time_label(form.local_time) if form.local_time != "" else "";
@@ -227,6 +231,7 @@ def:pub TripComposer(
             # Both fields in one update: a second setField would start from the stale form.
             form = update_input(update_input(form, "local_date", iso), "return_date", "");
             validated = None;
+            errors = [error for error in errors if error.field not in ["local_date", "return_date"]];
         } else {
             setField("return_date", iso);
         }
@@ -254,11 +259,16 @@ def:pub TripComposer(
         document.addEventListener("mousedown", handler);
         return lambda { document.removeEventListener("mousedown", handler); };
     }, []);
-    can with [errors] entry { if len(errors) > 0 { focus_composer_errors(); } }
+    # Like Airbnb, a search with something missing opens the field that needs it.
+    can with [errors] entry {
+        if field_error(errors, "destination_text") != "" { panel = "where"; focus_field("destination_text"); }
+        elif len(errors) > 0 { panel = "when"; focus_field("local_date"); }
+    }
 
+    destinationError = field_error(errors, "destination_text");
     whenError = any(field_error(errors, field) != "" for field in ["local_date", "return_date", "local_time", "time_kind"]);
-    showWhen = panel == "when" or whenError;
-    showWhere = panel == "where" and not showWhen;
+    showWhere = panel == "where";
+    showWhen = (panel == "when" or whenError) and not showWhere;
     suggestions = destination_matches(form.destination_text);
     if showWhen { pillAt.current = "when"; } elif showWhere { pillAt.current = "where"; }
     summary = when_summary(form);
@@ -271,14 +281,11 @@ def:pub TripComposer(
     return <div className="dt-composer">
         <form noValidate={True} onSubmit={submit}>
             <fieldset className="dt-composer-controls" disabled={busy or submitting}>
-            <div id="composer-errors" className="dt-error-summary" role="alert" tabIndex={-1} hidden={len(errors) == 0}>
-                <h2>Check your trip details</h2>
-                <ul>{for error in errors { <li key={error.field}><a href={"#" + error.field}>{error.message}</a></li> }}</ul>
-            </div>
+            <p className="dt-sr-only" role="alert">{" ".join([error.message for error in errors])}</p>
             <div className="dt-search" ref={searchBox}>
             <div className={"dt-search-bar" + (" is-active" if showWhen or showWhere else "")}>
                 <span className={"dt-search-pill at-" + str(pillAt.current)} aria-hidden="true"></span>
-                <label className={"dt-search-field" + (" is-open" if showWhere else "")} htmlFor="destination_text"><span>Where</span><input id="destination_text" type="text" placeholder="Search destinations" onFocus={lambda { panel = "where"; }} aria-expanded={showWhere} aria-controls="dt-where" role="combobox" aria-autocomplete="list" required={True} value={form.destination_text} onChange={lambda (e: ChangeEvent) { setField("destination_text", e.target.value); panel = "where"; }} autoComplete="off" aria-invalid={field_error(errors, "destination_text") != ""} aria-describedby="error-destination_text"/><ComposerError errors={errors} field="destination_text"/></label>
+                <label className={"dt-search-field" + (" is-open" if showWhere else "")} htmlFor="destination_text"><span>Where</span><input id="destination_text" type="text" placeholder="Search destinations" onFocus={lambda { panel = "where"; }} aria-expanded={showWhere} aria-controls="dt-where" role="combobox" aria-autocomplete="list" required={True} value={form.destination_text} onChange={lambda (e: ChangeEvent) { setField("destination_text", e.target.value); panel = "where"; }} autoComplete="off" aria-invalid={destinationError != ""} aria-describedby="error-destination_text"/></label>
                 <div className={"dt-search-field dt-search-segment" + (" is-open" if showWhen else "")}>
                     <button className="dt-search-trigger" type="button" aria-expanded={showWhen} aria-controls="dt-when" onClick={lambda { panel = "" if showWhen else "when"; }}>
                         <span>When</span>
@@ -288,7 +295,8 @@ def:pub TripComposer(
                 </div>
             </div>
             <div id="dt-where" className="dt-where-panel" role="listbox" aria-label="Suggested destinations" hidden={not showWhere} onKeyDown={lambda (e: KeyboardEvent) { if e.key == "Escape" { panel = ""; } }}>
-                <h3 className="dt-panel-heading">{"Suggested destinations" if len(suggestions) > 0 else "Not in the demo yet"}</h3>
+                <p id="error-destination_text" className="dt-panel-heading dt-panel-error" hidden={destinationError == ""}>Choose where you're headed</p>
+                <h3 className="dt-panel-heading" hidden={destinationError != ""}>{"Suggested destinations" if len(suggestions) > 0 else "Not in the demo yet"}</h3>
                 {for place in suggestions {
                     <button key={place.name} type="button" role="option" aria-selected={form.destination_text == place.name} className="dt-place" onClick={lambda { setField("destination_text", place.name); panel = "when"; }}>
                         <span className="dt-place-icon"><Icon name={place.icon} size={24}/></span>
@@ -315,7 +323,7 @@ def:pub TripComposer(
                         </section>
                     }}
                 </div>
-                <ComposerError errors={errors} field="local_date"/><ComposerError errors={errors} field="return_date"/>
+                <ComposerError errors={errors} field="local_date" missing={"Pick a departure date" if form.local_date == "" else ""}/><ComposerError errors={errors} field="return_date"/>
                 <div className="dt-stepper-row">
                     <span className="dt-stepper-text"><label className="dt-stepper-title" htmlFor="local_time_text">Leave after</label><span className={"dt-stepper-note" + (" is-warning" if timeUnreadable else "")} aria-live="polite">{"Couldn’t read that. Try 4:30 PM" if timeUnreadable else "Local time in Ann Arbor"}</span></span>
                     <span id="local_time" className="dt-stepper" role="group" tabIndex={-1} aria-label="Departure time" aria-describedby="error-local_time time-help">
@@ -333,7 +341,7 @@ def:pub TripComposer(
                     </span>
                 </div>
                 <span id="time-help" className="dt-sr-only">Local time at your starting point. Type a time such as 4:30 PM, or use the buttons to move by 30 minutes.</span>
-                <ComposerError errors={errors} field="local_time"/><ComposerError errors={errors} field="time_kind"/>
+                <ComposerError errors={errors} field="local_time" missing={"Add a departure time" if form.local_time == "" else ""}/><ComposerError errors={errors} field="time_kind"/>
             </div>
             </div>
             </fieldset>

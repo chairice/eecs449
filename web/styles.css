@@ -241,6 +241,7 @@
 .dt-where-panel[hidden] { display: none; }
 .dt-where-panel > p { padding-inline: var(--dt-space-2); }
 .dt-panel-heading { font: var(--dt-body); color: var(--dt-text); padding-inline: var(--dt-space-2); margin-bottom: var(--dt-space-2); }
+.dt-panel-heading.dt-panel-error { color: var(--dt-danger-text); }
 .dt-place { display: flex; align-items: center; gap: var(--dt-space-4); width: 100%; padding: var(--dt-space-2); border: 0; border-radius: var(--dt-radius-control); background: transparent; font: var(--dt-body); text-align: left; cursor: pointer; }
 .dt-place:hover, .dt-place[aria-selected="true"] { background: var(--dt-surface-muted); }
 .dt-place-icon { display: inline-grid; place-items: center; flex-shrink: 0; width: 56px; height: 56px; border-radius: var(--dt-radius-control); background: var(--dt-accent-soft); color: var(--dt-accent); }
