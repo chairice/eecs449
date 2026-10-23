@@ -75,9 +75,25 @@ def calendar_month(offset: int, today: str) -> CalendarMonth {
     return CalendarMonth(key=str(year) + "-" + two_digits(month + 1), title=title, days=days);
 }
 
-def time_options(selected: str) -> list[str] {
-    if selected != "" and selected not in TIME_SLOTS { return sorted(TIME_SLOTS + [selected]); }
-    return TIME_SLOTS;
+"""Step a 24-hour "HH:MM" by `minutes`, held within one day; unset starts at 9:00 AM."""
+def shift_time(value: str, minutes: int) -> str {
+    if value == "" { return "09:00"; }
+    parts = value.split(":");
+    total = max(0, min(23 * 60 + 30, int(parts[0]) * 60 + int(parts[1]) + minutes));
+    return two_digits(total // 60) + ":" + two_digits(total % 60);
+}
+
+"""A destination the Where menu can offer."""
+obj:pub Destination { has name: str, note: str, icon: str; }
+
+# The demo planner reaches one destination; the menu offers only what it can plan.
+glob DESTINATIONS: list[Destination] = [Destination(name="Chicago, IL", note="Demo trips from Ann Arbor by train and bus", icon="building")];
+
+def destination_matches(text: str) -> list[Destination] {
+    query = text.lower().strip();
+    stop = known_stop(text);
+    alias = stop.name.lower() if stop is not None else "";
+    return [place for place in DESTINATIONS if query == "" or query in place.name.lower() or (alias != "" and alias in place.name.lower())];
 }
 
 """24-hour "16:00" as "4:00 PM"."""
@@ -127,7 +143,7 @@ def:pub TripComposer(
 ) -> JsxElement {
     has form: ComposerInput = starting_form(initial);
     has errors: list[FieldError] = [], validated: ComposerDraft | None = None;
-    has submitting: bool = False, whenOpen: bool = False, monthOffset: int = 0;
+    has submitting: bool = False, panel: str = "", monthOffset: int = 0;
     has searchBox: Ref[HTMLDivElement] = Ref();
 
     def setField(field: str, text: str) {
@@ -142,7 +158,7 @@ def:pub TripComposer(
     async def submit(e: FormEvent) {
         e.preventDefault();
         if busy or submitting { return; }
-        whenOpen = False;
+        panel = "";
         result = validate_composer(form, earliestDate);
         errors = result.errors;
         validated = result.draft;
@@ -156,7 +172,7 @@ def:pub TripComposer(
     useEffect(lambda {
         handler = lambda (e: any) {
             box: any = searchBox.current;
-            if box and not box.contains(e.target) { whenOpen = False; }
+            if box and not box.contains(e.target) { panel = ""; }
         };
         document.addEventListener("mousedown", handler);
         return lambda { document.removeEventListener("mousedown", handler); };
@@ -164,7 +180,9 @@ def:pub TripComposer(
     can with [errors] entry { if len(errors) > 0 { focus_composer_errors(); } }
 
     whenError = any(field_error(errors, field) != "" for field in ["local_date", "local_time", "time_kind"]);
-    showWhen = whenOpen or whenError;
+    showWhen = panel == "when" or whenError;
+    showWhere = panel == "where" and not showWhen;
+    suggestions = destination_matches(form.destination_text);
     summary = when_summary(form);
     today = today_iso();
     months = [calendar_month(monthOffset, today), calendar_month(monthOffset + 1, today)];
@@ -178,15 +196,27 @@ def:pub TripComposer(
                 <ul>{for error in errors { <li key={error.field}><a href={"#" + error.field}>{error.message}</a></li> }}</ul>
             </div>
             <div className="dt-search" ref={searchBox}>
-            <div className={"dt-search-bar" + (" is-active" if showWhen else "")}>
-                <label className="dt-search-field" htmlFor="destination_text"><span>Where</span><input id="destination_text" type="text" list="dt-places" placeholder="Search destinations" required={True} value={form.destination_text} onChange={lambda (e: ChangeEvent) { setField("destination_text", e.target.value); }} autoComplete="off" aria-invalid={field_error(errors, "destination_text") != ""} aria-describedby="error-destination_text"/><ComposerError errors={errors} field="destination_text"/></label>
-                <button className="dt-search-field dt-search-trigger" type="button" aria-expanded={showWhen} aria-controls="dt-when" onClick={lambda { whenOpen = not whenOpen; }}>
-                    <span>When</span>
-                    <span className={"dt-search-value" if summary != "" else "dt-search-placeholder"}>{summary if summary != "" else "Add date and time"}</span>
-                </button>
-                <button className="dt-search-submit" type="submit" disabled={busy or submitting} aria-label={"Searching" if busy or submitting else submitLabel}><Icon name="magnifyingglass"/><span className="dt-search-submit-label">Search</span></button>
+            <div className={"dt-search-bar" + (" is-active" if showWhen or showWhere else "")}>
+                <label className={"dt-search-field" + (" is-open" if showWhere else "")} htmlFor="destination_text"><span>Where</span><input id="destination_text" type="text" placeholder="Search destinations" onFocus={lambda { panel = "where"; }} aria-expanded={showWhere} aria-controls="dt-where" role="combobox" aria-autocomplete="list" required={True} value={form.destination_text} onChange={lambda (e: ChangeEvent) { setField("destination_text", e.target.value); panel = "where"; }} autoComplete="off" aria-invalid={field_error(errors, "destination_text") != ""} aria-describedby="error-destination_text"/><ComposerError errors={errors} field="destination_text"/></label>
+                <div className={"dt-search-field dt-search-segment" + (" is-open" if showWhen else "")}>
+                    <button className="dt-search-trigger" type="button" aria-expanded={showWhen} aria-controls="dt-when" onClick={lambda { panel = "" if showWhen else "when"; }}>
+                        <span>When</span>
+                        <span className={"dt-search-value" if summary != "" else "dt-search-placeholder"}>{summary if summary != "" else "Add date and time"}</span>
+                    </button>
+                    <button className="dt-search-submit" type="submit" disabled={busy or submitting} aria-label={"Searching" if busy or submitting else submitLabel}><Icon name="magnifyingglass"/></button>
+                </div>
             </div>
-            <div id="dt-when" className="dt-when-panel" role="group" aria-label="When" hidden={not showWhen} onKeyDown={lambda (e: KeyboardEvent) { if e.key == "Escape" { whenOpen = False; } }}>
+            <div id="dt-where" className="dt-where-panel" role="listbox" aria-label="Suggested destinations" hidden={not showWhere} onKeyDown={lambda (e: KeyboardEvent) { if e.key == "Escape" { panel = ""; } }}>
+                <h3 className="dt-panel-heading">{"Suggested destinations" if len(suggestions) > 0 else "Not in the demo yet"}</h3>
+                {for place in suggestions {
+                    <button key={place.name} type="button" role="option" aria-selected={form.destination_text == place.name} className="dt-place" onClick={lambda { setField("destination_text", place.name); panel = "when"; }}>
+                        <span className="dt-place-icon"><Icon name={place.icon} size={24}/></span>
+                        <span className="dt-place-text"><span className="dt-place-name">{place.name}</span><span>{place.note}</span></span>
+                    </button>
+                }}
+                {if len(suggestions) == 0 { <p>Detour's demo plans trips from Ann Arbor to Chicago, IL for now.</p> }}
+            </div>
+            <div id="dt-when" className="dt-when-panel" role="group" aria-label="When" hidden={not showWhen} onKeyDown={lambda (e: KeyboardEvent) { if e.key == "Escape" { panel = ""; } }}>
                 <div className="dt-when-kind" role="radiogroup" aria-label="Time preference" id="time_kind">
                     <button type="button" role="radio" aria-checked={form.time_kind == "DEPART_AFTER"} onClick={lambda { setField("time_kind", "DEPART_AFTER"); }}>Leave after</button>
                     <button type="button" role="radio" aria-checked={form.time_kind == "ARRIVE_BY"} onClick={lambda { setField("time_kind", "ARRIVE_BY"); }}>Arrive by</button>
@@ -209,14 +239,18 @@ def:pub TripComposer(
                     }}
                 </div>
                 <ComposerError errors={errors} field="local_date"/>
-                <div id="local_time" className="dt-time-row" tabIndex={-1} role="group" aria-label={"Leave after" if form.time_kind == "DEPART_AFTER" else "Arrive by"} aria-describedby="error-local_time time-help">
-                    {for slot in time_options(form.local_time) { <button key={slot} type="button" className="dt-chip" aria-pressed={form.local_time == slot} onClick={lambda { setField("local_time", slot); }}>{time_label(slot)}</button> }}
+                <div className="dt-stepper-row">
+                    <span className="dt-stepper-text"><span className="dt-stepper-title">{"Leave after" if form.time_kind == "DEPART_AFTER" else "Arrive by"}</span><span>Local time {"in Ann Arbor" if form.time_kind == "DEPART_AFTER" else "at your destination"}</span></span>
+                    <span id="local_time" className="dt-stepper" role="group" tabIndex={-1} aria-label={"Departure time" if form.time_kind == "DEPART_AFTER" else "Arrival time"} aria-describedby="error-local_time time-help">
+                        <button type="button" className="dt-step" aria-label="30 minutes earlier" disabled={form.local_time == "00:00"} onClick={lambda { setField("local_time", shift_time(form.local_time, -30)); }}><Icon name="minus" size={16}/></button>
+                        <output className="dt-step-value" aria-live="polite">{time_label(form.local_time) if form.local_time != "" else "Add time"}</output>
+                        <button type="button" className="dt-step" aria-label="30 minutes later" disabled={form.local_time == "23:30"} onClick={lambda { setField("local_time", shift_time(form.local_time, 30)); }}><Icon name="plus" size={16}/></button>
+                    </span>
                 </div>
                 <span id="time-help" className="dt-sr-only">Local time at your {"starting point" if form.time_kind == "DEPART_AFTER" else "destination"}.</span>
                 <ComposerError errors={errors} field="local_time"/><ComposerError errors={errors} field="time_kind"/>
             </div>
             </div>
-            <datalist id="dt-places"><option value="Ann Arbor, MI"/><option value="Chicago, IL"/></datalist>
             <div className="dt-search-extras">
                 <button className="dt-secondary" type="button" onClick={useExample}>Try the demo trip</button>
             </div>

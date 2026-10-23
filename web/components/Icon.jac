@@ -12,6 +12,9 @@ def:pub Icon(name: str, size: int = 20) -> JsxElement {
             <><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></> if name == "arrow.left.arrow.right" else
             <><path d="M22 12a10.06 10.06 1 0 0-20 0Z"/><path d="M12 12v8a2 2 0 0 0 4 0"/><path d="M12 2v1"/></> if name == "umbrella" else
             <><path d="M20 6 9 17l-5-5"/></> if name == "checkmark" else
+            <><path d="M5 12h14"/></> if name == "minus" else
+            <><path d="M5 12h14"/><path d="M12 5v14"/></> if name == "plus" else
+            <><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></> if name == "building" else
             <><path d="m15 18-6-6 6-6"/></> if name == "chevron.left" else
             <><path d="m9 18 6-6-6-6"/></> if name == "chevron.right" else
             <><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></> if name == "magnifyingglass" else
