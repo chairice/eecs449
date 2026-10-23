@@ -1,0 +1,28 @@
+/* Home page: centred heading over a warped carousel of destination photos.
+   Uses the shared tokens and the two type styles from styles.css. */
+.dt-home { display: grid; justify-items: center; gap: var(--dt-space-12); padding-block: var(--dt-space-16) var(--dt-space-24); text-align: center; }
+.dt-home-intro { display: grid; justify-items: center; gap: var(--dt-space-2); max-width: calc(6 * var(--grid-col) + 5 * var(--grid-gutter)); }
+.dt-home-intro .dt-primary { margin-top: var(--dt-space-4); }
+
+/* The stage keeps a perspective so turned cards read as an arc; its edges
+   fade to the page so outer cards dissolve rather than clip. */
+.dt-carousel { --dt-card-w: 280px; --dt-card-step: 300px; width: 100%; outline: none; }
+.dt-carousel-stage { position: relative; height: calc(var(--dt-card-w) * 4 / 3 + var(--dt-space-8)); perspective: 1400px; perspective-origin: 50% 40%; overflow: hidden; -webkit-mask-image: linear-gradient(to right, transparent, #000 14%, #000 86%, transparent); mask-image: linear-gradient(to right, transparent, #000 14%, #000 86%, transparent); }
+.dt-card { position: absolute; top: var(--dt-space-4); left: calc(50% - var(--dt-card-w) / 2); width: var(--dt-card-w); aspect-ratio: 3 / 4; padding: 0; border: 0; border-radius: var(--dt-radius-panel); overflow: hidden; background: var(--dt-surface-muted); box-shadow: var(--dt-shadow); cursor: pointer; transform-style: preserve-3d; transition: transform 700ms cubic-bezier(.2, .7, .2, 1), opacity 500ms ease; }
+.dt-card img { display: block; width: 100%; height: 100%; object-fit: cover; user-select: none; }
+.dt-card::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgb(0 0 0 / 55%), transparent 45%); pointer-events: none; }
+.dt-card-caption { position: absolute; z-index: 1; left: var(--dt-space-4); right: var(--dt-space-4); bottom: var(--dt-space-6); display: grid; color: #ffffff; text-align: center; font: var(--dt-body); }
+.dt-card-city { font: var(--dt-title); }
+.dt-app .dt-card:focus-visible { outline: 2px solid var(--dt-accent); outline-offset: 4px; }
+
+.dt-carousel-controls { display: flex; align-items: center; justify-content: center; gap: var(--dt-space-4); margin-top: var(--dt-space-6); }
+.dt-carousel-arrow { display: inline-grid; place-items: center; width: 36px; height: 36px; border: 1px solid var(--dt-border); border-radius: 50%; background: var(--dt-surface); color: var(--dt-text); cursor: pointer; transition: border-color var(--dt-duration); }
+.dt-carousel-arrow:hover { border-color: var(--dt-text); }
+.dt-carousel-credit { min-width: 0; color: var(--dt-muted); }
+.dt-carousel-credit a { color: var(--dt-text); }
+
+@media (max-width: 743px) {
+  .dt-home { padding-block: var(--dt-space-8) var(--dt-space-16); gap: var(--dt-space-8); }
+  .dt-carousel { --dt-card-w: 220px; --dt-card-step: 200px; }
+  .dt-carousel-stage { -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent); }
+}
