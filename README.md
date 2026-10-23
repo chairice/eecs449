@@ -104,7 +104,7 @@ and [scoring rules](docs/scoring.md).
 
 Authentication, expiring server drafts, confirmed saved trips, natural-language
 parsing, and live weather/transit integrations remain planned work. The Trips
-and Settings pages are honest placeholders; confirmation is disabled. See the
+page is an honest placeholder; confirmation is disabled. See the
 [architecture decisions](docs/design/ARCHITECTURE_DECISIONS.md) for the system
 boundaries, algorithms, API choices, data lifecycle, and design tradeoffs.
 

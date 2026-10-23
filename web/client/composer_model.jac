@@ -9,6 +9,8 @@ obj:pub ComposerInput {
     has local_date: str = "", local_time: str = "", time_kind: str = "DEPART_AFTER";
     has budget: str = "", transfer_minutes: str = "30", priority: str = "BALANCED";
     has allow_train: bool = True, allow_bus: bool = True;
+    # Optional return day; searched as its own Chicago-bound-home trip.
+    has return_date: str = "";
 }
 
 obj:pub ComposerDraft {
@@ -16,6 +18,7 @@ obj:pub ComposerDraft {
     has local_date: str, local_time: str, time_kind: str;
     has max_price_cents: int | None, min_transfer_minutes: int;
     has allowed_modes: list[str], priority: str;
+    has return_date: str = "";
 }
 
 obj:pub FieldError { has field: str, message: str; }
@@ -29,7 +32,7 @@ def:pub copy_input(value: ComposerInput) -> ComposerInput {
         destination_text=value.destination_text, local_date=value.local_date,
         local_time=value.local_time, time_kind=value.time_kind, budget=value.budget,
         transfer_minutes=value.transfer_minutes, priority=value.priority,
-        allow_train=value.allow_train, allow_bus=value.allow_bus);
+        allow_train=value.allow_train, allow_bus=value.allow_bus, return_date=value.return_date);
 }
 
 """Return a fresh object so React observes changes; leave other input untouched."""
@@ -39,6 +42,7 @@ def:pub update_input(value: ComposerInput, field: str, text: str) -> ComposerInp
     elif field == "origin_text" { updated.origin_text = text; }
     elif field == "destination_text" { updated.destination_text = text; }
     elif field == "local_date" { updated.local_date = text; }
+    elif field == "return_date" { updated.return_date = text; }
     elif field == "local_time" { updated.local_time = text; }
     elif field == "time_kind" { updated.time_kind = text; }
     elif field == "budget" { updated.budget = text; }
@@ -118,6 +122,8 @@ def:pub validate_composer(value: ComposerInput, earliest_date: str = "") -> Comp
     elif origin and origin.lower() == destination.lower() { errors.append(FieldError("destination_text", "Choose a destination different from your starting point.")); }
     if not valid_date(value.local_date) { errors.append(FieldError("local_date", "Enter a valid trip date.")); }
     elif earliest_date and valid_date(earliest_date) and value.local_date < earliest_date { errors.append(FieldError("local_date", "Choose a date on or after " + earliest_date + ".")); }
+    if value.return_date and not valid_date(value.return_date) { errors.append(FieldError("return_date", "Enter a valid return date.")); }
+    elif value.return_date and valid_date(value.local_date) and value.return_date <= value.local_date { errors.append(FieldError("return_date", "Choose a return date after your departure date.")); }
     if not valid_time(value.local_time) { errors.append(FieldError("local_time", "Enter a valid time, from 00:00 to 23:59.")); }
     if value.time_kind not in ["DEPART_AFTER", "ARRIVE_BY"] { errors.append(FieldError("time_kind", "Choose departure or arrival time.")); }
     cents = parse_budget(value.budget);
@@ -133,6 +139,7 @@ def:pub validate_composer(value: ComposerInput, earliest_date: str = "") -> Comp
     return ComposerValidation(errors=[], draft=ComposerDraft(
         request_text=value.request_text.strip(), origin_text=origin, destination_text=destination,
         local_date=value.local_date, local_time=value.local_time, time_kind=value.time_kind,
-        max_price_cents=cents, min_transfer_minutes=int(transfer), allowed_modes=modes, priority=value.priority
+        max_price_cents=cents, min_transfer_minutes=int(transfer), allowed_modes=modes, priority=value.priority,
+        return_date=value.return_date
     ));
 }

@@ -32,7 +32,6 @@ def:pub AppShell(
                     <nav className="dt-nav" aria-label="Application navigation">
                         <NavItem label="Plan" href="/plan" active={activePath == "/plan"} enabled={navigationEnabled}/>
                         <NavItem label="Trips" href="/trips" active={activePath == "/trips"} enabled={navigationEnabled}/>
-                        <NavItem label="Settings" href="/settings" active={activePath == "/settings"} enabled={navigationEnabled}/>
                     </nav>
                 </div>
             </header>

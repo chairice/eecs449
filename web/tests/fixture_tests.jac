@@ -49,7 +49,7 @@ test "repeated requests are deterministic and result mutation does not contamina
     assert provider_result_to_json(provider.search(fixture_request())) == baseline;
 }
 
-test "unsupported corridor and reverse direction return successful empty search" {
+test "unsupported corridor is empty and the reverse direction returns its own routes" {
     provider = FixtureRouteProvider();
     request = fixture_request();
     request.origin_text = "Detroit, MI";
@@ -58,7 +58,9 @@ test "unsupported corridor and reverse direction return successful empty search"
     assert result.metadata.status == SourceStatus.FIXTURE;
     request.origin_text = "Chicago";
     request.destination_text = "Ann Arbor";
-    assert available_routes(provider.search(request)) == [];
+    returns = available_routes(provider.search(request));
+    assert len(returns) == 3;
+    assert all(route.legs[0].origin.id == "chicago" and route.legs[-1].destination.id == "ann-arbor" for route in returns);
     request.origin_text = "  ANN  ARBOR, Michigan ";
     request.destination_text = "Chicago Illinois";
     assert len(available_routes(provider.search(request))) == 3;

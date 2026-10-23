@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "synthetic": true,
-  "description": "Entirely synthetic daily demo templates, not real timetables, fares or bookings. Local leg times repeat on the requested calendar date.",
+  "description": "Entirely synthetic daily demo templates, not real timetables, fares or bookings. Routes run both ways along the corridor. Local leg times repeat on the requested calendar date.",
   "source": {
     "provider": "detour-synthetic-corridor-v1",
     "status": "FIXTURE",
@@ -41,6 +41,31 @@
       "legs": [
         {"id": "demo-connection-train", "mode": "TRAIN", "origin_id": "ann-arbor", "destination_id": "kalamazoo", "departure_time": "16:30", "arrival_time": "18:40", "departure_day_offset": 0, "arrival_day_offset": 0, "operator": "Demo Rail", "service": "Synthetic train C"},
         {"id": "demo-connection-bus", "mode": "BUS", "origin_id": "kalamazoo", "destination_id": "chicago", "departure_time": "19:30", "arrival_time": "21:30", "departure_day_offset": 0, "arrival_day_offset": 0, "operator": "Demo Coach", "service": "Synthetic bus D"}
+      ]
+    },
+    {
+      "id": "demo-return-train",
+      "price_cents": 4600,
+      "currency": "USD",
+      "legs": [
+        {"id": "demo-return-train-leg", "mode": "TRAIN", "origin_id": "chicago", "destination_id": "ann-arbor", "departure_time": "15:05", "arrival_time": "21:25", "departure_day_offset": 0, "arrival_day_offset": 0, "operator": "Demo Rail", "service": "Synthetic train E"}
+      ]
+    },
+    {
+      "id": "demo-return-bus",
+      "price_cents": 3700,
+      "currency": "USD",
+      "legs": [
+        {"id": "demo-return-bus-leg", "mode": "BUS", "origin_id": "chicago", "destination_id": "ann-arbor", "departure_time": "16:00", "arrival_time": "22:30", "departure_day_offset": 0, "arrival_day_offset": 0, "operator": "Demo Coach", "service": "Synthetic bus F"}
+      ]
+    },
+    {
+      "id": "demo-return-transfer",
+      "price_cents": 4300,
+      "currency": "USD",
+      "legs": [
+        {"id": "demo-return-connection-bus", "mode": "BUS", "origin_id": "chicago", "destination_id": "kalamazoo", "departure_time": "14:30", "arrival_time": "17:30", "departure_day_offset": 0, "arrival_day_offset": 0, "operator": "Demo Coach", "service": "Synthetic bus G"},
+        {"id": "demo-return-connection-train", "mode": "TRAIN", "origin_id": "kalamazoo", "destination_id": "ann-arbor", "departure_time": "18:15", "arrival_time": "20:25", "departure_day_offset": 0, "arrival_day_offset": 0, "operator": "Demo Rail", "service": "Synthetic train H"}
       ]
     }
   ]

@@ -76,8 +76,6 @@
 .dt-app :is(button:disabled, [aria-disabled="true"]) { cursor: not-allowed; opacity: .5; }
 .dt-app button:disabled:hover { scale: 1; box-shadow: none; }
 .dt-nav-link:disabled:hover { color: var(--dt-muted); }
-.dt-profile { display: inline-flex; align-items: center; gap: var(--dt-space-2); font: var(--dt-body); color: var(--dt-muted); }
-.dt-profile-mark { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--dt-surface-muted); color: var(--dt-text); }
 
 .dt-main { padding-block: var(--dt-space-6) var(--dt-space-24); }
 .dt-panel { border: 1px solid var(--dt-border); border-radius: var(--dt-radius-panel); background: var(--dt-surface); padding: var(--dt-space-6); }
@@ -86,7 +84,6 @@
 @media (max-width: 743px) {
   .dt-header-inner { gap: var(--dt-space-2); }
   .dt-nav { order: 3; width: 100%; gap: var(--dt-space-1); padding-inline: var(--dt-space-4); justify-content: space-between; }
-  .dt-profile-label { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .dt-app * { transition: none !important; scroll-behavior: auto !important; }
@@ -129,10 +126,6 @@
 .dt-empty-state { text-align: center; padding-block: var(--dt-space-12); }
 .dt-empty-state p { max-width: calc(6 * var(--grid-col) + 5 * var(--grid-gutter)); margin: 0 auto var(--dt-space-6); }
 .dt-state-icon { margin-bottom: var(--dt-space-4); }
-.dt-preferences { padding: 0; margin: 0; border: 0; }
-.dt-sources dl > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--dt-space-2); padding: var(--dt-space-6) 0; border-bottom: 1px solid var(--dt-border); }
-.dt-sources dt { color: var(--dt-text); }
-.dt-sources dd { font: var(--dt-body); }
 .dt-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .dt-landing { padding-block: var(--dt-space-12) var(--dt-space-24); }
 .dt-hero { align-items: center; }
@@ -262,7 +255,14 @@
 .dt-step { display: inline-grid; place-items: center; width: 32px; height: 32px; border: 1px solid var(--dt-border); border-radius: 50%; background: var(--dt-surface); color: var(--dt-text); cursor: pointer; transition: border-color var(--dt-duration); }
 .dt-step:hover:not(:disabled) { border-color: var(--dt-text); }
 .dt-step:disabled { opacity: .3; cursor: default; }
-.dt-step-value { min-width: 80px; text-align: center; color: var(--dt-text); font: var(--dt-body); }
+/* The time reads as plain text and is typed over in place: a soft fill on
+   hover says it can be edited, a hairline green ring while typing. */
+.dt-step-value { width: 96px; min-height: 32px; padding: 0 var(--dt-space-2); border: 1px solid transparent; border-radius: var(--dt-radius-control); background: transparent; color: var(--dt-text); font: var(--dt-body); text-align: center; cursor: text; transition: background-color var(--dt-duration), border-color var(--dt-duration); }
+.dt-step-value::placeholder { color: var(--dt-muted); opacity: 1; }
+.dt-step-value:hover { background: var(--dt-surface-muted); }
+.dt-app .dt-step-value:focus { outline: none; background: var(--dt-surface); border-color: var(--dt-accent); }
+.dt-step-value::selection { background: var(--dt-accent-soft); }
+.dt-stepper-note.is-warning { color: var(--dt-danger-text); }
 .dt-map { height: 440px; border-radius: var(--dt-radius-panel); border: 1px solid var(--dt-border); background: var(--dt-surface-muted); overflow: hidden; z-index: 0; }
 .dt-map .leaflet-tile { filter: grayscale(1) contrast(.85) brightness(1.08); }
 .dt-map .leaflet-control-attribution { font: 400 11px/16px var(--dt-font-body); background: rgb(255 255 255 / 80%); }
