@@ -4,7 +4,7 @@ import from ..components.PageHeading { PageHeading }
 
 def:pub SettingsPage -> JsxPage {
     return <>
-        <PageHeading eyebrow="Settings" title="Make Detour yours." description="Defaults reduce repetition without hiding how a recommendation was made."/>
+        <PageHeading title="Make Detour yours." description="Defaults reduce repetition without hiding how a recommendation was made."/>
         <div className="dt-two-column">
             <section className="dt-panel">
                 <h2>Trip preferences</h2>
@@ -20,7 +20,6 @@ def:pub SettingsPage -> JsxPage {
             <section className="dt-panel dt-sources">
                 <h2>Data sources</h2>
                 <dl><div><dt>Route provider</dt><dd>Not connected</dd></div><div><dt>National Weather Service</dt><dd>Not connected</dd></div><div><dt>Trip request assistant</dt><dd>Not connected</dd></div></dl>
-                <p className="dt-caption">No external data has been requested. Provider status will appear here once integrations are available.</p>
             </section>
         </div>
     </>;
