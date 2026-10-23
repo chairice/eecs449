@@ -1,44 +1,37 @@
-/* Results page; uses only the two type styles from styles.css. */
-.dt-comparison-heading { display:flex; gap:var(--grid-gutter); align-items:flex-start; justify-content:space-between; margin-bottom:var(--dt-space-6); }
+/* Results page, after Airbnb's listing page: options in one hairline-divided
+   box on the left with the map beneath, a booking card on the right. Uses only
+   the two type styles from styles.css. */
+.dt-comparison-heading { display:flex; gap:var(--grid-gutter); align-items:flex-start; justify-content:space-between; margin-bottom:var(--dt-space-8); }
 .dt-comparison-heading .dt-page-heading { margin-bottom:0; }
 .dt-comparison-heading > a { flex-shrink:0; }
-/* Options take 7 columns and the recommendation 5; stacked below 984. */
-.dt-comparison-grid { display:grid; grid-template-columns:repeat(var(--grid-cols),minmax(0,1fr)); column-gap:var(--grid-gutter); row-gap:var(--dt-space-6); align-items:start; }
+/* Options and map take 7 columns, the booking card 5; stacked below 984. */
+.dt-comparison-grid { display:grid; grid-template-columns:repeat(var(--grid-cols),minmax(0,1fr)); column-gap:var(--grid-gutter); row-gap:var(--dt-space-8); align-items:start; }
 .dt-comparison-grid > * { grid-column:1 / -1; min-width:0; }
 @media (min-width:984px) { .dt-comparison-grid > :first-child { grid-column:span 7; } .dt-comparison-grid > :last-child { grid-column:span 5; } }
-.dt-options-title { font:var(--dt-body); color:var(--dt-muted); margin-bottom:var(--dt-space-4); }
-.dt-route-options { display:grid; gap:var(--dt-space-4); margin:0 0 var(--dt-space-4); padding:0; border:0; min-width:0; }
-.dt-route-card { position:relative; display:flex; gap:var(--dt-space-4); align-items:flex-start; padding:var(--dt-space-6); border:1px solid var(--dt-border); border-radius:var(--dt-radius-card); background:var(--dt-surface); cursor:pointer; transition:border-color var(--dt-duration),box-shadow var(--dt-duration),scale var(--dt-duration); }
-.dt-route-card:hover { scale:1.02; box-shadow:var(--dt-shadow); }
-.dt-route-card.is-selected { border:2px solid var(--dt-accent); padding:calc(var(--dt-space-6) - 1px); }
-.dt-route-card:focus-within { outline:2px solid var(--dt-accent); outline-offset:4px; }
-.dt-route-card-top,.dt-route-metrics,.dt-route-times { display:flex; align-items:center; justify-content:space-between; gap:var(--dt-space-2); }
-.dt-route-card-top { flex-wrap:wrap; }
-/* The radio stays in the form and the focus order; the whole card is its target. */
+
+/* One box, rows split by hairlines; the selected row is tinted, not outlined. */
+.dt-route-list { margin:0 0 var(--dt-space-8); padding:0; min-width:0; border:1px solid var(--dt-border); border-radius:var(--dt-radius-control); overflow:hidden; }
+.dt-route-row { position:relative; display:flex; align-items:center; justify-content:space-between; gap:var(--dt-space-4); padding:var(--dt-space-4) var(--dt-space-6); cursor:pointer; transition:background-color var(--dt-duration); }
+.dt-route-row + .dt-route-row { border-top:1px solid var(--dt-border); }
+.dt-route-row:hover { background:var(--dt-surface-muted); }
+.dt-route-row.is-selected { background:var(--dt-accent-soft); }
+.dt-route-row:focus-within { outline:2px solid var(--dt-accent); outline-offset:-2px; }
+/* The radio stays in the form and the focus order; the whole row is its target. */
 .dt-route-radio { position:absolute; opacity:0; pointer-events:none; }
-.dt-route-visual { display:inline-grid; place-items:center; flex-shrink:0; width:64px; height:64px; border-radius:var(--dt-radius-control); background:var(--dt-accent-soft); color:var(--dt-accent); }
-.dt-route-body { display:grid; gap:var(--dt-space-1); flex:1; min-width:0; }
-.dt-route-name { font:var(--dt-title); color:var(--dt-text); }
-.dt-route-badge { border-radius:var(--dt-radius-pill); padding:var(--dt-space-1) var(--dt-space-4); color:var(--dt-accent); background:var(--dt-accent-soft); font:var(--dt-body); }
-.dt-route-service { display:block; font:var(--dt-body); }
-.dt-route-times { justify-content:flex-start; color:var(--dt-text); }
-.dt-route-metrics { margin-top:var(--dt-space-1); }
-.dt-results-side { display:grid; gap:var(--dt-space-6); }
-.dt-results-side .dt-map { height:320px; }
-.dt-recommendation > p + p { margin-top:var(--dt-space-2); }
-.dt-recommendation h3 { font:var(--dt-body); color:var(--dt-text); margin:var(--dt-space-6) 0 var(--dt-space-2); }
-.dt-score-line { display:flex; justify-content:space-between; gap:var(--dt-space-2); align-items:center; margin-top:var(--dt-space-6); padding-top:var(--dt-space-4); border-top:1px solid var(--dt-border); }
-.dt-score-line strong { font:var(--dt-title); }
-.dt-score-line strong span { font:var(--dt-body); color:var(--dt-muted); }
-.dt-reasons { padding-left:var(--dt-space-6); }
-.dt-reasons li + li { margin-top:var(--dt-space-1); }
-.dt-itinerary { padding-left:var(--dt-space-6); margin-bottom:var(--dt-space-6); }
-.dt-itinerary li + li { margin-top:var(--dt-space-4); }
-.dt-itinerary li > span { display:block; font:var(--dt-body); }
-.dt-source-details { border-top:1px solid var(--dt-border); padding-top:var(--dt-space-2); font:var(--dt-body); }
-.dt-source-details summary { cursor:pointer; min-height:var(--dt-control-height); display:flex; align-items:center; color:var(--dt-text); font:var(--dt-body); }
-.dt-source-details :is(p, ul) { margin-bottom:var(--dt-space-2); }
-.dt-source-details ul { padding-left:var(--dt-space-4); }
-.dt-confirm-placeholder { margin:var(--dt-space-6) 0 var(--dt-space-2); width:100%; }
-@media (max-width:743px) { .dt-comparison-heading { display:block; } .dt-comparison-heading > a { margin-top:var(--dt-space-4); } .dt-route-card { padding:var(--dt-space-4); } .dt-route-card.is-selected { padding:calc(var(--dt-space-4) - 1px); } }
-.dt-route-arrow { display:inline-flex; color:var(--dt-muted); }
+.dt-route-main { display:grid; min-width:0; }
+.dt-route-name { color:var(--dt-text); }
+.dt-route-recommended { color:var(--dt-accent); }
+.dt-route-price { flex-shrink:0; }
+
+/* Booking card: lifted like Airbnb's reservation box, sticky beside the list. */
+.dt-booking { position:sticky; top:112px; padding:var(--dt-space-6); border:1px solid var(--dt-border); border-radius:var(--dt-radius-control); background:var(--dt-surface); box-shadow:0 6px 16px rgb(0 0 0 / 12%); }
+.dt-booking-price { font:var(--dt-title); color:var(--dt-text); }
+.dt-booking-box { display:grid; grid-template-columns:1fr 1fr; margin:var(--dt-space-6) 0; border:1px solid var(--dt-muted); border-radius:var(--dt-radius-control); }
+.dt-booking-box > div { padding:var(--dt-space-2) var(--dt-space-4); }
+.dt-booking-box > div + div { border-left:1px solid var(--dt-muted); }
+.dt-booking-box dt { color:var(--dt-text); }
+.dt-booking-box dd { margin:0; }
+.dt-booking-action { width:100%; }
+.dt-booking-note { margin-top:var(--dt-space-4); text-align:center; }
+@media (max-width:983px) { .dt-booking { position:static; } }
+@media (max-width:743px) { .dt-comparison-heading { display:block; } .dt-comparison-heading > a { margin-top:var(--dt-space-4); } .dt-route-row { padding-inline:var(--dt-space-4); } }

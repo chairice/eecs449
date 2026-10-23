@@ -179,7 +179,7 @@
    straight hairlines, with a round search button. The demo button and map sit
    underneath. */
 .dt-composer { display: grid; gap: var(--dt-space-4); }
-.dt-search-bar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: center; max-width: calc(8 * var(--grid-col) + 7 * var(--grid-gutter)); padding: var(--dt-space-2); border: 1px solid var(--dt-border); border-radius: var(--dt-radius-pill); background: var(--dt-surface); box-shadow: var(--dt-shadow); }
+.dt-search-bar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: center; padding: var(--dt-space-2); border: 1px solid var(--dt-border); border-radius: var(--dt-radius-pill); background: var(--dt-surface); box-shadow: var(--dt-shadow); }
 .dt-search-field { position: relative; display: grid; align-content: center; min-height: 48px; padding: var(--dt-space-1) var(--dt-space-6); border-radius: var(--dt-radius-pill); color: var(--dt-text); cursor: pointer; transition: background-color var(--dt-duration); }
 .dt-search-field + .dt-search-field::before { content: ""; position: absolute; left: 0; top: 25%; height: 50%; width: 1px; background: var(--dt-border); }
 .dt-search-field:hover, .dt-search-field:focus-within { background: var(--dt-surface-muted); }
@@ -187,11 +187,25 @@
 .dt-search-field input { width: 100%; min-width: 0; border: 0; padding: 0; background: transparent; color: var(--dt-muted); font: var(--dt-body); outline: none; cursor: pointer; }
 .dt-search-field input:focus-visible, .dt-search-field input:valid { color: var(--dt-text); }
 .dt-search-field input::placeholder { color: var(--dt-muted); opacity: 1; }
-.dt-search-when { display: flex; gap: var(--dt-space-2); }
-.dt-search-when input[type="time"] { max-width: 96px; }
-/* No calendar or clock glyphs: the picker opens from anywhere on its input. */
-.dt-search-field input { position: relative; }
-.dt-search-field input::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: auto; height: auto; margin: 0; padding: 0; opacity: 0; cursor: pointer; }
+/* When is a button that reads back the choice; the panel under the bar holds
+   Leave after / Arrive by, two weeks of day chips and hourly time chips. */
+.dt-search { position: relative; max-width: calc(8 * var(--grid-col) + 7 * var(--grid-gutter)); }
+.dt-search-trigger { width: 100%; border: 0; background: transparent; font: var(--dt-body); text-align: left; }
+.dt-search-trigger > span:first-child { color: var(--dt-text); }
+.dt-search-value { color: var(--dt-text); }
+.dt-search-placeholder { color: var(--dt-muted); }
+.dt-when-panel { position: absolute; z-index: 20; top: calc(100% + var(--dt-space-2)); right: 0; width: min(100%, calc(6 * var(--grid-col) + 5 * var(--grid-gutter))); padding: var(--dt-space-6); border: 1px solid var(--dt-border); border-radius: var(--dt-radius-panel); background: var(--dt-surface); box-shadow: var(--dt-shadow); }
+.dt-when-panel[hidden] { display: none; }
+.dt-when-kind { display: inline-flex; padding: var(--dt-space-1); border-radius: var(--dt-radius-pill); background: var(--dt-surface-muted); }
+.dt-when-kind button { min-height: 32px; padding: 0 var(--dt-space-4); border: 0; border-radius: var(--dt-radius-pill); background: transparent; color: var(--dt-muted); font: var(--dt-body); cursor: pointer; }
+.dt-when-kind button[aria-checked="true"] { background: var(--dt-surface); color: var(--dt-text); box-shadow: 0 1px 3px rgb(17 17 17 / 12%); }
+.dt-when-heading { font: var(--dt-body); color: var(--dt-text); margin: var(--dt-space-6) 0 var(--dt-space-2); }
+.dt-chip-row { display: flex; gap: var(--dt-space-2); overflow-x: auto; padding-bottom: var(--dt-space-1); scrollbar-width: thin; }
+.dt-chip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: var(--dt-space-2); }
+.dt-chip { flex-shrink: 0; min-height: 36px; padding: 0 var(--dt-space-4); border: 1px solid var(--dt-border); border-radius: var(--dt-radius-pill); background: var(--dt-surface); color: var(--dt-text); font: var(--dt-body); white-space: nowrap; cursor: pointer; transition: border-color var(--dt-duration), background-color var(--dt-duration); }
+.dt-chip:hover { border-color: var(--dt-text); }
+.dt-chip[aria-pressed="true"] { border-color: var(--dt-accent); background: var(--dt-accent); color: var(--dt-accent-text); }
+.dt-when-actions { display: flex; justify-content: flex-end; margin-top: var(--dt-space-6); }
 .dt-search-submit { display: inline-grid; place-items: center; width: 48px; height: 48px; padding: 0; border: 0; border-radius: 50%; background: var(--dt-accent); color: var(--dt-accent-text); cursor: pointer; transition: scale var(--dt-duration), box-shadow var(--dt-duration); }
 .dt-search-submit:hover { scale: 1.04; box-shadow: var(--dt-shadow); }
 .dt-search-extras { display: flex; flex-wrap: wrap; gap: var(--dt-space-2); margin-top: var(--dt-space-6); }
