@@ -37,7 +37,7 @@ def:pub RouteCard(route: ComparisonRoute, index: int, selected: bool, onSelect: 
         <input id={key} className="dt-route-radio" type="radio" name={group + "-selection"} checked={selected} onChange={lambda (_e: ChangeEvent) { onSelect(route.id); }} aria-labelledby={key + "-title"} aria-describedby={key + "-summary"}/>
         <span className="dt-route-main">
             <span id={key + "-title"} className="dt-route-times">{clock(route.departure)} – {clock(route.arrival)}</span>
-            <span className="dt-muted">{route.modes}{"" if route.transfers == "Direct" else " · " + route.transfers}</span>
+            <span className="dt-muted">{route.modes}</span>
         </span>
         <span className="dt-route-duration">{travel_time(route.duration)}</span>
         <strong className="dt-route-price">{route.price}</strong>
@@ -61,7 +61,7 @@ def:pub RecommendationPanel(route: ComparisonRoute, recommended: bool, returnRou
     total = route.price_cents + returnRoute.price_cents if returnRoute is not None and route.price_cents >= 0 and returnRoute.price_cents >= 0 else -1;
     return <aside className="dt-booking" aria-labelledby="selection-heading">
         <h2 id="selection-heading" className="dt-booking-price">{(money(total) if total >= 0 else "Fare unavailable") if roundTrip else route.price}</h2>
-        <p className="dt-muted">{"Round trip" if roundTrip else route.modes + " · " + route.transfers + " · " + route.duration}</p>
+        <p className="dt-muted">{"Round trip" if roundTrip else "One way"}</p>
         <dl className="dt-booking-box">
             <div><dt>Depart</dt><dd>{route.departure}</dd></div>
             {(<div><dt>Return</dt><dd>{returnRoute.departure}</dd></div> if returnRoute is not None else <div><dt>Arrive</dt><dd>{route.arrival}</dd></div>)}
@@ -93,7 +93,7 @@ def:pub RouteComparison(preview: any = None, requestText: str = "", submittedReq
     mapped = returnSelected if mapLeg == "return" and returnSelected is not None else selected;
     days = trip_day(view.date) + (" – " + trip_day(returnDate) if returnRequested and returnDate else "");
     return <>
-        <div className="dt-comparison-heading"><PageHeading title={view.title} description={days + " · Demo schedules and fares"}/>
+        <div className="dt-comparison-heading"><PageHeading title={view.title} description={days}/>
             <Link className="dt-secondary" to="/plan" state={editState}>Edit request</Link></div>
         <div className="dt-comparison-grid">
             <div className="dt-legs">
