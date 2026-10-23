@@ -180,10 +180,8 @@
    underneath. */
 .dt-composer { display: grid; gap: var(--dt-space-4); }
 .dt-search-bar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: center; padding: var(--dt-space-2); border: 1px solid var(--dt-border); border-radius: var(--dt-radius-pill); background: var(--dt-surface); box-shadow: var(--dt-shadow); }
-.dt-search-field { position: relative; display: grid; align-content: center; min-height: 48px; padding: var(--dt-space-1) var(--dt-space-6); border-radius: var(--dt-radius-pill); color: var(--dt-text); cursor: pointer; transition: background-color var(--dt-duration); }
+.dt-search-field { position: relative; display: grid; align-content: center; min-height: 48px; padding: var(--dt-space-1) var(--dt-space-6); border-radius: var(--dt-radius-pill); color: var(--dt-text); cursor: pointer; }
 .dt-search-field + .dt-search-field::before { content: ""; position: absolute; left: 0; top: 25%; height: 50%; width: 1px; background: var(--dt-border); }
-.dt-search-field:hover, .dt-search-field:focus-within { background: var(--dt-surface-muted); }
-.dt-search-field:hover::before, .dt-search-field:focus-within::before, .dt-search-field:hover + .dt-search-field::before, .dt-search-field:focus-within + .dt-search-field::before { opacity: 0; }
 .dt-search-field input { width: 100%; min-width: 0; border: 0; padding: 0; background: transparent; color: var(--dt-muted); font: var(--dt-body); outline: none; cursor: pointer; }
 .dt-search-field input:focus-visible, .dt-search-field input:valid { color: var(--dt-text); }
 .dt-search-field input::placeholder { color: var(--dt-muted); opacity: 1; }
