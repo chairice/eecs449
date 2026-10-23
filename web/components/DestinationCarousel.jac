@@ -2,10 +2,11 @@
 
 Twelve cards sit at fixed, even angles around one ring, and only the ring
 turns, so every card travels the same curve together; cards facing away are
-hidden rather than passing behind the others. It advances on its own unless
-the viewer prefers reduced motion, and pauses while pointed at or focused. Photos are
-from Unsplash, each credited to its photographer, with locations checked
-against the photo's own Unsplash page.
+hidden rather than passing behind the others, and cards fade with distance
+from the front. It advances on its own unless
+the viewer prefers reduced motion, and pauses while pointed at or focused.
+Photos are free-licence Unsplash images; each location was checked against
+the photo's own Unsplash page.
 """
 
 import "../home.css";
@@ -34,10 +35,11 @@ glob:pub DESTINATIONS: list[DestinationPhoto] = [
 ];
 
 # Milliseconds each destination holds the front before the ring turns.
-glob ADVANCE_MS: int = 4000;
+glob ADVANCE_MS: int = 2500;
 # Cards within this many steps of the front are in the tab order.
 glob VISIBLE_REACH: int = 2;
-glob UTM: str = "?utm_source=detour&utm_medium=referral";
+# Opacity by steps from the front; the furthest visible cards fade most.
+glob FADE: list[str] = ["1", "0.75", "0.35"];
 
 def photo_url(photo: str, width: int) -> str {
     return "https://images.unsplash.com/" + photo + "?auto=format&fit=crop&w=" + str(width) + "&h=" + str(int(width * 4 / 3)) + "&q=70";
@@ -79,7 +81,8 @@ def:pub DestinationCarousel -> JsxElement {
             <div className="dt-carousel-ring" style={{"transform": "translateZ(calc(-1 * var(--dt-ring-r))) rotateY(" + str(-step * turns) + "deg)"}}>
                 {for (index, place) in enumerate(DESTINATIONS) {
                     <button key={place.photo} type="button" className={"dt-card" + (" is-active" if index == active else "")}
-                        style={{"transform": "rotateY(" + str(step * index) + "deg) translateZ(var(--dt-ring-r))"}}
+                        style={{"transform": "rotateY(" + str(step * index) + "deg) translateZ(var(--dt-ring-r))",
+                            "opacity": FADE[abs(ring_offset(index, active, count))] if abs(ring_offset(index, active, count)) < len(FADE) else "0"}}
                         tabIndex={0 if abs(ring_offset(index, active, count)) <= VISIBLE_REACH else -1}
                         aria-current={"true" if index == active else None}
                         aria-label={place.city + ", " + place.region}
@@ -92,11 +95,7 @@ def:pub DestinationCarousel -> JsxElement {
         </div>
         <div className="dt-carousel-controls">
             <button type="button" className="dt-carousel-arrow" aria-label="Previous destination" onClick={lambda { turns = turns - 1; }}><Icon name="chevron.left" size={16}/></button>
-            <p className="dt-carousel-credit" aria-live="polite">
-                {current.city + ", " + current.region + " · Photo by "}
-                <a href={"https://unsplash.com/photos/" + current.page + UTM}>{current.photographer}</a>
-                {" on "}<a href={"https://unsplash.com/" + UTM}>Unsplash</a>
-            </p>
+            <p className="dt-sr-only" aria-live="polite">{current.city + ", " + current.region}</p>
             <button type="button" className="dt-carousel-arrow" aria-label="Next destination" onClick={lambda { turns = turns + 1; }}><Icon name="chevron.right" size={16}/></button>
         </div>
     </section>;
