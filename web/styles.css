@@ -178,7 +178,7 @@
 /* Trip search, after Airbnb's: Where and When in one rounded bar, split by
    straight hairlines, with a round search button. The demo button and map sit
    underneath. */
-.dt-composer { display: grid; gap: var(--dt-space-4); }
+.dt-composer { display: grid; gap: var(--dt-space-8); }
 .dt-search-bar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; padding: 0; border: 1px solid var(--dt-border); border-radius: var(--dt-radius-pill); background: var(--dt-surface); box-shadow: var(--dt-shadow); }
 .dt-search-field { position: relative; display: grid; align-content: center; min-height: 64px; padding: 0 var(--dt-space-8); border-radius: var(--dt-radius-pill); color: var(--dt-text); cursor: pointer; }
 /* Fields overlap the bar's 1px border, so an open pill reaches its very edge. */
@@ -192,11 +192,19 @@
 /* When is a button that reads back the choice. Opening it greys the bar and
    lifts the active field as a white pill, as on Airbnb; the panel beneath
    spans the bar with Leave after / Arrive by, two months and a time row. */
-.dt-search { position: relative; max-width: calc(8 * var(--grid-col) + 7 * var(--grid-gutter)); }
+.dt-search { position: relative; max-width: calc(8 * var(--grid-col) + 7 * var(--grid-gutter)); margin-inline: auto; }
+/* The plan page leads with a centred heading over the centred search. */
+.dt-plan-intro .dt-page-heading { margin-inline: auto; text-align: center; }
 .dt-search-bar { transition: background-color var(--dt-duration); }
 .dt-search-bar.is-active { background: var(--dt-surface-sunken); box-shadow: none; }
 .dt-search-bar.is-active .dt-search-field::before { opacity: 0; }
-.dt-search-field.is-open { background: var(--dt-surface); box-shadow: var(--dt-shadow); }
+/* One white pill slides between Where and When instead of each field lighting
+   up on its own; the fields sit above it. */
+.dt-search-bar { position: relative; }
+.dt-search-bar > .dt-search-field { z-index: 1; }
+.dt-search-pill { position: absolute; z-index: 0; top: -1px; bottom: -1px; left: -1px; width: calc(50% + 1px); border-radius: var(--dt-radius-pill); background: var(--dt-surface); box-shadow: var(--dt-shadow); opacity: 0; pointer-events: none; transition: transform 350ms cubic-bezier(.3, .7, .2, 1), opacity 200ms ease; }
+.dt-search-pill.at-when { transform: translateX(100%); }
+.dt-search-bar.is-active .dt-search-pill { opacity: 1; }
 /* When and the search button share one segment, so its open pill wraps the button. */
 .dt-search-segment { display: flex; align-items: center; gap: var(--dt-space-2); padding-right: var(--dt-space-2); }
 .dt-search-trigger { display: grid; flex: 1; min-width: 0; padding: 0; border: 0; background: transparent; font: var(--dt-body); text-align: left; cursor: pointer; }
@@ -229,8 +237,8 @@
   .dt-day { width: 36px; height: 36px; }
 }
 .dt-search-submit { display: inline-grid; place-items: center; width: 48px; height: 48px; padding: 0; border: 0; border-radius: 50%; background: var(--dt-accent); color: var(--dt-accent-text); cursor: pointer; transition: scale var(--dt-duration), box-shadow var(--dt-duration); }
-.dt-search-submit { flex-shrink: 0; box-shadow: 0 4px 12px rgb(31 122 61 / 35%), 0 1px 3px rgb(17 17 17 / 12%); }
-.dt-search-submit:hover { scale: 1.04; box-shadow: 0 6px 16px rgb(31 122 61 / 40%), 0 2px 4px rgb(17 17 17 / 12%); }
+.dt-search-submit { flex-shrink: 0; }
+.dt-search-submit:hover { scale: 1.04; }
 
 /* Where menu: suggested destinations as icon tiles with a line of context. */
 .dt-where-panel { position: absolute; z-index: 20; top: calc(100% + var(--dt-space-2)); left: 0; width: min(100%, calc(5 * var(--grid-col) + 4 * var(--grid-gutter))); padding: var(--dt-space-6) var(--dt-space-4); border: 1px solid var(--dt-border); border-radius: var(--dt-radius-panel); background: var(--dt-surface); box-shadow: var(--dt-shadow); }
@@ -252,8 +260,6 @@
 .dt-step:hover:not(:disabled) { border-color: var(--dt-text); }
 .dt-step:disabled { opacity: .3; cursor: default; }
 .dt-step-value { min-width: 80px; text-align: center; color: var(--dt-text); font: var(--dt-body); }
-.dt-search-extras { display: flex; flex-wrap: wrap; gap: var(--dt-space-2); margin-top: var(--dt-space-6); }
-.dt-search-extras .dt-secondary { min-height: 36px; padding-inline: var(--dt-space-4); }
 .dt-map { height: 440px; border-radius: var(--dt-radius-panel); border: 1px solid var(--dt-border); background: var(--dt-surface-muted); overflow: hidden; z-index: 0; }
 .dt-map .leaflet-tile { filter: grayscale(1) contrast(.85) brightness(1.08); }
 .dt-map .leaflet-control-attribution { font: 400 11px/16px var(--dt-font-body); background: rgb(255 255 255 / 80%); }
@@ -263,4 +269,6 @@
   .dt-search-bar { grid-template-columns: minmax(0, 1fr); border-radius: var(--dt-radius-panel); }
   .dt-search-field { border-radius: var(--dt-radius-control); }
   .dt-search-field + .dt-search-field::before { left: var(--dt-space-6); right: var(--dt-space-6); top: 0; width: auto; height: 1px; }
+  .dt-search-pill { right: -1px; bottom: auto; width: auto; height: calc(50% + 1px); border-radius: var(--dt-radius-panel); }
+  .dt-search-pill.at-when { transform: translateY(100%); }
 }

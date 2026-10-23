@@ -41,7 +41,7 @@ def:pub PlanPage -> JsxPage {
         }
     }
     return <>
-        <PageHeading title="Where are you headed?" description="Search demo trips between Ann Arbor and Chicago."/>
+        <div className="dt-plan-intro"><PageHeading title="Where are you headed?" description="Search demo trips between Ann Arbor and Chicago."/></div>
         {if failure { <div className="dt-error-summary" role="alert">{failure}</div> }}
         <p className="dt-sr-only" role="status" aria-live="polite">{"Checking synthetic schedules and ranking demo routes…" if busy else ""}</p>
         <TripComposer initial={restore_composer(location.state)} onValidDraft={findRoutes} busy={busy} submitLabel="Search"/>

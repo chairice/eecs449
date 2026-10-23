@@ -2,7 +2,7 @@
 and a map of the places it recognises. Validation stays local."""
 
 import from ..client.composer_model {
-    ComposerInput, ComposerDraft, FieldError, copy_input, example_input, field_error, update_input, validate_composer
+    ComposerInput, ComposerDraft, FieldError, copy_input, field_error, update_input, validate_composer
 }
 import from "react" { useEffect }
 import from .composer_dom { focus_composer_errors }
@@ -145,14 +145,11 @@ def:pub TripComposer(
     has errors: list[FieldError] = [], validated: ComposerDraft | None = None;
     has submitting: bool = False, panel: str = "", monthOffset: int = 0;
     has searchBox: Ref[HTMLDivElement] = Ref();
+    # Where the sliding pill last sat, so it fades out in place when a panel closes.
+    has pillAt: Ref[str] = Ref("where");
 
     def setField(field: str, text: str) {
         form = update_input(form, field, text);
-        validated = None;
-    }
-    def useExample {
-        form = example_input(form);
-        errors = [];
         validated = None;
     }
     async def submit(e: FormEvent) {
@@ -183,6 +180,7 @@ def:pub TripComposer(
     showWhen = panel == "when" or whenError;
     showWhere = panel == "where" and not showWhen;
     suggestions = destination_matches(form.destination_text);
+    if showWhen { pillAt.current = "when"; } elif showWhere { pillAt.current = "where"; }
     summary = when_summary(form);
     today = today_iso();
     months = [calendar_month(monthOffset, today), calendar_month(monthOffset + 1, today)];
@@ -197,6 +195,7 @@ def:pub TripComposer(
             </div>
             <div className="dt-search" ref={searchBox}>
             <div className={"dt-search-bar" + (" is-active" if showWhen or showWhere else "")}>
+                <span className={"dt-search-pill at-" + str(pillAt.current)} aria-hidden="true"></span>
                 <label className={"dt-search-field" + (" is-open" if showWhere else "")} htmlFor="destination_text"><span>Where</span><input id="destination_text" type="text" placeholder="Search destinations" onFocus={lambda { panel = "where"; }} aria-expanded={showWhere} aria-controls="dt-where" role="combobox" aria-autocomplete="list" required={True} value={form.destination_text} onChange={lambda (e: ChangeEvent) { setField("destination_text", e.target.value); panel = "where"; }} autoComplete="off" aria-invalid={field_error(errors, "destination_text") != ""} aria-describedby="error-destination_text"/><ComposerError errors={errors} field="destination_text"/></label>
                 <div className={"dt-search-field dt-search-segment" + (" is-open" if showWhen else "")}>
                     <button className="dt-search-trigger" type="button" aria-expanded={showWhen} aria-controls="dt-when" onClick={lambda { panel = "" if showWhen else "when"; }}>
@@ -250,9 +249,6 @@ def:pub TripComposer(
                 <span id="time-help" className="dt-sr-only">Local time at your {"starting point" if form.time_kind == "DEPART_AFTER" else "destination"}.</span>
                 <ComposerError errors={errors} field="local_time"/><ComposerError errors={errors} field="time_kind"/>
             </div>
-            </div>
-            <div className="dt-search-extras">
-                <button className="dt-secondary" type="button" onClick={useExample}>Try the demo trip</button>
             </div>
             </fieldset>
         </form>
