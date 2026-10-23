@@ -7,7 +7,7 @@
    in black or green; nothing adds a third. */
 :root {
   --dt-bg: #ffffff; --dt-surface: #ffffff; --dt-surface-muted: #f2f7f3;
-  --dt-text: #111111; --dt-muted: #646a66; --dt-border: #e3ebe5;
+  --dt-text: #111111; --dt-muted: #646a66; --dt-border: #e3ebe5; --dt-surface-sunken: #ebeeec;
   --dt-accent: #1f7a3d; --dt-accent-text: #ffffff; --dt-accent-soft: #e6f4ea;
   --dt-highlight: #1f7a3d;
   --dt-warning-bg: #fbf0d9; --dt-warning-text: #6c4d00;
@@ -185,27 +185,53 @@
 .dt-search-field input { width: 100%; min-width: 0; border: 0; padding: 0; background: transparent; color: var(--dt-muted); font: var(--dt-body); outline: none; cursor: pointer; }
 .dt-search-field input:focus-visible, .dt-search-field input:valid { color: var(--dt-text); }
 .dt-search-field input::placeholder { color: var(--dt-muted); opacity: 1; }
-/* When is a button that reads back the choice; the panel under the bar holds
-   Leave after / Arrive by, two weeks of day chips and hourly time chips. */
+/* When is a button that reads back the choice. Opening it greys the bar and
+   lifts the active field as a white pill, as on Airbnb; the panel beneath
+   spans the bar with Leave after / Arrive by, two months and a time row. */
 .dt-search { position: relative; max-width: calc(8 * var(--grid-col) + 7 * var(--grid-gutter)); }
-.dt-search-trigger { width: 100%; border: 0; background: transparent; font: var(--dt-body); text-align: left; }
+.dt-search-bar { transition: background-color var(--dt-duration); }
+.dt-search-bar.is-active { background: var(--dt-surface-sunken); box-shadow: none; }
+.dt-search-bar.is-active .dt-search-field::before { opacity: 0; }
+.dt-search-bar.is-active .dt-search-trigger { background: var(--dt-surface); box-shadow: var(--dt-shadow); }
+.dt-search-trigger { width: 100%; border: 0; background: transparent; font: var(--dt-body); text-align: left; transition: background-color var(--dt-duration), box-shadow var(--dt-duration); }
 .dt-search-trigger > span:first-child { color: var(--dt-text); }
 .dt-search-value { color: var(--dt-text); }
 .dt-search-placeholder { color: var(--dt-muted); }
-.dt-when-panel { position: absolute; z-index: 20; top: calc(100% + var(--dt-space-2)); right: 0; width: min(100%, calc(6 * var(--grid-col) + 5 * var(--grid-gutter))); padding: var(--dt-space-6); border: 1px solid var(--dt-border); border-radius: var(--dt-radius-panel); background: var(--dt-surface); box-shadow: var(--dt-shadow); }
+.dt-when-panel { position: absolute; z-index: 20; top: calc(100% + var(--dt-space-2)); left: 0; right: 0; padding: var(--dt-space-8); border: 1px solid var(--dt-border); border-radius: var(--dt-radius-panel); background: var(--dt-surface); box-shadow: var(--dt-shadow); }
 .dt-when-panel[hidden] { display: none; }
-.dt-when-kind { display: inline-flex; padding: var(--dt-space-1); border-radius: var(--dt-radius-pill); background: var(--dt-surface-muted); }
-.dt-when-kind button { min-height: 32px; padding: 0 var(--dt-space-4); border: 0; border-radius: var(--dt-radius-pill); background: transparent; color: var(--dt-muted); font: var(--dt-body); cursor: pointer; }
-.dt-when-kind button[aria-checked="true"] { background: var(--dt-surface); color: var(--dt-text); box-shadow: 0 1px 3px rgb(17 17 17 / 12%); }
-.dt-when-heading { font: var(--dt-body); color: var(--dt-text); margin: var(--dt-space-6) 0 var(--dt-space-2); }
-.dt-chip-row { display: flex; gap: var(--dt-space-2); overflow-x: auto; padding-bottom: var(--dt-space-1); scrollbar-width: thin; }
-.dt-chip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: var(--dt-space-2); }
-.dt-chip { flex-shrink: 0; min-height: 36px; padding: 0 var(--dt-space-4); border: 1px solid var(--dt-border); border-radius: var(--dt-radius-pill); background: var(--dt-surface); color: var(--dt-text); font: var(--dt-body); white-space: nowrap; cursor: pointer; transition: border-color var(--dt-duration), background-color var(--dt-duration); }
+.dt-when-kind { display: flex; width: fit-content; margin: 0 auto; padding: var(--dt-space-1); border-radius: var(--dt-radius-pill); background: var(--dt-surface-muted); }
+.dt-when-kind button { min-height: 36px; min-width: 128px; padding: 0 var(--dt-space-6); border: 0; border-radius: var(--dt-radius-pill); background: transparent; color: var(--dt-text); font: var(--dt-body); cursor: pointer; }
+.dt-when-kind button[aria-checked="true"] { background: var(--dt-surface); box-shadow: 0 1px 3px rgb(17 17 17 / 12%); }
+.dt-calendar { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--dt-space-12); margin-top: var(--dt-space-6); outline: none; }
+.dt-calendar-nav { position: absolute; top: 0; display: inline-grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 50%; background: transparent; color: var(--dt-text); cursor: pointer; }
+.dt-calendar-nav:hover:not(:disabled) { background: var(--dt-surface-muted); }
+.dt-calendar-nav:disabled { opacity: .3; }
+.dt-calendar-prev { left: 0; }
+.dt-calendar-next { right: 0; }
+.dt-month-title { font: var(--dt-body); color: var(--dt-text); text-align: center; line-height: 32px; margin-bottom: var(--dt-space-4); }
+.dt-month-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: var(--dt-space-1); }
+.dt-weekday { text-align: center; color: var(--dt-muted); padding-bottom: var(--dt-space-2); }
+.dt-day-cell { display: grid; place-items: center; }
+.dt-day { width: 40px; height: 40px; border: 1px solid transparent; border-radius: 50%; background: transparent; color: var(--dt-text); font: var(--dt-body); cursor: pointer; }
+.dt-day:hover:not(:disabled) { border-color: var(--dt-text); }
+.dt-day:disabled { color: var(--dt-border); cursor: default; }
+.dt-day[aria-pressed="true"] { background: var(--dt-accent); border-color: var(--dt-accent); color: var(--dt-accent-text); }
+.dt-time-row { display: flex; gap: var(--dt-space-2); overflow-x: auto; margin-top: var(--dt-space-6); padding-bottom: var(--dt-space-1); scrollbar-width: thin; }
+.dt-chip { flex-shrink: 0; min-height: 36px; padding: 0 var(--dt-space-4); border: 1px solid var(--dt-border); border-radius: var(--dt-radius-pill); background: var(--dt-surface); color: var(--dt-text); font: var(--dt-body); white-space: nowrap; cursor: pointer; transition: border-color var(--dt-duration); }
 .dt-chip:hover { border-color: var(--dt-text); }
-.dt-chip[aria-pressed="true"] { border-color: var(--dt-accent); background: var(--dt-accent); color: var(--dt-accent-text); }
-.dt-when-actions { display: flex; justify-content: flex-end; margin-top: var(--dt-space-6); }
+.dt-chip[aria-pressed="true"] { border: 2px solid var(--dt-text); padding-inline: calc(var(--dt-space-4) - 1px); }
+.dt-search-submit-label { display: none; }
+@media (max-width: 743px) {
+  .dt-when-panel { padding: var(--dt-space-6) var(--dt-space-4); }
+  .dt-calendar { grid-template-columns: minmax(0, 1fr); }
+  .dt-calendar .dt-month + .dt-month { display: none; }
+  .dt-day { width: 36px; height: 36px; }
+}
 .dt-search-submit { display: inline-grid; place-items: center; width: 48px; height: 48px; padding: 0; border: 0; border-radius: 50%; background: var(--dt-accent); color: var(--dt-accent-text); cursor: pointer; transition: scale var(--dt-duration), box-shadow var(--dt-duration); }
 .dt-search-submit:hover { scale: 1.04; box-shadow: var(--dt-shadow); }
+/* Open, the round button grows into a labelled pill, as Airbnb's does. */
+.dt-search-bar.is-active .dt-search-submit { display: inline-flex; align-items: center; width: auto; gap: var(--dt-space-2); padding: 0 var(--dt-space-6); border-radius: var(--dt-radius-pill); }
+.dt-search-bar.is-active .dt-search-submit-label { display: inline; font: var(--dt-body); }
 .dt-search-extras { display: flex; flex-wrap: wrap; gap: var(--dt-space-2); margin-top: var(--dt-space-6); }
 .dt-search-extras .dt-secondary { min-height: 36px; padding-inline: var(--dt-space-4); }
 .dt-map { height: 440px; border-radius: var(--dt-radius-panel); border: 1px solid var(--dt-border); background: var(--dt-surface-muted); overflow: hidden; z-index: 0; }

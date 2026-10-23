@@ -4,6 +4,7 @@ and a map of the places it recognises. Validation stays local."""
 import from ..client.composer_model {
     ComposerInput, ComposerDraft, FieldError, copy_input, example_input, field_error, update_input, validate_composer
 }
+import from "react" { useEffect }
 import from .composer_dom { focus_composer_errors }
 import from .Icon { Icon }
 import from .RouteMap { RouteMap }
@@ -30,8 +31,13 @@ def known_stop(text: str) -> ComparisonStop | None {
     return None;
 }
 
-"""One tappable day in the When panel."""
-obj:pub DayOption { has iso: str, label: str; }
+"""One cell of the calendar; blank cells pad the first week."""
+obj:pub CalendarDay { has iso: str, day: int, disabled: bool, label: str; }
+obj:pub CalendarMonth { has key: str, title: str, days: list[CalendarDay]; }
+
+# How far ahead the calendar pages, in months.
+glob MONTHS_AHEAD: int = 11;
+glob WEEKDAYS: list[str] = ["S", "M", "T", "W", "T", "F", "S"];
 
 # Hourly departure or arrival times offered as chips, 5 AM to 10 PM.
 glob TIME_SLOTS: list[str] = ["05:00", "06:00", "07:00", "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00"];
@@ -50,20 +56,23 @@ def day_label(iso: str, today: str) -> str {
     return str(noon.toLocaleDateString("en-US", {"weekday": "short", "month": "short", "day": "numeric", "timeZone": "UTC"}));
 }
 
-"""Two weeks from today, plus the chosen date if it falls outside them."""
-def day_options(selected: str) -> list[DayOption] {
-    today = today_iso();
-    start: any = new(Date, today + "T12:00:00Z");
-    days: list[DayOption] = [];
-    for offset in range(14) {
-        day: any = new(Date, float(start.getTime()) + offset * 86400000);
-        iso = str(day.toISOString().slice(0, 10));
-        days.append(DayOption(iso=iso, label=day_label(iso, today)));
+"""The month `offset` months after this one, with days before today disabled."""
+def calendar_month(offset: int, today: str) -> CalendarMonth {
+    parts = today.split("-");
+    index = (int(parts[1]) - 1) + offset;
+    year = int(parts[0]) + index // 12;
+    month = index % 12;
+    first: any = new(Date, Date.UTC(year, month, 1, 12));
+    last: any = new(Date, Date.UTC(year, month + 1, 0, 12));
+    days: list[CalendarDay] = [CalendarDay(iso="", day=0, disabled=True, label="") for _ in range(int(first.getUTCDay()))];
+    for day in range(1, int(last.getUTCDate()) + 1) {
+        iso = str(year) + "-" + two_digits(month + 1) + "-" + two_digits(day);
+        noon: any = new(Date, iso + "T12:00:00Z");
+        label = str(noon.toLocaleDateString("en-US", {"weekday": "long", "month": "long", "day": "numeric", "year": "numeric", "timeZone": "UTC"}));
+        days.append(CalendarDay(iso=iso, day=day, disabled=iso < today, label=label));
     }
-    if selected != "" and selected not in [day.iso for day in days] {
-        days.insert(0, DayOption(iso=selected, label=day_label(selected, today)));
-    }
-    return days;
+    title = str(first.toLocaleDateString("en-US", {"month": "long", "year": "numeric", "timeZone": "UTC"}));
+    return CalendarMonth(key=str(year) + "-" + two_digits(month + 1), title=title, days=days);
 }
 
 def time_options(selected: str) -> list[str] {
@@ -118,7 +127,8 @@ def:pub TripComposer(
 ) -> JsxElement {
     has form: ComposerInput = starting_form(initial);
     has errors: list[FieldError] = [], validated: ComposerDraft | None = None;
-    has submitting: bool = False, whenOpen: bool = False;
+    has submitting: bool = False, whenOpen: bool = False, monthOffset: int = 0;
+    has searchBox: Ref[HTMLDivElement] = Ref();
 
     def setField(field: str, text: str) {
         form = update_input(form, field, text);
@@ -142,11 +152,22 @@ def:pub TripComposer(
             finally { submitting = False; }
         }
     }
+    # Like Airbnb's, the panel closes when you click anywhere outside the search.
+    useEffect(lambda {
+        handler = lambda (e: any) {
+            box: any = searchBox.current;
+            if box and not box.contains(e.target) { whenOpen = False; }
+        };
+        document.addEventListener("mousedown", handler);
+        return lambda { document.removeEventListener("mousedown", handler); };
+    }, []);
     can with [errors] entry { if len(errors) > 0 { focus_composer_errors(); } }
 
     whenError = any(field_error(errors, field) != "" for field in ["local_date", "local_time", "time_kind"]);
     showWhen = whenOpen or whenError;
     summary = when_summary(form);
+    today = today_iso();
+    months = [calendar_month(monthOffset, today), calendar_month(monthOffset + 1, today)];
     stops = [stop for stop in [known_stop(form.origin_text), known_stop(form.destination_text)] if stop is not None];
 
     return <div className="dt-composer">
@@ -156,32 +177,43 @@ def:pub TripComposer(
                 <h2>Check your trip details</h2>
                 <ul>{for error in errors { <li key={error.field}><a href={"#" + error.field}>{error.message}</a></li> }}</ul>
             </div>
-            <div className="dt-search">
-            <div className="dt-search-bar">
+            <div className="dt-search" ref={searchBox}>
+            <div className={"dt-search-bar" + (" is-active" if showWhen else "")}>
                 <label className="dt-search-field" htmlFor="destination_text"><span>Where</span><input id="destination_text" type="text" list="dt-places" placeholder="Search destinations" required={True} value={form.destination_text} onChange={lambda (e: ChangeEvent) { setField("destination_text", e.target.value); }} autoComplete="off" aria-invalid={field_error(errors, "destination_text") != ""} aria-describedby="error-destination_text"/><ComposerError errors={errors} field="destination_text"/></label>
                 <button className="dt-search-field dt-search-trigger" type="button" aria-expanded={showWhen} aria-controls="dt-when" onClick={lambda { whenOpen = not whenOpen; }}>
                     <span>When</span>
                     <span className={"dt-search-value" if summary != "" else "dt-search-placeholder"}>{summary if summary != "" else "Add date and time"}</span>
                 </button>
-                <button className="dt-search-submit" type="submit" disabled={busy or submitting} aria-label={"Searching" if busy or submitting else submitLabel}><Icon name="magnifyingglass"/></button>
+                <button className="dt-search-submit" type="submit" disabled={busy or submitting} aria-label={"Searching" if busy or submitting else submitLabel}><Icon name="magnifyingglass"/><span className="dt-search-submit-label">Search</span></button>
             </div>
             <div id="dt-when" className="dt-when-panel" role="group" aria-label="When" hidden={not showWhen} onKeyDown={lambda (e: KeyboardEvent) { if e.key == "Escape" { whenOpen = False; } }}>
                 <div className="dt-when-kind" role="radiogroup" aria-label="Time preference" id="time_kind">
                     <button type="button" role="radio" aria-checked={form.time_kind == "DEPART_AFTER"} onClick={lambda { setField("time_kind", "DEPART_AFTER"); }}>Leave after</button>
                     <button type="button" role="radio" aria-checked={form.time_kind == "ARRIVE_BY"} onClick={lambda { setField("time_kind", "ARRIVE_BY"); }}>Arrive by</button>
                 </div>
-                <h3 className="dt-when-heading">Date</h3>
-                <div id="local_date" className="dt-chip-row" tabIndex={-1} aria-describedby="error-local_date">
-                    {for day in day_options(form.local_date) { <button key={day.iso} type="button" className="dt-chip" aria-pressed={form.local_date == day.iso} onClick={lambda { setField("local_date", day.iso); }}>{day.label}</button> }}
+                <div id="local_date" className="dt-calendar" tabIndex={-1} aria-describedby="error-local_date">
+                    <button type="button" className="dt-calendar-nav dt-calendar-prev" aria-label="Previous month" disabled={monthOffset == 0} onClick={lambda { monthOffset = max(0, monthOffset - 1); }}><Icon name="chevron.left" size={16}/></button>
+                    <button type="button" className="dt-calendar-nav dt-calendar-next" aria-label="Next month" disabled={monthOffset >= MONTHS_AHEAD} onClick={lambda { monthOffset = min(MONTHS_AHEAD, monthOffset + 1); }}><Icon name="chevron.right" size={16}/></button>
+                    {for month in months {
+                        <section key={month.key} className="dt-month" aria-label={month.title}>
+                            <h3 className="dt-month-title">{month.title}</h3>
+                            <div className="dt-month-grid">
+                                {for (index, name) in enumerate(WEEKDAYS) { <span key={"w" + str(index)} className="dt-weekday" aria-hidden="true">{name}</span> }}
+                                {for (index, day) in enumerate(month.days) {
+                                    <span key={"d" + str(index)} className="dt-day-cell">{(
+                                        <button type="button" className="dt-day" aria-label={day.label} aria-pressed={form.local_date == day.iso} disabled={day.disabled} onClick={lambda { setField("local_date", day.iso); }}>{day.day}</button> if day.iso != "" else None
+                                    )}</span>
+                                }}
+                            </div>
+                        </section>
+                    }}
                 </div>
                 <ComposerError errors={errors} field="local_date"/>
-                <h3 className="dt-when-heading">{"Leave after" if form.time_kind == "DEPART_AFTER" else "Arrive by"}</h3>
-                <div id="local_time" className="dt-chip-grid" tabIndex={-1} aria-describedby="error-local_time time-help">
+                <div id="local_time" className="dt-time-row" tabIndex={-1} role="group" aria-label={"Leave after" if form.time_kind == "DEPART_AFTER" else "Arrive by"} aria-describedby="error-local_time time-help">
                     {for slot in time_options(form.local_time) { <button key={slot} type="button" className="dt-chip" aria-pressed={form.local_time == slot} onClick={lambda { setField("local_time", slot); }}>{time_label(slot)}</button> }}
                 </div>
                 <span id="time-help" className="dt-sr-only">Local time at your {"starting point" if form.time_kind == "DEPART_AFTER" else "destination"}.</span>
                 <ComposerError errors={errors} field="local_time"/><ComposerError errors={errors} field="time_kind"/>
-                <div className="dt-when-actions"><button type="button" className="dt-primary" onClick={lambda { whenOpen = False; }}>Done</button></div>
             </div>
             </div>
             <datalist id="dt-places"><option value="Ann Arbor, MI"/><option value="Chicago, IL"/></datalist>
