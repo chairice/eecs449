@@ -4,7 +4,7 @@ import from ..components.PageHeading { PageHeading }
 
 def:pub SettingsPage -> JsxPage {
     return <>
-        <PageHeading eyebrow="SETTINGS" title="Make Detour yours." description="Defaults reduce repetition without hiding how a recommendation was made."/>
+        <PageHeading eyebrow="Settings" title="Make Detour yours." description="Defaults reduce repetition without hiding how a recommendation was made."/>
         <div className="dt-two-column">
             <section className="dt-panel">
                 <h2>Trip preferences</h2>

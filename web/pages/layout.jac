@@ -1,14 +1,12 @@
-"""One layout for the file-based router; owns theme subscriptions only."""
+"""One layout for the file-based router; Detour is light mode only."""
 
-import from react { useEffect }
 import from "@jac/runtime" { Outlet, useLocation }
 import from ..components.AppShell { AppShell }
 import from ..components.SiteFooter { SiteFooter }
-import from ..browser { mediaMatches, watchMedia, loadStylesheet, paintPage }
-import from ..theme { FONTS_URL, DARK_QUERY, REDUCED_MOTION_QUERY }
+import from ..browser { mediaMatches, loadStylesheet, paintPage }
+import from ..theme { FONTS_URL, REDUCED_MOTION_QUERY }
 
 def:pub RootLayout -> JsxLayout {
-    has dark: bool = mediaMatches(DARK_QUERY);
     location = useLocation();
     path: str = location.pathname;
     # Router matching is case-insensitive; this value selects chrome only.
@@ -23,12 +21,11 @@ def:pub RootLayout -> JsxLayout {
     activePath = "/trips" if path == "/trips" or isTripDetail else "/settings" if path == "/settings" else "/plan";
 
     can with entry { loadStylesheet(FONTS_URL); }
-    useEffect(lambda { return watchMedia(DARK_QUERY, lambda (m: bool) { dark = m; }); }, []);
-    can with [dark] entry {
-        paintPage("var(--dt-bg)", dark, not mediaMatches(REDUCED_MOTION_QUERY));
+    can with entry {
+        paintPage("var(--dt-bg)", False, not mediaMatches(REDUCED_MOTION_QUERY));
     }
 
-    return <AppShell dark={dark} publicPage={path == "/"} minimalHeader={path != "/" and not appPage}
+    return <AppShell publicPage={path == "/"} minimalHeader={path != "/" and not appPage}
         activePath={activePath} footer={<SiteFooter/>}>
         <Outlet/>
     </AppShell>;

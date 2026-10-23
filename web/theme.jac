@@ -35,7 +35,7 @@ glob:pub DARK: Theme = LIGHT;
 
 glob:pub FONT_SANS: str = "var(--dt-font-body)";
 glob:pub FONT_DISPLAY: str = "var(--dt-font-display)";
-glob:pub FONTS_URL: str = "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap";
+glob:pub FONTS_URL: str = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap";
 glob:pub RADIUS: str = "var(--dt-radius-card)";
 
 glob:pub DARK_QUERY: str = "(prefers-color-scheme: dark)";
