@@ -1,10 +1,10 @@
 # Detour web application
 
 The current application has a Detour landing page and directly reachable
-planning, results, trips, trip-detail, settings, and not-found routes. The
+planning, results, trips, trip-detail, and not-found routes. The
 composer validates a structured request locally, calls the stateless fixture
-planner, and displays ranked synthetic routes. Preferences remain a disabled
-preview; there is no live provider access or trip persistence. Results recover
+planner, and displays ranked synthetic routes. There is no live provider
+access or trip persistence. Results recover
 from a missing request, trips show an empty state, and unavailable trip IDs
 show a not-found state. See [planning preview](../docs/planning-preview.md)
 for the current end-to-end boundary and remaining work.
@@ -121,7 +121,6 @@ in `styles.css`; the legacy `Theme` helpers reference those same variables.
 | `/plan/results` | Ranked fixture routes or explicit errors; missing-request recovery on direct links. |
 | `/trips` | Empty saved-trips state. |
 | `/trips/:id` | Unavailable-trip state until persistence is connected. |
-| `/settings` | Disabled preference preview and disconnected provider statuses. |
 | Any other path | 404 and link back to planning; no app navigation. |
 
 Use `Link` from `@jac/runtime` for internal navigation. Keep route components

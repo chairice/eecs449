@@ -3,11 +3,18 @@
 obj:pub ComparisonLeg {
     has id: str, mode: str, service: str, origin: str, destination: str, departure: str, arrival: str;
 }
+"""A stop the map can pin; only places that arrive with coordinates become one."""
+obj:pub ComparisonStop {
+    has name: str, latitude: float, longitude: float;
+}
 obj:pub ComparisonRoute {
     has id: str, name: str, modes: str, departure: str, arrival: str, duration: str;
     has price: str, transfers: str, score: str, delay: str, weather: str, transfer_risk: str;
     has source: str, provider: str, freshness: str, source_time: str, source_warnings: list[str];
     has reasons: list[str], legs: list[ComparisonLeg];
+    has stops: list[ComparisonStop] = [];
+    # Fare in cents for totals; -1 when the fare is unknown.
+    has price_cents: int = -1;
 }
 obj:pub ComparisonView {
     has valid: bool = False, error: str = "", error_code: str = "";
@@ -95,6 +102,25 @@ def preference_label(value: str) -> str {
     return "Balanced priorities";
 }
 
+def map_stop(place: any) -> ComparisonStop | None {
+    latitude = place["latitude"]; longitude = place["longitude"];
+    for value in [latitude, longitude] {
+        if isinstance(value, bool) or not isinstance(value, (float, int)) or not Number.isFinite(value) { return None; }
+    }
+    return ComparisonStop(name=required_text(place["name"]), latitude=float(latitude), longitude=float(longitude));
+}
+
+"""Origin, every change point, and destination; empty unless all are mappable."""
+def route_stops(raw_legs: list[any]) -> list[ComparisonStop] {
+    stops: list[ComparisonStop] = [];
+    for place in [raw_legs[0]["origin"]] + [leg["destination"] for leg in raw_legs] {
+        stop = map_stop(place);
+        if stop is None { return []; }
+        stops.append(stop);
+    }
+    return stops;
+}
+
 def route_view(raw: any, as_of: str) -> ComparisonRoute {
     option = raw["option"];
     legs: list[ComparisonLeg] = [];
@@ -134,7 +160,8 @@ def route_view(raw: any, as_of: str) -> ComparisonRoute {
         score=str(score_value.toFixed(1)), delay=risk_label(raw["risk"]["delay"]), weather=risk_label(raw["risk"]["weather"]),
         transfer_risk=risk_label(raw["risk"]["transfer"]), source=source_mode, provider=required_text(source["provider"]),
         freshness=freshness, source_time=utc_label(required_text(source["fetched_at"])) if source["fetched_at"] else "Timestamp unavailable", source_warnings=warnings,
-        reasons=reasons, legs=legs);
+        reasons=reasons, legs=legs, stops=route_stops(raw_legs),
+        price_cents=-1 if option["price_cents"] is None else int(required_number(option["price_cents"])));
 }
 
 def:pub comparison_view(preview: any) -> ComparisonView {

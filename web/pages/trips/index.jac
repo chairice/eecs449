@@ -1,11 +1,21 @@
-"""Saved trips empty state; no illustrative records masquerade as saved data."""
+"""Trips saved in this browser, newest first; empty until one is saved."""
 
+import "../../trips.css";
+import from "@jac/runtime" { Link }
 import from ...components.PageHeading { PageHeading }
 import from ...components.EmptyState { EmptyState }
+import from ...client.saved_trips { load_trips }
 
 def:pub TripsPage -> JsxPage {
+    trips = load_trips();
     return <>
-        <PageHeading eyebrow="YOUR TRIPS" title="Your plans, in one place." description="A home for the routes you choose, with the details you need before you leave."/>
-        <EmptyState title="No saved trips yet" message="Your confirmed plans will appear here. Saving trips is not available in this preview." actionLabel="Plan a trip" actionPath="/plan"/>
+        <PageHeading title="Your trips" description="Trips you save are kept in this browser."/>
+        {(<EmptyState title="No saved trips yet" message="Search for a trip and save the routes you like. They'll show up here." actionLabel="Plan a trip" actionPath="/plan"/> if len(trips) == 0 else
+          <ul className="dt-trip-list">{for trip in trips {
+              <li key={trip["id"]}><Link className="dt-trip-card" to={"/trips/" + trip["id"]}>
+                  <span className="dt-trip-main"><span className="dt-trip-title">{trip["title"]}</span><span className="dt-muted">{trip["days"]}</span></span>
+                  <strong>{trip["total"]}</strong>
+              </Link></li>
+          }}</ul>)}
     </>;
 }

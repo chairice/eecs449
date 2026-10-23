@@ -37,8 +37,16 @@ def normalized_location(text: str) -> str {
     return " ".join(text.casefold().replace(",", " ").split());
 }
 
-def supports_corridor(request: TripRequest) -> bool {
-    return normalized_location(request.origin_text) in ["ann arbor", "ann arbor mi", "ann arbor michigan"] and normalized_location(request.destination_text) in ["chicago", "chicago il", "chicago illinois"];
+glob ANN_ARBOR_NAMES: list[str] = ["ann arbor", "ann arbor mi", "ann arbor michigan"];
+glob CHICAGO_NAMES: list[str] = ["chicago", "chicago il", "chicago illinois"];
+
+"""Fixture place ids at each end of the request, or None outside the corridor."""
+def corridor_ends(request: TripRequest) -> tuple[str, str] | None {
+    origin = normalized_location(request.origin_text);
+    destination = normalized_location(request.destination_text);
+    if origin in ANN_ARBOR_NAMES and destination in CHICAGO_NAMES { return ("ann-arbor", "chicago"); }
+    if origin in CHICAGO_NAMES and destination in ANN_ARBOR_NAMES { return ("chicago", "ann-arbor"); }
+    return None;
 }
 
 def fixture_failure(code: ErrorCode, message: str) -> ProviderResult[list[RouteOption]] {
@@ -51,8 +59,11 @@ obj FixtureRouteProvider(RouteProvider) {
     def search(request: TripRequest) -> ProviderResult[list[RouteOption]] {
         try {
             request.validate();
-            if supports_corridor(request) {
-                anchor_zone = "America/Detroit" if request.time_kind == TimeKind.DEPART_AFTER else "America/Chicago";
+            ends = corridor_ends(request);
+            if ends is not None {
+                # Departures are read in the origin's zone, arrivals in the destination's.
+                anchor = ends[0] if request.time_kind == TimeKind.DEPART_AFTER else ends[1];
+                anchor_zone = "America/Detroit" if anchor == "ann-arbor" else "America/Chicago";
                 _ = local_instant(request.local_date, request.local_time, anchor_zone);
             }
         } except (ValueError, TypeError, OverflowError) {
@@ -99,11 +110,14 @@ obj FixtureRouteProvider(RouteProvider) {
                 legs.append(RouteLeg(id=json_text(leg.get("id")), mode=TravelMode(json_text(leg.get("mode"))), origin=origin, destination=destination, departure_at=departure.isoformat(), arrival_at=arrival.isoformat(), operator=json_text(leg.get("operator")), service=json_text(leg.get("service")), status=ServiceStatus.SCHEDULED));
             }
             option = RouteOption(id=route_id, legs=legs, source=source, price_cents=json_optional_integer(raw.get("price_cents")), currency=json_text(raw.get("currency", "USD")));
-            if option.legs[0].origin.id != "ann-arbor" or option.legs[-1].destination.id != "chicago" { raise ValueError("route is outside the fixture corridor"); }
+            route_ends = (option.legs[0].origin.id, option.legs[-1].destination.id);
+            if route_ends not in [("ann-arbor", "chicago"), ("chicago", "ann-arbor")] { raise ValueError("route is outside the fixture corridor"); }
             routes.append(option);
         }
         # Validation runs even for unsupported locations so broken fixture files
         # cannot masquerade as a successful empty provider response.
-        return ProviderResult(metadata=source, data=routes if supports_corridor(request) else []);
+        ends = corridor_ends(request);
+        if ends is None { return ProviderResult(metadata=source, data=[]); }
+        return ProviderResult(metadata=source, data=[route for route in routes if route.legs[0].origin.id == ends[0] and route.legs[-1].destination.id == ends[1]]);
     }
 }

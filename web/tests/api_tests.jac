@@ -13,6 +13,17 @@ def _request_payload -> str {
     return model_to_json(TripRequest(origin_text="Ann Arbor", destination_text="Chicago", local_date="2026-10-23", local_time="16:00", time_kind=TimeKind.DEPART_AFTER, max_price_cents=5000));
 }
 
+test "a return search plans Chicago to Ann Arbor any time on the return date" {
+    payload = model_to_json(TripRequest(origin_text="Chicago, IL", destination_text="Ann Arbor, MI", local_date="2026-10-30", local_time="00:00", time_kind=TimeKind.DEPART_AFTER, max_price_cents=5000));
+    result = json.loads(_plan_response(payload, FixtureRouteProvider(), AS_OF));
+    assert result["error"] is None and len(result["routes"]) == 3;
+    for route in result["routes"] {
+        legs = route["option"]["legs"];
+        assert legs[0]["origin"]["id"] == "chicago" and legs[-1]["destination"]["id"] == "ann-arbor";
+        assert legs[0]["departure_at"].startswith("2026-10-30");
+    }
+}
+
 test "planning response preserves explicit canonical wire contract and fixture provenance" {
     payload = _request_payload();
     encoded = _plan_response(payload, FixtureRouteProvider(), AS_OF);

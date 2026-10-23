@@ -24,47 +24,61 @@ choices, ranking algorithm, failure states, and architectural decisions are in
 the [design plan](docs/design/README.md). The interactive reference can be
 opened locally from [`docs/design/prototype.html`](docs/design/prototype.html).
 
-### Screen designs
+### Screenshots
 
-All screens use the same responsive shell and visual system. These images are
-design targets, not claims that the corresponding functionality is already
-implemented.
+The current app, captured from the running build at 1248px wide. The original
+design targets these were built from are in
+[`docs/design/screens/`](docs/design/screens/).
 
-#### 1. Landing page
+#### 1. Home
 
-![Detour marketing landing page](docs/design/screens/01-landing.jpg)
+A carousel of destinations turning on a cylinder; the header's Plan a trip
+button leads into planning.
+
+![Detour home page with the destination carousel](docs/screenshots/01-home.jpg)
 
 #### 2. Plan a trip
 
-![Conversational trip planning form](docs/design/screens/02-plan.jpg)
+One search bar for where and when, over a map of the demo corridor.
 
-#### 3. Compare routes and confirm
+![Plan page with the Where and When search bar and map](docs/screenshots/02-plan.jpg)
 
-![Route comparison and recommendation view](docs/design/screens/03-results.jpg)
+#### 3. Choose a destination
 
-#### 4. Saved trips
+Where suggests the places the demo can plan, and choosing one moves on to When.
 
-![Upcoming and previous trips list](docs/design/screens/04-trips.jpg)
+![Where menu suggesting Chicago](docs/screenshots/03-plan-where.jpg)
 
-#### 5. Trip detail
+#### 4. Pick dates
 
-![Confirmed trip detail and status view](docs/design/screens/05-trip-detail.jpg)
+When opens a two-month calendar; a second date adds a return trip.
 
-#### 6. Settings
+![When menu with a two-month calendar](docs/screenshots/04-plan-when.jpg)
 
-![Routing preferences and data source settings](docs/design/screens/06-settings.jpg)
+#### 5. Compare routes
 
-#### 7. Planning/loading state
+Each option shows its times, mode, travel time and fare; the map traces the
+selected route and the booking card saves it.
 
-![Route search loading state](docs/design/screens/07-loading.jpg)
+![Route comparison with map and Save trip card](docs/screenshots/05-results.jpg)
 
-#### 8. No feasible routes
+#### 6. Trips, before saving
 
-![No routes recovery state](docs/design/screens/08-no-routes.jpg)
+![Empty Trips page](docs/screenshots/06-trips-empty.jpg)
+
+#### 7. Saved trips
+
+![Trips page listing a saved trip](docs/screenshots/07-trips.jpg)
+
+#### 8. Trip detail
+
+The saved route, its map and a way to remove it.
+
+![Saved trip detail with route, map and Remove trip](docs/screenshots/08-trip-detail.jpg)
 
 #### 9. Not found
 
-![Detour 404 page](docs/design/screens/09-404.jpg)
+![Detour 404 page](docs/screenshots/09-404.jpg)
 
 ## Product principles
 
@@ -102,9 +116,9 @@ route comparisons with explicit provenance and unknown conditions. See the
 [domain contracts](docs/domain-model.md), [fixture adapter](docs/fixture-provider.md),
 and [scoring rules](docs/scoring.md).
 
-Authentication, expiring server drafts, confirmed saved trips, natural-language
-parsing, and live weather/transit integrations remain planned work. The Trips
-and Settings pages are honest placeholders; confirmation is disabled. See the
+Saved trips are kept in the browser's local storage for now. Authentication,
+server-side saved trips, natural-language parsing, and live weather/transit
+integrations remain planned work. See the
 [architecture decisions](docs/design/ARCHITECTURE_DECISIONS.md) for the system
 boundaries, algorithms, API choices, data lifecycle, and design tradeoffs.
 

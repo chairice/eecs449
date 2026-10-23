@@ -9,5 +9,9 @@ def:pub ResultsPage -> JsxPage {
     preview: any = state["preview"] if state else None;
     submittedRequest: any = state["draft"] if state else None;
     requestText = str(state["requestText"]) if state and state["requestText"] else "";
-    return <RouteComparison preview={preview} requestText={requestText} submittedRequest={submittedRequest}/>;
+    returnPreview: any = state["returnPreview"] if state else None;
+    returnRequested = bool(state["returnRequested"]) if state else False;
+    returnDate = str(state["returnDate"]) if state and state["returnDate"] else "";
+    return <RouteComparison preview={preview} requestText={requestText} submittedRequest={submittedRequest}
+        returnPreview={returnPreview} returnRequested={returnRequested} returnDate={returnDate}/>;
 }
