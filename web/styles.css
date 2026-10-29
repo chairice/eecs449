@@ -262,3 +262,14 @@
   .dt-search-pill { right: -1px; bottom: auto; width: auto; height: calc(50% + 1px); border-radius: var(--dt-radius-panel); }
   .dt-search-pill.at-when { transform: translateY(100%); }
 }
+
+/* Ask Detour: one plain-language line above the search bar, and what it heard. */
+.dt-ask { max-width: calc(8 * var(--grid-col) + 7 * var(--grid-gutter)); margin: 0 auto var(--dt-space-6); }
+.dt-ask-bar { display: flex; gap: var(--dt-space-2); padding: var(--dt-space-2); border: 1px solid var(--dt-border); border-radius: var(--dt-radius-pill); background: var(--dt-surface); box-shadow: var(--dt-shadow); }
+.dt-ask-bar input { flex: 1; min-width: 0; border: 0; padding: 0 var(--dt-space-4); background: transparent; color: var(--dt-text); font: var(--dt-body); outline: none; }
+.dt-ask-bar input::placeholder { color: var(--dt-muted); opacity: 1; }
+.dt-ask-bar:focus-within { border-color: var(--dt-muted); }
+.dt-ask-heard { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dt-space-2); min-height: var(--dt-space-8); margin-top: var(--dt-space-4); padding-inline: var(--dt-space-4); }
+.dt-chip-heard { padding: var(--dt-space-1) var(--dt-space-4); border-radius: var(--dt-radius-pill); background: var(--dt-accent-soft); color: var(--dt-accent); }
+.dt-ask-note { color: var(--dt-text); }
+@media (max-width: 463px) { .dt-ask-bar { border-radius: var(--dt-radius-panel); flex-direction: column; } .dt-ask-bar input { min-height: var(--dt-control-height); } }

@@ -1,0 +1,23 @@
+# Render blueprint: one web service that builds and serves the Jac app.
+# New > Blueprint in the Render dashboard reads this file from the repository.
+services:
+  - type: web
+    name: detour
+    runtime: python
+    plan: free
+    # The demo branch; switch to main once it is merged.
+    branch: v2-portfolio-styling
+    buildCommand: bash scripts/render-build.sh
+    startCommand: bash scripts/render-start.sh
+    healthCheckPath: /
+    envVars:
+      # One worker keeps the app inside the free plan's 512 MB.
+      - key: JAC_SERVE_WORKERS
+        value: "1"
+      # Signs session tokens; Render generates a random value once.
+      - key: JAC_SERVE_AUTH_SECRET
+        generateValue: true
+      # Claude reads plain-language trip requests. Enter it in the dashboard;
+      # without it, Detour's built-in parser answers instead.
+      - key: ANTHROPIC_API_KEY
+        sync: false

@@ -47,3 +47,10 @@
 .dt-booking .dt-booking-note { margin-top:var(--dt-space-4); text-align:center; }
 @media (max-width:983px) { .dt-booking { position:static; } }
 @media (max-width:743px) { .dt-comparison-heading { display:block; } .dt-comparison-heading > a { margin-top:var(--dt-space-4); } .dt-route-row { padding-inline:var(--dt-space-4); grid-template-columns:minmax(0,1fr) auto; } .dt-route-duration { grid-row:2; color:var(--dt-muted); } .dt-route-price { grid-row:1 / span 2; grid-column:2; } }
+
+/* Plain-language request, quoted under the title when one started the search. */
+.dt-comparison-heading + .dt-asked { margin: calc(-1 * var(--dt-space-4)) 0 var(--dt-space-8); color: var(--dt-text); }
+/* Why this route, then its risks, between the booking box and Save trip. */
+.dt-booking .dt-booking-why { margin-bottom: var(--dt-space-6); }
+.dt-booking-why h3 { font: var(--dt-body); color: var(--dt-text); margin-bottom: var(--dt-space-1); }
+.dt-booking-why ul { margin: 0 0 var(--dt-space-2); padding-left: var(--dt-space-6); }

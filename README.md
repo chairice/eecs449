@@ -116,9 +116,12 @@ route comparisons with explicit provenance and unknown conditions. See the
 [domain contracts](docs/domain-model.md), [fixture adapter](docs/fixture-provider.md),
 and [scoring rules](docs/scoring.md).
 
-Saved trips are kept in the browser's local storage for now. Authentication,
-server-side saved trips, natural-language parsing, and live weather/transit
-integrations remain planned work. See the
+Plain-language requests ("Chicago Friday after 4, under $50") are read by
+Claude through byLLM when `ANTHROPIC_API_KEY` is set, and by a rule-based
+parser otherwise (`web/server/interpret.jac`); either way they only fill the
+search form, which the planner validates. Saved trips are kept in the
+browser's local storage for now. Authentication, server-side saved trips, and
+live weather/transit integrations remain planned work. See the
 [architecture decisions](docs/design/ARCHITECTURE_DECISIONS.md) for the system
 boundaries, algorithms, API choices, data lifecycle, and design tradeoffs.
 
@@ -134,6 +137,15 @@ bash scripts/validate.sh
 
 This checks every Jac source, runs all Jac regression suites, builds the full
 application from current sources, and tests the emitted comparison adapter.
+
+### Deploying
+
+[`render.yaml`](render.yaml) describes a Render web service:
+`scripts/render-build.sh` installs the pinned Jac compiler inside the checkout
+and builds the app, and `scripts/render-start.sh` serves it on Render's
+`$PORT`. Set `ANTHROPIC_API_KEY` in the service's environment to have Claude
+read requests; without it the built-in parser answers. The free plan sleeps
+after 15 idle minutes and takes about a minute to wake.
 
 ## Course
 

@@ -70,6 +70,11 @@ def saved_leg(label: str, route: ComparisonRoute) -> dict[str, any] {
         "stops": [{"name": stop.name, "latitude": stop.latitude, "longitude": stop.longitude} for stop in route.stops]};
 }
 
+"""Risk in plain words: "Unknown" reads as "unknown", the rest as a level."""
+def risk_line(route: ComparisonRoute) -> str {
+    return "Delay " + route.delay.lower() + " · Weather " + route.weather.lower() + " · Connection risk " + route.transfer_risk.lower();
+}
+
 def:pub RecommendationPanel(route: ComparisonRoute, recommended: bool, returnRoute: ComparisonRoute | None = None, onSave: Callable[[], None] | None = None, saveFailed: bool = False) -> JsxElement {
     roundTrip = returnRoute is not None;
     return <aside className="dt-booking" aria-labelledby="selection-heading">
@@ -79,12 +84,17 @@ def:pub RecommendationPanel(route: ComparisonRoute, recommended: bool, returnRou
             <div><dt>Depart</dt><dd>{route.departure}</dd></div>
             {(<div><dt>Return</dt><dd>{returnRoute.departure}</dd></div> if returnRoute is not None else <div><dt>Arrive</dt><dd>{route.arrival}</dd></div>)}
         </dl>
+        <div className="dt-booking-why">
+            <h3>{"Why Detour recommends it" if recommended else "About this route"}</h3>
+            <ul>{for reason in route.reasons[:2] { <li key={reason}>{reason}</li> }}</ul>
+            <p>{risk_line(route)}</p>
+        </div>
         <button type="button" className="dt-primary dt-booking-action" disabled={onSave is None} onClick={lambda { if onSave is not None { onSave(); } }}>Save trip</button>
         {(<p className="dt-booking-note dt-field-error" role="alert">This browser wouldn't keep the trip. Check that site data is allowed.</p> if saveFailed else None)}
     </aside>;
 }
 
-def:pub RouteComparison(preview: any = None, requestText: str = "", submittedRequest: any = None, returnPreview: any = None, returnRequested: bool = False, returnDate: str = "") -> JsxElement {
+def:pub RouteComparison(preview: any = None, requestText: str = "", submittedRequest: any = None, returnPreview: any = None, returnRequested: bool = False, returnDate: str = "", readBy: str = "") -> JsxElement {
     has selectedId: str = "", returnSelectedId: str = "", mapLeg: str = "outbound", saveFailed: bool = False;
     navigate = useNavigate();
     view = comparison_view(preview);
@@ -117,6 +127,7 @@ def:pub RouteComparison(preview: any = None, requestText: str = "", submittedReq
     return <>
         <div className="dt-comparison-heading"><PageHeading title={view.title} description={days}/>
             <Link className="dt-secondary" to="/plan" state={editState}>Edit request</Link></div>
+        {(<p className="dt-asked">“{requestText}”<span className="dt-muted"> · {"Read by Claude" if readBy == "claude" else "Read by Detour's built-in parser"}</span></p> if requestText != "" and readBy != "" else None)}
         <div className="dt-comparison-grid">
             <div className="dt-legs">
                 {(<RouteList title="Outbound" routes={view.routes} selectedId={selected.id} group="outbound" onSelect={lambda (id: str) { selectedId = id; mapLeg = "outbound"; }}/> if returnRequested else
