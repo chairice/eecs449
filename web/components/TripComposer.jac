@@ -210,10 +210,10 @@ def:pub TripComposer(
             <div className="dt-search" ref={searchBox}>
             <div className={"dt-search-bar" + (" is-active" if showWhen or showWhere else "")}>
                 <span className={"dt-search-pill at-" + str(pillAt.current)} aria-hidden="true"></span>
-                <label className={"dt-search-field" + (" is-open" if showWhere else "")} htmlFor="destination_text"><span>Where</span><input id="destination_text" type="text" placeholder="Search destinations" onFocus={lambda { panel = "where"; }} aria-expanded={showWhere} aria-controls="dt-where" role="combobox" aria-autocomplete="list" required={True} value={form.destination_text} onChange={lambda (e: ChangeEvent) { setField("destination_text", e.target.value); panel = "where"; }} autoComplete="off" aria-invalid={destinationError != ""} aria-describedby="error-destination_text"/></label>
+                <label className={"dt-search-field" + (" is-open" if showWhere else "")} htmlFor="destination_text"><span className={"dt-sr-only" if form.destination_text != "" else ""}>Where</span><input id="destination_text" type="text" placeholder="Search destinations" onFocus={lambda { panel = "where"; }} aria-expanded={showWhere} aria-controls="dt-where" role="combobox" aria-autocomplete="list" required={True} value={form.destination_text} onChange={lambda (e: ChangeEvent) { setField("destination_text", e.target.value); panel = "where"; }} autoComplete="off" aria-invalid={destinationError != ""} aria-describedby="error-destination_text"/></label>
                 <div className={"dt-search-field dt-search-segment" + (" is-open" if showWhen else "")}>
                     <button className="dt-search-trigger" type="button" aria-expanded={showWhen} aria-controls="dt-when" onClick={lambda { panel = "" if showWhen else "when"; }}>
-                        <span>When</span>
+                        <span className={"dt-sr-only" if summary != "" else ""}>When</span>
                         <span className={"dt-search-value" if summary != "" else "dt-search-placeholder"}>{summary if summary != "" else "Add dates"}</span>
                     </button>
                     <button className="dt-search-submit" type="submit" disabled={busy or submitting} aria-label={"Searching" if busy or submitting else submitLabel}><Icon name="magnifyingglass"/></button>
