@@ -7,6 +7,10 @@ obj:pub ComparisonLeg {
 obj:pub ComparisonStop {
     has name: str, latitude: float, longitude: float;
 }
+"""One leg as the map draws it: its mode and the points it runs through."""
+obj:pub ComparisonSegment {
+    has mode: str, points: list[list[float]];
+}
 obj:pub ComparisonRoute {
     has id: str, name: str, modes: str, departure: str, arrival: str, duration: str;
     has price: str, transfers: str, score: str, delay: str, weather: str, transfer_risk: str;
@@ -15,6 +19,7 @@ obj:pub ComparisonRoute {
     has stops: list[ComparisonStop] = [];
     # Fare in cents for totals; -1 when the fare is unknown.
     has price_cents: int = -1;
+    has segments: list[ComparisonSegment] = [];
 }
 obj:pub ComparisonView {
     has valid: bool = False, error: str = "", error_code: str = "";
@@ -121,6 +126,38 @@ def route_stops(raw_legs: list[any]) -> list[ComparisonStop] {
     return stops;
 }
 
+def map_point(value: any) -> list[float] | None {
+    if not isinstance(value, list) or len(value) != 2 { return None; }
+    for number in value {
+        if isinstance(number, bool) or not isinstance(number, (float, int)) or not Number.isFinite(number) { return None; }
+    }
+    return [float(value[0]), float(value[1])];
+}
+
+"""Each leg's drawn path; a leg without one is a straight line between its stops,
+and a route with any unmappable leg draws nothing rather than guess."""
+def route_segments(raw_legs: list[any]) -> list[ComparisonSegment] {
+    segments: list[ComparisonSegment] = [];
+    for leg in raw_legs {
+        points: list[list[float]] = [];
+        drawn: any = leg["path"];
+        if isinstance(drawn, list) and len(drawn) >= 2 {
+            for value in drawn {
+                point = map_point(value);
+                if point is None { return []; }
+                points.append(point);
+            }
+        } else {
+            start = map_stop(leg["origin"]);
+            end = map_stop(leg["destination"]);
+            if start is None or end is None { return []; }
+            points = [[start.latitude, start.longitude], [end.latitude, end.longitude]];
+        }
+        segments.append(ComparisonSegment(mode=mode_label(leg["mode"]), points=points));
+    }
+    return segments;
+}
+
 def route_view(raw: any, as_of: str) -> ComparisonRoute {
     option = raw["option"];
     legs: list[ComparisonLeg] = [];
@@ -160,7 +197,7 @@ def route_view(raw: any, as_of: str) -> ComparisonRoute {
         score=str(score_value.toFixed(1)), delay=risk_label(raw["risk"]["delay"]), weather=risk_label(raw["risk"]["weather"]),
         transfer_risk=risk_label(raw["risk"]["transfer"]), source=source_mode, provider=required_text(source["provider"]),
         freshness=freshness, source_time=utc_label(required_text(source["fetched_at"])) if source["fetched_at"] else "Timestamp unavailable", source_warnings=warnings,
-        reasons=reasons, legs=legs, stops=route_stops(raw_legs),
+        reasons=reasons, legs=legs, stops=route_stops(raw_legs), segments=route_segments(raw_legs),
         price_cents=-1 if option["price_cents"] is None else int(required_number(option["price_cents"])));
 }
 

@@ -6,7 +6,7 @@ import from "@jac/runtime" { Link, useNavigate, useParams }
 import from ...components.PageHeading { PageHeading }
 import from ...components.EmptyState { EmptyState }
 import from ...components.RouteMap { RouteMap }
-import from ...components.comparison_view { ComparisonStop }
+import from ...components.comparison_view { ComparisonStop, ComparisonSegment }
 import from ...client.saved_trips { find_trip, remove_trip, trip_countdown }
 
 """Stops saved with a leg; anything without numeric coordinates is skipped."""
@@ -20,6 +20,23 @@ def leg_stops(leg: any) -> list[ComparisonStop] {
         }
     }
     return stops;
+}
+
+"""Drawn legs saved with a trip; trips saved before paths existed have none,
+and any malformed segment drops them all so the map shows pins only."""
+def leg_segments(leg: any) -> list[ComparisonSegment] {
+    raw: any = leg["segments"];
+    if not Array.isArray(raw) { return []; }
+    segments: list[ComparisonSegment] = [];
+    for segment in raw {
+        points: any = segment["points"] if segment else None;
+        if not segment or not isinstance(segment["mode"], str) or not Array.isArray(points) or points.length < 2 { return []; }
+        for point in points {
+            if not Array.isArray(point) or point.length != 2 or not Number.isFinite(point[0]) or not Number.isFinite(point[1]) { return []; }
+        }
+        segments.append(ComparisonSegment(mode=segment["mode"], points=points));
+    }
+    return segments;
 }
 
 def:pub TripDetailPage -> JsxPage {
@@ -49,7 +66,7 @@ def:pub TripDetailPage -> JsxPage {
                         </div></div>
                     </section>
                 }}
-                <RouteMap stops={stops} label={"Map of " + " to ".join([stop.name for stop in stops]) if len(stops) > 0 else "Map of the Ann Arbor to Chicago demo corridor"}/>
+                <RouteMap stops={stops} segments={leg_segments(trip["legs"][0])} label={"Map of " + " to ".join([stop.name for stop in stops]) if len(stops) > 0 else "Map of the Ann Arbor to Chicago demo corridor"}/>
             </div>
             <aside className="dt-booking" aria-labelledby="trip-total">
                 <h2 id="trip-total" className="dt-booking-price">{trip["total"]}</h2>

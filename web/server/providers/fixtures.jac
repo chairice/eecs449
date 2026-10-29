@@ -9,7 +9,7 @@ import from server.models {
     DomainError, ErrorCode, Place, ProviderMetadata, ProviderResult, ProviderWarning,
     RouteLeg, RouteOption, ServiceStatus, SourceStatus, TimeKind, TravelMode, TripRequest,
     check_keys, json_array, json_integer, json_object, json_optional_integer,
-    json_text, metadata_from_object, place_from_object
+    json_text, metadata_from_object, path_from_array, place_from_object
 }
 import from server.providers.route_provider { RouteProvider }
 
@@ -79,7 +79,7 @@ obj FixtureRouteProvider(RouteProvider) {
 
     def load_candidates(request: TripRequest) -> ProviderResult[list[RouteOption]] {
         payload = json_object(json.loads(Path(self.fixture_path).read_text(encoding="utf-8")));
-        check_keys(payload, ["schema_version", "synthetic", "description", "source", "places", "routes"]);
+        check_keys(payload, ["schema_version", "synthetic", "description", "source", "places", "routes", "paths"]);
         if json_integer(payload.get("schema_version")) != 1 or payload.get("synthetic") is not True {
             raise ValueError("only synthetic fixture schema v1 is supported");
         }
@@ -92,6 +92,20 @@ obj FixtureRouteProvider(RouteProvider) {
             place = place_from_object(item);
             if place.id in places { raise ValueError("duplicate fixture place id"); }
             places[place.id] = place;
+        }
+
+        # Drawn alignments, stored once per mode and pair of places; a leg
+        # running the other way gets the same points reversed.
+        paths: dict[str, list[list[float]]] = {};
+        for item in json_array(payload.get("paths", [])) {
+            raw_path = json_object(item);
+            check_keys(raw_path, ["mode", "between", "points"]);
+            joined = [json_text(end) for end in json_array(raw_path.get("between"))];
+            if len(joined) != 2 or joined[0] not in places or joined[1] not in places { raise ValueError("fixture path must join two known places"); }
+            mode = TravelMode(json_text(raw_path.get("mode"))).value;
+            points = path_from_array(raw_path.get("points"));
+            paths[mode + ":" + joined[0] + ":" + joined[1]] = points;
+            paths[mode + ":" + joined[1] + ":" + joined[0]] = list(reversed(points));
         }
 
         routes: list[RouteOption] = [];
@@ -110,7 +124,9 @@ obj FixtureRouteProvider(RouteProvider) {
                 destination = places[json_text(leg.get("destination_id"))];
                 departure = local_instant(request.local_date, json_text(leg.get("departure_time")), origin.timezone, json_integer(leg.get("departure_day_offset", 0)));
                 arrival = local_instant(request.local_date, json_text(leg.get("arrival_time")), destination.timezone, json_integer(leg.get("arrival_day_offset", 0)));
-                legs.append(RouteLeg(id=json_text(leg.get("id")), mode=TravelMode(json_text(leg.get("mode"))), origin=origin, destination=destination, departure_at=departure.isoformat(), arrival_at=arrival.isoformat(), operator=json_text(leg.get("operator")), service=json_text(leg.get("service")), status=ServiceStatus.SCHEDULED));
+                mode = TravelMode(json_text(leg.get("mode")));
+                path = paths.get(mode.value + ":" + origin.id + ":" + destination.id, []);
+                legs.append(RouteLeg(id=json_text(leg.get("id")), mode=mode, origin=origin, destination=destination, departure_at=departure.isoformat(), arrival_at=arrival.isoformat(), operator=json_text(leg.get("operator")), service=json_text(leg.get("service")), status=ServiceStatus.SCHEDULED, path=path));
             }
             option = RouteOption(id=route_id, legs=legs, source=source, price_cents=json_optional_integer(raw.get("price_cents")), currency=json_text(raw.get("currency", "USD")));
             route_ends = (option.legs[0].origin.id, option.legs[-1].destination.id);

@@ -68,7 +68,8 @@ def booking_total(route: ComparisonRoute, returnRoute: ComparisonRoute | None) -
 def saved_leg(label: str, route: ComparisonRoute) -> dict[str, any] {
     return {"label": label, "modes": route.modes, "departure": clock(route.departure), "arrival": clock(route.arrival),
         "duration": travel_time(route.duration), "price": route.price,
-        "stops": [{"name": stop.name, "latitude": stop.latitude, "longitude": stop.longitude} for stop in route.stops]};
+        "stops": [{"name": stop.name, "latitude": stop.latitude, "longitude": stop.longitude} for stop in route.stops],
+        "segments": [{"mode": segment.mode, "points": segment.points} for segment in route.segments]};
 }
 
 """Risk in plain words: "Unknown" reads as "unknown", the rest as a level."""
@@ -167,7 +168,7 @@ def:pub RouteComparison(preview: any = None, requestText: str = "", submittedReq
                   <RouteList title={str(len(view.routes)) + " options"} routes={view.routes} selectedId={selected.id} group="route" onSelect={lambda (id: str) { selectedId = id; }} titleHidden={True}/>)}
                 {(<RouteList title="Return" routes={returnRoutes} selectedId={returnSelected.id} group="return" onSelect={lambda (id: str) { returnSelectedId = id; mapLeg = "return"; }}/> if returnRequested and returnSelected is not None else None)}
                 {(<section className="dt-leg" role="status"><h2 className="dt-leg-title">Return</h2><p className="dt-muted">No return routes for this day. Try another return date.</p></section> if returnRequested and returnSelected is None and returnDate else None)}
-                <RouteMap stops={mapped.stops} label={"Map of the selected route: " + " to ".join([stop.name for stop in mapped.stops]) if len(mapped.stops) > 0 else "Map of the Ann Arbor to Chicago demo corridor"}/>
+                <RouteMap stops={mapped.stops} segments={mapped.segments} label={"Map of the selected route: " + " to ".join([stop.name for stop in mapped.stops]) if len(mapped.stops) > 0 else "Map of the Ann Arbor to Chicago demo corridor"}/>
             </div>
             <RecommendationPanel route={selected} recommended={selected.id == view.routes[0].id} returnRoute={returnSelected if returnRequested else None} onSave={saveTrip} saveFailed={saveFailed}/>
         </div>

@@ -284,3 +284,10 @@
 .dt-describe-bar input::placeholder { color: var(--dt-muted); opacity: 1; }
 .dt-panel-note { margin-top: var(--dt-space-2); padding-inline: var(--dt-space-2); color: var(--dt-muted); }
 .dt-describe .dt-where-panel { width: 100%; }
+/* The map's legend: a small white card in the top-left corner, keyed to the
+   solid train and dashed bus lines it explains. */
+.dt-map-frame { position: relative; }
+.dt-map-legend { position: absolute; z-index: 1; top: var(--dt-space-4); left: var(--dt-space-4); display: flex; gap: var(--dt-space-4); margin: 0; padding: var(--dt-space-2) var(--dt-space-4); list-style: none; border-radius: var(--dt-radius-pill); background: var(--dt-surface); box-shadow: var(--dt-shadow); color: var(--dt-text); font: var(--dt-body); }
+.dt-map-legend li { display: flex; align-items: center; gap: var(--dt-space-2); }
+.dt-map-key { width: 24px; height: 0; border-top: 4px solid var(--dt-accent); border-radius: 2px; }
+.dt-map-key.is-bus { border-top-style: dotted; }
