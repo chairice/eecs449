@@ -293,4 +293,11 @@
 .dt-chat-starters { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--dt-space-2); margin-top: var(--dt-space-4); }
 .dt-chat-starter { padding: var(--dt-space-2) var(--dt-space-4); border: 1px solid var(--dt-border); border-radius: var(--dt-radius-pill); background: var(--dt-surface); color: var(--dt-text); font: var(--dt-body); cursor: pointer; transition: border-color var(--dt-duration), background-color var(--dt-duration); }
 .dt-chat-starter:hover:not(:disabled) { border-color: var(--dt-text); }
+.dt-msg-body { display: grid; justify-items: start; gap: var(--dt-space-2); }
+.dt-msg-action { min-height: 36px; padding: 0 var(--dt-space-4); border: 1px solid var(--dt-text); border-radius: var(--dt-radius-pill); background: var(--dt-surface); color: var(--dt-text); font: var(--dt-body); cursor: pointer; transition: background-color var(--dt-duration); }
+.dt-msg-action:hover { background: var(--dt-surface-muted); }
+/* The quiet way into the manual search, under the starters or the conversation. */
+.dt-chat .dt-chat-manual { display: block; margin: var(--dt-space-4) auto 0; padding: var(--dt-space-1) var(--dt-space-2); border: 0; background: none; color: var(--dt-muted); font: var(--dt-body); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.dt-chat.is-talking .dt-chat-manual { margin: 0 auto var(--dt-space-2); }
+.dt-chat-manual:hover { color: var(--dt-text); }
 .dt-chat .dt-chat-credit { margin: 0 var(--dt-space-6) var(--dt-space-4); color: var(--dt-muted); text-align: center; }

@@ -129,11 +129,15 @@ def:pub TripComposer(
     earliestDate: str = "",
     onValidDraft: Callable[[ComposerDraft], None] | None = None,
     busy: bool = False,
-    submitLabel: str = "Check trip details"
+    submitLabel: str = "Check trip details",
+    # The plan page keeps the manual search tucked away until it is asked for;
+    # the map below it still shows. startPanel opens "where" or "when" on mount.
+    searchHidden: bool = False,
+    startPanel: str = ""
 ) -> JsxElement {
     has form: ComposerInput = starting_form(initial);
     has errors: list[FieldError] = [], validated: ComposerDraft | None = None;
-    has submitting: bool = False, panel: str = "", monthOffset: int = 0;
+    has submitting: bool = False, panel: str = startPanel, monthOffset: int = 0;
     # Airbnb-style range: the first pick is the departure, the second the return,
     # which is searched as its own trip back. hoverDate previews the range.
     has hoverDate: str = "";
@@ -200,7 +204,7 @@ def:pub TripComposer(
     stops = [stop for stop in [known_stop(form.origin_text), known_stop(form.destination_text)] if stop is not None];
 
     return <div className="dt-composer">
-        <form noValidate={True} onSubmit={submit}>
+        <form noValidate={True} onSubmit={submit} hidden={searchHidden}>
             <fieldset className="dt-composer-controls" disabled={busy or submitting}>
             <p className="dt-sr-only" role="alert">{" ".join([error.message for error in errors])}</p>
             <div className="dt-search" ref={searchBox}>

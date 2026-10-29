@@ -80,11 +80,19 @@ def:pub reply_text(form: ComposerInput) -> str {
         return "When are you going to " + city(form.destination_text) + "? A day like “Friday” or “Nov 3” works.";
     }
     parts = [city(form.origin_text) + " to " + city(form.destination_text), "on " + short_day(form.local_date)];
-    if form.local_time != "00:00" {
+    if form.local_time not in ["", "00:00"] {
         parts.append(("arriving by " if form.time_kind == "ARRIVE_BY" else "leaving after ") + clock_label(form.local_time));
     }
     if form.budget != "" { parts.append("under $" + form.budget); }
     if form.transfer_minutes != "30" { parts.append("with " + form.transfer_minutes + "+ minutes between connections"); }
     if form.return_date != "" { parts.append("back " + short_day(form.return_date)); }
     return "Looking for " + ", ".join(parts) + ". Finding routes…";
+}
+
+"""Which part of the manual search answers Detour's question: "where", "when",
+or "" once nothing is missing."""
+def:pub reply_action(form: ComposerInput) -> str {
+    if form.destination_text == "" { return "where"; }
+    if form.local_date == "" { return "when"; }
+    return "";
 }
