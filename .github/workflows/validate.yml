@@ -19,6 +19,10 @@ jobs:
           node-version-file: .nvmrc
       - name: Install pinned Jac toolchain
         shell: bash
+        # The installer looks the release up through the GitHub API; the job's
+        # read-only token keeps it off the shared anonymous rate limit.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           jac_version="$(sed -n 's/^jac-version = "==\([^"]*\)"$/\1/p' web/jac.toml)"

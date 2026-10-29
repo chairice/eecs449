@@ -49,3 +49,10 @@ test "a follow-up reply can be just a day or just a time" {
     time = rule_intent("4pm", TODAY);
     assert time.time == "16:00" and time.time_kind == "DEPART_AFTER" and time.date == "";
 }
+
+test "cheapest, fastest and direct set how routes are sorted" {
+    assert rule_intent("chicago trip thats as cheap as possible", TODAY).priority == "LOWEST_COST";
+    assert rule_intent("fastest way to Chicago Friday", TODAY).priority == "FASTEST";
+    assert rule_intent("direct train to Chicago", TODAY).priority == "FEWEST_TRANSFERS";
+    assert rule_intent("Chicago Friday", TODAY).priority == "BALANCED";
+}

@@ -29,15 +29,13 @@ def:pub DescribeBar(onSearch: Callable[[str], None], busy: bool = False, initial
 
     return <div className="dt-search dt-describe" ref={box}>
         <form className={"dt-describe-bar" + (" is-active" if open else "")} onSubmit={lambda (e: FormEvent) { e.preventDefault(); search(text); }}>
-            <label className="dt-describe-field" htmlFor="describe-request">
-                <span>Describe your trip</span>
-                <input id="describe-request" type="text" maxLength={500} autoComplete="off" value={text}
-                    placeholder="Where and when?" role="combobox" aria-expanded={open}
+            <label className="dt-sr-only" htmlFor="describe-request">Describe your trip</label>
+            <input id="describe-request" type="text" maxLength={500} autoComplete="off" value={text}
+                    placeholder="Describe your trip" role="combobox" aria-expanded={open}
                     aria-controls="dt-describe-panel" aria-autocomplete="list"
                     onFocus={lambda { open = True; }}
                     onChange={lambda (e: ChangeEvent) { text = e.target.value; open = True; }}
                     onKeyDown={lambda (e: KeyboardEvent) { if e.key == "Escape" { open = False; } }}/>
-            </label>
             <button className="dt-search-submit" type="submit" disabled={busy} aria-label={"Searching" if busy else "Search"}><Icon name="magnifyingglass"/></button>
         </form>
         <div id="dt-describe-panel" className="dt-where-panel" role="listbox" aria-label="Try asking" hidden={not open or text.strip() != ""}>

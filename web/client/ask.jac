@@ -29,13 +29,15 @@ def:pub intent_input(answer: any, request: str) -> ComposerInput {
     origin = text_field(answer, "origin");
     time = text_field(answer, "time");
     kind = text_field(answer, "time_kind");
+    priority = text_field(answer, "priority");
     destination = text_field(answer, "destination");
     return ComposerInput(
         request_text=request, origin_text=origin if origin != "" else default_origin(destination),
         destination_text=destination, local_date=text_field(answer, "date"),
         local_time=time if time != "" else "00:00", time_kind=kind if kind == "ARRIVE_BY" else "DEPART_AFTER",
         budget=str(price) if price > 0 else "", transfer_minutes=str(buffer) if buffer > 0 else "30",
-        return_date=text_field(answer, "return_date")
+        return_date=text_field(answer, "return_date"),
+        priority=priority if priority in ["LOWEST_COST", "FASTEST", "FEWEST_TRANSFERS", "MOST_RELIABLE"] else "BALANCED"
     );
 }
 

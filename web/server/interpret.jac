@@ -26,6 +26,7 @@ obj:pub TripIntent {
     has origin: str = "", destination: str = "";
     has date: str = "", time: str = "", time_kind: str = "DEPART_AFTER";
     has max_price: int = 0, min_transfer_minutes: int = 0, return_date: str = "";
+    has priority: str = "BALANCED";
 }
 sem TripIntent = "A trip request turned into search fields. Leave a field at its default when the request does not say it.";
 sem TripIntent.origin = "Starting city written as 'City, ST' (for example 'Ann Arbor, MI'), or '' when not stated.";
@@ -35,6 +36,7 @@ sem TripIntent.time = "Local time as 24-hour HH:MM; '' when not stated. 'after 4
 sem TripIntent.time_kind = "DEPART_AFTER when the time is when to leave ('after 4', 'leave at 5'); ARRIVE_BY when it is a deadline ('by 9', 'before 9 pm').";
 sem TripIntent.max_price = "Maximum total fare in whole US dollars; 0 when no budget is given.";
 sem TripIntent.min_transfer_minutes = "Minimum minutes wanted between connections; 45 for 'avoid tight transfers'; 0 when not stated.";
+sem TripIntent.priority = "How to rank routes: LOWEST_COST for 'cheap' or 'as cheap as possible', FASTEST for 'fast' or 'quickest', FEWEST_TRANSFERS for 'direct' or 'no transfers', MOST_RELIABLE for 'reliable'; BALANCED otherwise.";
 sem TripIntent.return_date = "Return travel date as YYYY-MM-DD when the request mentions coming back; '' otherwise.";
 
 def extract_intent(request: str, today: str, weekday: str) -> TripIntent by llm(temperature=0.0, max_tokens=300);
@@ -119,6 +121,16 @@ def read_places(text: str) -> tuple[str, str] {
     return (found_origin, found_destination);
 }
 
+glob PRIORITIES: list[str] = ["BALANCED", "LOWEST_COST", "FASTEST", "FEWEST_TRANSFERS", "MOST_RELIABLE"];
+
+def read_priority(text: str) -> str {
+    if re.search(r"\b(cheap\w*|lowest (?:cost|price|fare)|least expensive|budget-friendly|save money)\b", text) { return "LOWEST_COST"; }
+    if re.search(r"\b(fast\w*|quick\w*|shortest)\b", text) { return "FASTEST"; }
+    if re.search(r"\b(direct|no (?:transfers?|connections?)|fewest (?:transfers?|connections?))\b", text) { return "FEWEST_TRANSFERS"; }
+    if re.search(r"\b(reliab\w*|on time|safest)\b", text) { return "MOST_RELIABLE"; }
+    return "BALANCED";
+}
+
 """Rule-based reading of the phrasings a commuter is likely to type."""
 def:pub rule_intent(request: str, today: date) -> TripIntent {
     text = " ".join(request.lower().replace(",", " , ").split());
@@ -137,7 +149,7 @@ def:pub rule_intent(request: str, today: date) -> TripIntent {
     return TripIntent(
         origin=origin, destination=destination, date=read_date(outbound, today), time=time, time_kind=kind,
         max_price=int(price.group(1) or price.group(2)) if price else 0,
-        min_transfer_minutes=minutes, return_date=returning
+        min_transfer_minutes=minutes, return_date=returning, priority=read_priority(text)
     );
 }
 
@@ -151,7 +163,8 @@ def cleaned(intent: TripIntent) -> TripIntent {
         time_kind="ARRIVE_BY" if intent.time_kind == "ARRIVE_BY" else "DEPART_AFTER",
         max_price=max(0, min(9999, int(intent.max_price or 0))),
         min_transfer_minutes=max(0, min(240, int(intent.min_transfer_minutes or 0))),
-        return_date=intent.return_date if re.match(iso, str(intent.return_date)) else ""
+        return_date=intent.return_date if re.match(iso, str(intent.return_date)) else "",
+        priority=intent.priority if intent.priority in PRIORITIES else "BALANCED"
     );
 }
 
@@ -181,6 +194,7 @@ def:pub interpret_trip(text: str) -> str {
     return json.dumps({
         "source": source, "today": today.isoformat(), "origin": intent.origin, "destination": intent.destination,
         "date": intent.date, "time": intent.time, "time_kind": intent.time_kind, "max_price": intent.max_price,
-        "min_transfer_minutes": intent.min_transfer_minutes, "return_date": intent.return_date
+        "min_transfer_minutes": intent.min_transfer_minutes, "return_date": intent.return_date,
+        "priority": intent.priority
     });
 }

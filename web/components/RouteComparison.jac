@@ -112,6 +112,9 @@ def search_extras(request: any) -> str {
     }
     buffer: any = request["min_transfer_minutes"];
     if isinstance(buffer, (int, float)) and not isinstance(buffer, bool) and buffer != 30 { parts.append(str(buffer) + "+ min connections"); }
+    priority: any = request["priority"];
+    sort_labels = {"LOWEST_COST": "Cheapest first", "FASTEST": "Fastest first", "FEWEST_TRANSFERS": "Fewest transfers", "MOST_RELIABLE": "Most reliable first"};
+    if isinstance(priority, str) and priority in sort_labels { parts.append(sort_labels[priority]); }
     return " · ".join(parts) if len(parts) > 0 else "Any time";
 }
 
