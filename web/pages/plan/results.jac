@@ -1,4 +1,5 @@
-"""Render the search preview carried by navigation; direct links recover safely."""
+"""
+Render the search preview carried by navigation; direct links recover safely."""
 
 import from "@jac/runtime" { useLocation }
 import from ...components.RouteComparison { RouteComparison }

@@ -1,4 +1,5 @@
-"""Canonical server domain. Currency is integer USD cents; times carry offsets."""
+"""
+Canonical server domain. Currency is integer USD cents; times carry offsets."""
 
 import json;
 import from datetime { datetime, date }

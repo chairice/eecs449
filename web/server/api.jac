@@ -1,4 +1,5 @@
-"""Stateless fixture planning RPC. This endpoint never creates or saves a draft.
+"""
+Stateless fixture planning RPC. This endpoint never creates or saves a draft.
 
 Input is the explicit TripRequest JSON contract, limited to 16 KiB UTF-8.
 Output is JSON with schema_version, mode, request, as_of, routes, rejected,

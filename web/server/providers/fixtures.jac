@@ -1,4 +1,5 @@
-"""Synthetic daily corridor schedules. Never a live fallback or booking source."""
+"""
+Synthetic daily corridor schedules. Never a live fallback or booking source."""
 
 import json;
 import from datetime { date, datetime, timedelta, timezone }
@@ -82,6 +83,7 @@ obj FixtureRouteProvider(RouteProvider) {
         if json_integer(payload.get("schema_version")) != 1 or payload.get("synthetic") is not True {
             raise ValueError("only synthetic fixture schema v1 is supported");
         }
+        
         source = metadata_from_object(payload.get("source"));
         if source.status != SourceStatus.FIXTURE { raise ValueError("fixture must declare FIXTURE provenance"); }
         source.warnings.append(ProviderWarning(code="SYNTHETIC_DATA", message="Illustrative schedules and fares generated for the requested date. Not live service, availability, or booking information."));
@@ -91,6 +93,7 @@ obj FixtureRouteProvider(RouteProvider) {
             if place.id in places { raise ValueError("duplicate fixture place id"); }
             places[place.id] = place;
         }
+
         routes: list[RouteOption] = [];
         seen: set[str] = set();
         for item in json_array(payload.get("routes")) {
@@ -114,6 +117,7 @@ obj FixtureRouteProvider(RouteProvider) {
             if route_ends not in [("ann-arbor", "chicago"), ("chicago", "ann-arbor")] { raise ValueError("route is outside the fixture corridor"); }
             routes.append(option);
         }
+
         # Validation runs even for unsupported locations so broken fixture files
         # cannot masquerade as a successful empty provider response.
         ends = corridor_ends(request);

@@ -72,6 +72,30 @@ def:pub find_trip(id: str) -> any {
     return None;
 }
 
+"""Calendar countdown for a saved trip's ISO departure date."""
+def:pub trip_countdown(trip: any) -> str {
+    if not trip or not isinstance(trip["start_date"], str) or trip["start_date"] == "" {
+        return "Start date unavailable";
+    }
+
+    # Gather the information for the countdown
+    start = Date.parse(trip["start_date"] + "T12:00:00Z");
+    today = str((new(Date)).toISOString()).split("T")[0];
+    current = Date.parse(today + "T12:00:00Z");
+    if not Number.isFinite(start) or not Number.isFinite(current) {
+        return "Start date unavailable";
+    }
+
+    # Throw together the countdown
+    # LATER feature: only say trip started when the user confirms that they have started to travel.
+
+    days = int((start - current) / 86400000.0);
+    if days < 0 { return "Trip started"; }
+    if days == 0 { return "Today"; }
+    if days == 1 { return "Tomorrow"; }
+    return str(days) + " days";
+}
+
 def:pub new_trip_id -> str {
     return "trip-" + str(Date.now());
 }

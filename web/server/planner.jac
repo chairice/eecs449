@@ -1,4 +1,5 @@
-"""Pure feasibility filtering and ranking. All time/evidence inputs are explicit."""
+"""
+Pure feasibility filtering and ranking. All time/evidence inputs are explicit."""
 
 import from datetime { datetime, timezone }
 import from zoneinfo { ZoneInfo }
@@ -44,6 +45,7 @@ def request_instant(request: TripRequest, zone_name: str) -> datetime {
     if first_valid and second_valid and first.utcoffset() != second.utcoffset() { raise ValueError("requested local time is ambiguous; choose an unambiguous time"); }
     return first if first_valid else second;
 }
+
 
 """Slack excludes walking time between vehicles; walking is not a transfer."""
 def transfer_slack(route: RouteOption) -> list[float] {

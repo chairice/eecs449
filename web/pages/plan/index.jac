@@ -1,4 +1,5 @@
-"""Structured planning through the stateless, synthetic fixture endpoint."""
+"""
+Structured planning through the stateless, synthetic fixture endpoint."""
 
 import from "@jac/runtime" { useLocation, useNavigate }
 import from react { useRef }
@@ -44,11 +45,13 @@ def:pub PlanPage -> JsxPage {
         failure = "";
         payload = request_payload(draft);
         homeward = return_payload(draft);
+
         # Replace this history entry so browser Back restores the submitted form.
         navigate("/plan", {"replace": True, "state": {"draft": payload, "returnDate": draft.return_date, "requestText": draft.request_text}});
         try {
             envelope = checked_envelope(await plan_trip(JSON.stringify(payload)));
             if not lifecycle.current["active"] { return; }
+            
             # The trip home is its own search; if it fails, the outbound results still show.
             returnEnvelope: any = None;
             if homeward is not None {
