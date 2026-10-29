@@ -1,5 +1,7 @@
-"""
-Structured planning through the stateless, synthetic fixture endpoint."""
+"""Trip search, after Airbnb's: one bar at a time under two tabs. Describe
+your trip (the default) reads a sentence; Choose dates is the manual
+Where/When bar. A sentence missing something hands over to the manual bar
+with what was understood filled in and the missing panel open."""
 
 import from "@jac/runtime" { useLocation, useNavigate }
 import from react { useRef }
@@ -7,9 +9,9 @@ import from server.api { plan_trip }
 import from server.interpret { interpret_trip }
 import from ...components.PageHeading { PageHeading }
 import from ...components.TripComposer { TripComposer }
-import from ...components.AskDetour { AskDetour, ChatMessage }
+import from ...components.DescribeBar { DescribeBar }
 import from ...client.composer_model { ComposerDraft, ComposerInput, validate_composer }
-import from ...client.ask { merged_input, reply_action, reply_text }
+import from ...client.ask { intent_input, missing_panel }
 import from ...client.planning_request { request_payload, restore_composer, return_payload }
 
 def checked_envelope(response: str) -> any {
@@ -28,17 +30,6 @@ def place_input(state: any) -> ComposerInput | None {
     return ComposerInput(origin_text=place["origin"], destination_text=place["destination"], local_time="00:00");
 }
 
-"""A home-page card starts the conversation: Detour asks for the day."""
-def opening_messages(place: ComposerInput | None) -> list[ChatMessage] {
-    if place is None { return []; }
-    return [ChatMessage(id=0, sender="detour", text=reply_text(place), action=reply_action(place))];
-}
-
-"""Resolve after `ms` milliseconds."""
-def pause(ms: int) -> any {
-    return new(Promise, lambda (resolve: any) { window.setTimeout(resolve, ms); });
-}
-
 def:pub PlanPage -> JsxPage {
     location = useLocation();
     navigate = useNavigate();
@@ -47,15 +38,13 @@ def:pub PlanPage -> JsxPage {
     can with entry { lifecycle.current["active"] = True; }
     can with exit { lifecycle.current["active"] = False; }
     has busy: bool = False, failure: str = "";
-    # Chat with Detour: the conversation, who read it, and the form it filled.
     place = place_input(location.state);
-    # Back from results with "Edit request": go straight to the manual search.
+    # Back from results to edit, or from a home card: the manual bar, and for a
+    # card, its When panel open, as Airbnb moves on to dates after a place.
     editing = bool(location.state and location.state["draft"]);
-    has asking: bool = False, messages: list[ChatMessage] = opening_messages(place), readBy: str = "";
-    # The trip the conversation has described so far; each message adds to it.
-    has chatForm: ComposerInput | None = place;
-    # The manual Where/When search stays tucked away until asked for.
-    has manual: bool = editing, manualPanel: str = "";
+    has tab: str = "dates" if editing or place is not None else "describe";
+    has manualPanel: str = "when" if place is not None else "";
+    has asking: bool = False, described: str = "";
     has seed: ComposerInput | None = None, seedKey: int = 0;
     async def findRoutes(draft: ComposerDraft) {
         if lifecycle.current["pending"] { return; }
@@ -88,49 +77,47 @@ def:pub PlanPage -> JsxPage {
             if lifecycle.current["active"] { busy = False; }
         }
     }
-    async def ask(request: str) {
-        # Built from this call's starting list, so an await never appends to a stale one.
-        sent = messages + [ChatMessage(id=len(messages), sender="user", text=request)];
-        previous = chatForm;
-        messages = sent;
+    async def describe(request: str) {
         asking = True;
+        described = request;
         try {
             answer: any = JSON.parse(await interpret_trip(request));
             if not lifecycle.current["active"] { return; }
-            form = merged_input(previous, answer, request);
-            readBy = str(answer["source"]);
-            chatForm = form;
-            seed = form;
-            seedKey += 1;
-            messages = sent + [ChatMessage(id=len(sent), sender="detour", text=reply_text(form), action=reply_action(form))];
+            form = intent_input(answer, request);
             result = validate_composer(form, str(answer["today"]));
             if result.draft is not None {
-                # Leave Detour's "Looking for…" on screen long enough to read.
-                await pause(1200);
-                if not lifecycle.current["active"] { return; }
-                lifecycle.current["readBy"] = readBy;
+                lifecycle.current["readBy"] = str(answer["source"]);
                 try { await findRoutes(result.draft); }
                 finally { lifecycle.current["readBy"] = ""; }
+            } else {
+                # Hand over to the manual bar with the gap open.
+                seed = form;
+                seedKey += 1;
+                manualPanel = missing_panel(form);
+                tab = "dates";
             }
         } except Exception {
-            if lifecycle.current["active"] {
-                messages = sent + [ChatMessage(id=len(sent), sender="detour", text="I couldn't read that just now. Try again, or choose a destination and dates yourself.", action="where")];
-            }
+            if lifecycle.current["active"] { failure = "Detour couldn't read that just now. Try again, or choose dates yourself."; }
         } finally {
             if lifecycle.current["active"] { asking = False; }
         }
     }
-    def openManual(panel: str) {
-        manual = True;
-        manualPanel = panel;
-        if chatForm is not None { seed = chatForm; }
+    def showTab(name: str) {
+        tab = name;
+        manualPanel = "";
         seedKey += 1;
     }
     return <>
-        <div className="dt-plan-intro"><PageHeading title="Where are you headed?" description="Tell Detour where and when. Demo trips run between Ann Arbor and Chicago."/></div>
+        <div className="dt-plan-intro"><PageHeading title="Where are you headed?" description="Demo trips run between Ann Arbor and Chicago."/></div>
         {if failure { <div className="dt-error-summary" role="alert">{failure}</div> }}
         <p className="dt-sr-only" role="status" aria-live="polite">{"Checking synthetic schedules and ranking demo routes…" if busy else ""}</p>
-        <AskDetour onSend={ask} messages={messages} busy={asking or busy} readBy={readBy} onManual={openManual} manualOpen={manual}/>
-        <TripComposer key={"seed-" + str(seedKey)} initial={seed if seed is not None else place if place is not None else restore_composer(location.state)} onValidDraft={findRoutes} busy={busy} submitLabel="Search" searchHidden={not manual} startPanel={manualPanel}/>
+        <div className="dt-search-tabs" role="tablist" aria-label="How to search">
+            <button type="button" role="tab" id="tab-describe" aria-selected={tab == "describe"} aria-controls="search-panel" onClick={lambda { showTab("describe"); }}>Describe your trip</button>
+            <button type="button" role="tab" id="tab-dates" aria-selected={tab == "dates"} aria-controls="search-panel" onClick={lambda { showTab("dates"); }}>Choose dates</button>
+        </div>
+        <div id="search-panel" role="tabpanel" aria-labelledby={"tab-" + tab}>
+            {(<DescribeBar onSearch={describe} busy={asking or busy} initial={described}/> if tab == "describe" else None)}
+            <TripComposer key={"seed-" + str(seedKey)} initial={seed if seed is not None else place if place is not None else restore_composer(location.state)} onValidDraft={findRoutes} busy={busy} submitLabel="Search" searchHidden={tab != "dates"} startPanel={manualPanel}/>
+        </div>
     </>;
 }

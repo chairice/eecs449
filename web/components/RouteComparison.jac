@@ -7,6 +7,7 @@ import from .EmptyState { EmptyState }
 import from .comparison_view { ComparisonRoute, comparison_view }
 import from .RouteMap { RouteMap }
 import from ..client.saved_trips { new_trip_id, save_trip }
+import from .Icon { Icon }
 
 """Fri, Oct 23 from an ISO day, read at UTC noon so it never slips across zones."""
 def trip_day(iso: str) -> str {
@@ -47,9 +48,9 @@ def:pub RouteCard(route: ComparisonRoute, index: int, selected: bool, onSelect: 
 }
 
 """One direction's options as a hairline-divided list under a plain heading."""
-def:pub RouteList(title: str, routes: list[ComparisonRoute], selectedId: str, group: str, onSelect: Callable[[str], None]) -> JsxElement {
+def:pub RouteList(title: str, routes: list[ComparisonRoute], selectedId: str, group: str, onSelect: Callable[[str], None], titleHidden: bool = False) -> JsxElement {
     return <section className="dt-leg" aria-labelledby={group + "-heading"}>
-        <h2 id={group + "-heading"} className="dt-leg-title">{title}</h2>
+        <h2 id={group + "-heading"} className={"dt-sr-only" if titleHidden else "dt-leg-title"}>{title}</h2>
         <fieldset className="dt-route-list"><legend className="dt-sr-only">Choose a route. Use the arrow keys to move between options.</legend>
             {for (index, route) in enumerate(routes) { <RouteCard key={route.id} route={route} index={index} selected={selectedId == route.id} onSelect={onSelect} group={group}/> }}
         </fieldset>
@@ -94,6 +95,32 @@ def:pub RecommendationPanel(route: ComparisonRoute, recommended: bool, returnRou
     </aside>;
 }
 
+"""The search's extras in a few words: "Leave after 4:00 PM · Under $50"."""
+def search_extras(request: any) -> str {
+    if not request { return "Any time"; }
+    parts: list[str] = [];
+    time: any = request["local_time"];
+    if isinstance(time, str) and time != "" and time != "00:00" {
+        hour = int(time.split(":")[0]);
+        clock_text = str(12 if hour % 12 == 0 else hour % 12) + ":" + time.split(":")[1] + (" AM" if hour < 12 else " PM");
+        parts.append(("Arrive by " if request["time_kind"] == "ARRIVE_BY" else "Leave after ") + clock_text);
+    }
+    cents: any = request["max_price_cents"];
+    if isinstance(cents, (int, float)) and not isinstance(cents, bool) {
+        whole = int(cents) % 100 == 0;
+        parts.append("Under $" + str(int(cents) // 100) if whole else "Under " + money(int(cents)).replace(" USD", ""));
+    }
+    buffer: any = request["min_transfer_minutes"];
+    if isinstance(buffer, (int, float)) and not isinstance(buffer, bool) and buffer != 30 { parts.append(str(buffer) + "+ min connections"); }
+    return " · ".join(parts) if len(parts) > 0 else "Any time";
+}
+
+"""A conversational heading, as Airbnb's AI search titles its results."""
+def results_heading(count: int, destination: str, day: str) -> str {
+    city = destination.split(",")[0];
+    return ("1 way" if count == 1 else str(count) + " ways") + " to get to " + city + " on " + day;
+}
+
 def:pub RouteComparison(preview: any = None, requestText: str = "", submittedRequest: any = None, returnPreview: any = None, returnRequested: bool = False, returnDate: str = "", readBy: str = "") -> JsxElement {
     has selectedId: str = "", returnSelectedId: str = "", mapLeg: str = "outbound", saveFailed: bool = False;
     navigate = useNavigate();
@@ -125,13 +152,16 @@ def:pub RouteComparison(preview: any = None, requestText: str = "", submittedReq
         if save_trip(trip) { navigate("/trips"); } else { saveFailed = True; }
     }
     return <>
-        <div className="dt-comparison-heading"><PageHeading title={view.title} description={days}/>
-            <Link className="dt-secondary" to="/plan" state={editState}>Edit request</Link></div>
-        {(<p className="dt-asked">“{requestText}”<span className="dt-muted"> · {"Read by Claude" if readBy == "claude" else "Read by Detour's built-in parser"}</span></p> if requestText != "" and readBy != "" else None)}
+        <Link className="dt-search-summary" to="/plan" state={editState} aria-label={"Edit search: " + view.title + ", " + days + ", " + search_extras(editRequest)}>
+            <span>{view.title}</span><span>{days}</span><span>{search_extras(editRequest)}</span>
+            <span className="dt-search-summary-icon" aria-hidden="true"><Icon name="magnifyingglass" size={16}/></span>
+        </Link>
+        <div className="dt-comparison-heading"><PageHeading title={results_heading(len(view.routes), view.title.split(" → ")[1] if " → " in view.title else view.title, trip_day(view.date))}
+            description={("“" + requestText + "” · " + ("Read by Claude" if readBy == "claude" else "Read by Detour's built-in parser")) if requestText != "" and readBy != "" else "Demo schedules and fares"}/></div>
         <div className="dt-comparison-grid">
             <div className="dt-legs">
                 {(<RouteList title="Outbound" routes={view.routes} selectedId={selected.id} group="outbound" onSelect={lambda (id: str) { selectedId = id; mapLeg = "outbound"; }}/> if returnRequested else
-                  <RouteList title={str(len(view.routes)) + " options"} routes={view.routes} selectedId={selected.id} group="route" onSelect={lambda (id: str) { selectedId = id; }}/>)}
+                  <RouteList title={str(len(view.routes)) + " options"} routes={view.routes} selectedId={selected.id} group="route" onSelect={lambda (id: str) { selectedId = id; }} titleHidden={True}/>)}
                 {(<RouteList title="Return" routes={returnRoutes} selectedId={returnSelected.id} group="return" onSelect={lambda (id: str) { returnSelectedId = id; mapLeg = "return"; }}/> if returnRequested and returnSelected is not None else None)}
                 {(<section className="dt-leg" role="status"><h2 className="dt-leg-title">Return</h2><p className="dt-muted">No return routes for this day. Try another return date.</p></section> if returnRequested and returnSelected is None and returnDate else None)}
                 <RouteMap stops={mapped.stops} label={"Map of the selected route: " + " to ".join([stop.name for stop in mapped.stops]) if len(mapped.stops) > 0 else "Map of the Ann Arbor to Chicago demo corridor"}/>

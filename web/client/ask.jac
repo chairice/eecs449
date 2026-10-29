@@ -39,59 +39,9 @@ def:pub intent_input(answer: any, request: str) -> ComposerInput {
     );
 }
 
-"""Read an ISO date at UTC noon so the label never slips a day across zones."""
-def short_day(iso: str) -> str {
-    noon: any = new(Date, iso + "T12:00:00Z");
-    return str(noon.toLocaleDateString("en-US", {"weekday": "short", "month": "short", "day": "numeric", "timeZone": "UTC"}));
-}
-
-def clock_label(value: str) -> str {
-    hour = int(value.split(":")[0]);
-    return str(12 if hour % 12 == 0 else hour % 12) + ":" + value.split(":")[1] + (" AM" if hour < 12 else " PM");
-}
-
-"""A follow-up message adds to the trip so far: a field the new answer leaves
-empty keeps its earlier value, so "Chicago" then "Friday after 4" make one trip."""
-def:pub merged_input(previous: ComposerInput | None, answer: any, request: str) -> ComposerInput {
-    fresh = intent_input(answer, request);
-    if previous is None { return fresh; }
-    timed = text_field(answer, "time") != "";
-    return ComposerInput(
-        request_text=previous.request_text + " " + request,
-        origin_text=fresh.origin_text if text_field(answer, "origin") != "" else previous.origin_text if fresh.destination_text == "" or previous.origin_text != fresh.destination_text else default_origin(fresh.destination_text),
-        destination_text=fresh.destination_text if fresh.destination_text != "" else previous.destination_text,
-        local_date=fresh.local_date if fresh.local_date != "" else previous.local_date,
-        local_time=fresh.local_time if timed else previous.local_time,
-        time_kind=fresh.time_kind if timed else previous.time_kind,
-        budget=fresh.budget if fresh.budget != "" else previous.budget,
-        transfer_minutes=fresh.transfer_minutes if number_field(answer, "min_transfer_minutes") > 0 else previous.transfer_minutes,
-        return_date=fresh.return_date if fresh.return_date != "" else previous.return_date
-    );
-}
-
-def city(place: str) -> str { return place.split(",")[0]; }
-
-"""Detour's reply: the one thing still missing, or the trip it is about to search."""
-def:pub reply_text(form: ComposerInput) -> str {
-    if form.destination_text == "" {
-        return "Where are you headed? For now I can plan trips between Ann Arbor and Chicago.";
-    }
-    if form.local_date == "" {
-        return "When are you going to " + city(form.destination_text) + "? A day like “Friday” or “Nov 3” works.";
-    }
-    parts = [city(form.origin_text) + " to " + city(form.destination_text), "on " + short_day(form.local_date)];
-    if form.local_time not in ["", "00:00"] {
-        parts.append(("arriving by " if form.time_kind == "ARRIVE_BY" else "leaving after ") + clock_label(form.local_time));
-    }
-    if form.budget != "" { parts.append("under $" + form.budget); }
-    if form.transfer_minutes != "30" { parts.append("with " + form.transfer_minutes + "+ minutes between connections"); }
-    if form.return_date != "" { parts.append("back " + short_day(form.return_date)); }
-    return "Looking for " + ", ".join(parts) + ". Finding routes…";
-}
-
-"""Which part of the manual search answers Detour's question: "where", "when",
-or "" once nothing is missing."""
-def:pub reply_action(form: ComposerInput) -> str {
+"""Which manual-search panel a described trip still needs: "where", "when",
+or "" once it can be searched."""
+def:pub missing_panel(form: ComposerInput) -> str {
     if form.destination_text == "" { return "where"; }
     if form.local_date == "" { return "when"; }
     return "";

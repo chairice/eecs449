@@ -263,41 +263,20 @@
   .dt-search-pill.at-when { transform: translateY(100%); }
 }
 
-/* Chat with Detour, after Airbnb's AI assistant: starter prompts under one
-   rounded composer, then a conversation card once you've said something. */
-.dt-chat { max-width: calc(8 * var(--grid-col) + 7 * var(--grid-gutter)); margin: 0 auto var(--dt-space-8); }
-.dt-chat.is-talking { border: 1px solid var(--dt-border); border-radius: var(--dt-radius-panel); background: var(--dt-surface); box-shadow: var(--dt-shadow); overflow: hidden; }
-.dt-chat-thread { display: grid; gap: var(--dt-space-4); max-height: 360px; overflow-y: auto; padding: var(--dt-space-6); }
-.dt-chat .dt-msg { max-width: 80%; margin: 0; }
-.dt-msg-user { justify-self: end; padding: var(--dt-space-2) var(--dt-space-4); border-radius: var(--dt-radius-panel) var(--dt-radius-panel) var(--dt-space-1) var(--dt-radius-panel); background: var(--dt-surface-muted); color: var(--dt-text); }
-.dt-msg-detour { display: flex; align-items: flex-start; gap: var(--dt-space-2); justify-self: start; color: var(--dt-text); }
-.dt-msg-detour p { margin: 0; padding-top: var(--dt-space-1); }
-.dt-msg-avatar { display: inline-grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; background: var(--dt-accent); color: var(--dt-accent-text); }
-.dt-typing { display: inline-flex; gap: var(--dt-space-1); padding-top: var(--dt-space-4); }
-.dt-typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--dt-muted); animation: dt-typing 1s ease-in-out infinite; }
-.dt-typing span:nth-child(2) { animation-delay: .15s; }
-.dt-typing span:nth-child(3) { animation-delay: .3s; }
-@keyframes dt-typing { 0%, 60%, 100% { opacity: .3; translate: 0 0; } 30% { opacity: 1; translate: 0 -3px; } }
-@media (prefers-reduced-motion: reduce) { .dt-typing span { animation: none; opacity: .6; } }
-/* The composer: a pill with a round send button. Focus darkens its border
-   rather than drawing the site's focus ring around the bare input. */
-.dt-chat-compose { display: flex; align-items: center; gap: var(--dt-space-2); padding: var(--dt-space-2) var(--dt-space-2) var(--dt-space-2) var(--dt-space-6); border: 1px solid var(--dt-border); border-radius: var(--dt-radius-pill); background: var(--dt-surface); box-shadow: var(--dt-shadow); transition: border-color var(--dt-duration); }
-.dt-chat.is-talking .dt-chat-compose { margin: 0 var(--dt-space-4) var(--dt-space-4); box-shadow: none; }
-.dt-chat-compose:focus-within { border-color: var(--dt-text); }
-.dt-chat-compose input { flex: 1; min-width: 0; min-height: 40px; border: 0; padding: 0; background: transparent; color: var(--dt-text); font: var(--dt-body); }
-.dt-app .dt-chat-compose input:focus-visible { outline: none; }
-.dt-chat-compose input::placeholder { color: var(--dt-muted); opacity: 1; }
-.dt-chat-send { display: inline-grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; background: var(--dt-accent); color: var(--dt-accent-text); cursor: pointer; transition: scale var(--dt-duration), opacity var(--dt-duration); }
-.dt-chat-send:hover:not(:disabled) { scale: 1.05; }
-.dt-app .dt-chat-send:disabled { opacity: .35; }
-.dt-chat-starters { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--dt-space-2); margin-top: var(--dt-space-4); }
-.dt-chat-starter { padding: var(--dt-space-2) var(--dt-space-4); border: 1px solid var(--dt-border); border-radius: var(--dt-radius-pill); background: var(--dt-surface); color: var(--dt-text); font: var(--dt-body); cursor: pointer; transition: border-color var(--dt-duration), background-color var(--dt-duration); }
-.dt-chat-starter:hover:not(:disabled) { border-color: var(--dt-text); }
-.dt-msg-body { display: grid; justify-items: start; gap: var(--dt-space-2); }
-.dt-msg-action { min-height: 36px; padding: 0 var(--dt-space-4); border: 1px solid var(--dt-text); border-radius: var(--dt-radius-pill); background: var(--dt-surface); color: var(--dt-text); font: var(--dt-body); cursor: pointer; transition: background-color var(--dt-duration); }
-.dt-msg-action:hover { background: var(--dt-surface-muted); }
-/* The quiet way into the manual search, under the starters or the conversation. */
-.dt-chat .dt-chat-manual { display: block; margin: var(--dt-space-4) auto 0; padding: var(--dt-space-1) var(--dt-space-2); border: 0; background: none; color: var(--dt-muted); font: var(--dt-body); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
-.dt-chat.is-talking .dt-chat-manual { margin: 0 auto var(--dt-space-2); }
-.dt-chat-manual:hover { color: var(--dt-text); }
-.dt-chat .dt-chat-credit { margin: 0 var(--dt-space-6) var(--dt-space-4); color: var(--dt-muted); text-align: center; }
+/* Two tabs over one search bar, as Airbnb sets Homes / Experiences /
+   Services over its own: the current tab is ink with an underline. */
+.dt-search-tabs { display: flex; justify-content: center; gap: var(--dt-space-8); margin-bottom: var(--dt-space-6); }
+.dt-search-tabs button { padding: var(--dt-space-2) 0; border: 0; background: none; color: var(--dt-muted); font: var(--dt-body); cursor: pointer; transition: color var(--dt-duration), box-shadow var(--dt-duration); }
+.dt-search-tabs button:hover { color: var(--dt-text); }
+.dt-search-tabs button[aria-selected="true"] { color: var(--dt-text); box-shadow: inset 0 -2px 0 var(--dt-text); }
+/* Describe your trip: the manual bar's pill with one wide field. Focusing it
+   greys the bar and lifts the field, exactly as Where and When do. */
+.dt-describe { margin-bottom: var(--dt-space-8); }
+.dt-describe-bar { display: flex; align-items: center; gap: var(--dt-space-2); padding-right: var(--dt-space-2); border: 1px solid var(--dt-border); border-radius: var(--dt-radius-pill); background: var(--dt-surface); box-shadow: var(--dt-shadow); transition: background-color var(--dt-duration); }
+.dt-describe-field { flex: 1; display: grid; align-content: center; min-width: 0; min-height: 64px; margin: -1px 0 -1px -1px; padding: 0 var(--dt-space-8); border-radius: var(--dt-radius-pill); color: var(--dt-text); cursor: text; transition: background-color var(--dt-duration), box-shadow var(--dt-duration); }
+.dt-describe-bar.is-active { background: var(--dt-surface-sunken); box-shadow: none; }
+.dt-describe-bar.is-active .dt-describe-field { background: var(--dt-surface); box-shadow: var(--dt-shadow); }
+.dt-describe-field input { width: 100%; min-width: 0; border: 0; padding: 0; background: transparent; color: var(--dt-text); font: var(--dt-body); }
+.dt-app .dt-describe-field input:focus-visible { outline: none; }
+.dt-describe-field input::placeholder { color: var(--dt-muted); opacity: 1; }
+.dt-describe .dt-where-panel { width: 100%; }
