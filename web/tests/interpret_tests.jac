@@ -2,7 +2,7 @@
 
 import json;
 import from datetime { date }
-import from server.interpret { TripIntent, cleaned, rule_intent, interpret_trip }
+import from server.interpret { TripIntent, cleaned, intent_from_reply, rule_intent, interpret_trip }
 
 # Thursday, October 29, 2026.
 glob TODAY: date = date(2026, 10, 29);
@@ -55,4 +55,16 @@ test "cheapest, fastest and direct set how routes are sorted" {
     assert rule_intent("fastest way to Chicago Friday", TODAY).priority == "FASTEST";
     assert rule_intent("direct train to Chicago", TODAY).priority == "FEWEST_TRANSFERS";
     assert rule_intent("Chicago Friday", TODAY).priority == "BALANCED";
+}
+
+test "Claude's JSON reply becomes a trip, even wrapped in prose" {
+    intent = cleaned(intent_from_reply('Here you go: {"origin": "", "destination": "Chicago, IL", "date": "2026-10-30", "time": "16:00", "time_kind": "DEPART_AFTER", "max_price": 50, "min_transfer_minutes": 0, "return_date": "", "priority": "LOWEST_COST"}'));
+    assert intent.destination == "Chicago, IL" and intent.date == "2026-10-30" and intent.time == "16:00";
+    assert intent.max_price == 50 and intent.priority == "LOWEST_COST";
+}
+
+test "a reply without JSON is rejected so the rules answer instead" {
+    failed = False;
+    try { _ = intent_from_reply("Sorry, I can't help with that."); } except ValueError { failed = True; }
+    assert failed;
 }
