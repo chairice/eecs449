@@ -11,4 +11,9 @@ jac_bin="${JAC_BIN:-$repo_dir/.render/bin/jac}"
 
 cd "$repo_dir/web"
 export JAC_SERVE_HOST="${JAC_SERVE_HOST:-0.0.0.0}"
+# Render runs services on Kubernetes, and Jac reads KUBERNETES_SERVICE_HOST as
+# "many replicas" and then refuses its embedded database. Detour is one
+# instance that keeps no server-side data (saved trips live in the browser),
+# so the embedded database losing its contents on restart costs nothing.
+unset KUBERNETES_SERVICE_HOST KUBERNETES_SERVICE_PORT
 exec "$jac_bin" run --host 0.0.0.0 --port "${PORT:-10000}" dist/everyday-agent-web.jab < /dev/null
