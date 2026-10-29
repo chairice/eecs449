@@ -55,7 +55,7 @@
 
 /* Airbnb's compact search pill above results: the trip in three segments and a
    round search icon. Clicking anywhere on it returns to edit the search. */
-.dt-search-summary { display: flex; align-items: center; width: fit-content; max-width: 100%; margin: 0 auto var(--dt-space-8); padding: var(--dt-space-2) var(--dt-space-2) var(--dt-space-2) var(--dt-space-6); border: 1px solid var(--dt-border); border-radius: var(--dt-radius-pill); background: var(--dt-surface); box-shadow: var(--dt-shadow); color: var(--dt-text); text-decoration: none; transition: box-shadow var(--dt-duration); }
+.dt-search-summary { display: flex; align-items: center; width: fit-content; max-width: 100%; margin: 0 auto var(--dt-space-16); padding: var(--dt-space-2) var(--dt-space-2) var(--dt-space-2) var(--dt-space-6); border: 1px solid var(--dt-border); border-radius: var(--dt-radius-pill); background: var(--dt-surface); box-shadow: var(--dt-shadow); color: var(--dt-text); text-decoration: none; transition: box-shadow var(--dt-duration); }
 .dt-search-summary:hover { box-shadow: 0 6px 16px rgb(0 0 0 / 12%); }
 .dt-search-summary > span:not(.dt-search-summary-icon) { padding: 0 var(--dt-space-4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dt-search-summary > span:first-child { padding-left: 0; }
