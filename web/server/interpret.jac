@@ -96,6 +96,9 @@ def read_time(text: str) -> tuple[str, str] {
     if arrive { return (read_clock(arrive.group(1), arrive.group(2), arrive.group(3)), "ARRIVE_BY"); }
     depart = re.search(r"\b(?:after|leave at|leaving at|leave|leaving|departing|depart|at|around)\s+" + clock, text);
     if depart { return (read_clock(depart.group(1), depart.group(2), depart.group(3)), "DEPART_AFTER"); }
+    # A bare clock with am/pm, as in a follow-up reply like "4pm".
+    bare = re.search(r"\b(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|am|pm)(?![a-z])", text);
+    if bare { return (read_clock(bare.group(1), bare.group(2), bare.group(3)), "DEPART_AFTER"); }
     if re.search(r"\b(evening|tonight)\b", text) { return ("17:00", "DEPART_AFTER"); }
     if re.search(r"\bafternoon\b", text) { return ("13:00", "DEPART_AFTER"); }
     if re.search(r"\bmorning\b", text) { return ("08:00", "DEPART_AFTER"); }

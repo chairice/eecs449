@@ -7,9 +7,9 @@ import from server.api { plan_trip }
 import from server.interpret { interpret_trip }
 import from ...components.PageHeading { PageHeading }
 import from ...components.TripComposer { TripComposer }
-import from ...components.AskDetour { AskDetour }
+import from ...components.AskDetour { AskDetour, ChatMessage }
 import from ...client.composer_model { ComposerDraft, ComposerInput, validate_composer }
-import from ...client.ask { intent_input, intent_chips, missing_note }
+import from ...client.ask { merged_input, reply_text }
 import from ...client.planning_request { request_payload, restore_composer, return_payload }
 
 def checked_envelope(response: str) -> any {
@@ -27,6 +27,11 @@ def place_input(state: any) -> ComposerInput | None {
     return ComposerInput(origin_text=place["origin"], destination_text=place["destination"]);
 }
 
+"""Resolve after `ms` milliseconds."""
+def pause(ms: int) -> any {
+    return new(Promise, lambda (resolve: any) { window.setTimeout(resolve, ms); });
+}
+
 def:pub PlanPage -> JsxPage {
     location = useLocation();
     navigate = useNavigate();
@@ -35,8 +40,10 @@ def:pub PlanPage -> JsxPage {
     can with entry { lifecycle.current["active"] = True; }
     can with exit { lifecycle.current["active"] = False; }
     has busy: bool = False, failure: str = "";
-    # Plain-language asks: what was heard, who read it, and the form they filled.
-    has asking: bool = False, heard: list[str] = [], readBy: str = "", askNote: str = "";
+    # Chat with Detour: the conversation, who read it, and the form it filled.
+    has asking: bool = False, messages: list[ChatMessage] = [], readBy: str = "";
+    # The trip the conversation has described so far; each message adds to it.
+    has chatForm: ComposerInput | None = None;
     has seed: ComposerInput | None = None, seedKey: int = 0;
     async def findRoutes(draft: ComposerDraft) {
         if lifecycle.current["pending"] { return; }
@@ -70,25 +77,33 @@ def:pub PlanPage -> JsxPage {
         }
     }
     async def ask(request: str) {
+        # Built from this call's starting list, so an await never appends to a stale one.
+        sent = messages + [ChatMessage(id=len(messages), sender="user", text=request)];
+        previous = chatForm;
+        messages = sent;
         asking = True;
-        askNote = "";
         try {
             answer: any = JSON.parse(await interpret_trip(request));
             if not lifecycle.current["active"] { return; }
-            form = intent_input(answer, request);
-            heard = intent_chips(form);
+            form = merged_input(previous, answer, request);
             readBy = str(answer["source"]);
+            chatForm = form;
             seed = form;
             seedKey += 1;
-            askNote = missing_note(form);
+            messages = sent + [ChatMessage(id=len(sent), sender="detour", text=reply_text(form))];
             result = validate_composer(form, str(answer["today"]));
             if result.draft is not None {
+                # Leave Detour's "Looking for…" on screen long enough to read.
+                await pause(1200);
+                if not lifecycle.current["active"] { return; }
                 lifecycle.current["readBy"] = readBy;
                 try { await findRoutes(result.draft); }
                 finally { lifecycle.current["readBy"] = ""; }
             }
         } except Exception {
-            if lifecycle.current["active"] { askNote = "Detour couldn't read that just now. Try again, or use the search below."; }
+            if lifecycle.current["active"] {
+                messages = sent + [ChatMessage(id=len(sent), sender="detour", text="I couldn't read that just now. Try again, or use the search below.")];
+            }
         } finally {
             if lifecycle.current["active"] { asking = False; }
         }
@@ -97,7 +112,7 @@ def:pub PlanPage -> JsxPage {
         <div className="dt-plan-intro"><PageHeading title="Where are you headed?" description="Search demo trips between Ann Arbor and Chicago."/></div>
         {if failure { <div className="dt-error-summary" role="alert">{failure}</div> }}
         <p className="dt-sr-only" role="status" aria-live="polite">{"Checking synthetic schedules and ranking demo routes…" if busy else ""}</p>
-        <AskDetour onAsk={ask} busy={asking or busy} heard={heard} readBy={readBy} note={askNote}/>
+        <AskDetour onSend={ask} messages={messages} busy={asking or busy} readBy={readBy}/>
         <TripComposer key={"seed-" + str(seedKey)} initial={seed if seed is not None else place_input(location.state) if place_input(location.state) is not None else restore_composer(location.state)} onValidDraft={findRoutes} busy={busy} submitLabel="Search"/>
     </>;
 }

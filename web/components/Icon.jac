@@ -9,6 +9,7 @@ def:pub Icon(name: str, size: int = 20) -> JsxElement {
         {(
             <><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></> if name == "arrow.right" else
             <><path d="M7 7h10v10"/><path d="M7 17 17 7"/></> if name == "arrow.up.right" else
+            <><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></> if name == "arrow.up" else
             <><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></> if name == "arrow.left.arrow.right" else
             <><path d="M22 12a10.06 10.06 1 0 0-20 0Z"/><path d="M12 12v8a2 2 0 0 0 4 0"/><path d="M12 2v1"/></> if name == "umbrella" else
             <><path d="M20 6 9 17l-5-5"/></> if name == "checkmark" else

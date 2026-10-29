@@ -42,3 +42,10 @@ test "malformed model output is dropped, not passed to the form" {
     assert tidy.date == "" and tidy.time == "" and tidy.time_kind == "DEPART_AFTER";
     assert tidy.max_price == 0 and tidy.min_transfer_minutes == 240 and tidy.return_date == "2026-11-05";
 }
+
+test "a follow-up reply can be just a day or just a time" {
+    day = rule_intent("Friday", TODAY);
+    assert day.date == "2026-10-30" and day.destination == "" and day.time == "";
+    time = rule_intent("4pm", TODAY);
+    assert time.time == "16:00" and time.time_kind == "DEPART_AFTER" and time.date == "";
+}
