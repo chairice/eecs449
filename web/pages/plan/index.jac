@@ -1,5 +1,5 @@
-"""Trip search, after Airbnb's: one bar at a time under two tabs. Describe
-your trip (the default) reads a sentence; Choose dates is the manual
+"""Trip search, after Airbnb's: one bar at a time under two tabs. Ask Detour
+(the default) reads a sentence; Choose dates is the manual
 Where/When bar. A sentence missing something hands over to the manual bar
 with what was understood filled in and the missing panel open."""
 
@@ -7,7 +7,7 @@ import from "@jac/runtime" { useLocation, useNavigate }
 import from react { useRef }
 import from server.api { plan_trip }
 import from server.interpret { interpret_trip }
-import from ...components.PageHeading { PageHeading }
+import from ...components.Icon { Icon }
 import from ...components.TripComposer { TripComposer }
 import from ...components.DescribeBar { DescribeBar }
 import from ...client.composer_model { ComposerDraft, ComposerInput, validate_composer }
@@ -108,12 +108,12 @@ def:pub PlanPage -> JsxPage {
         seedKey += 1;
     }
     return <>
-        <div className="dt-plan-intro"><PageHeading title="Where are you headed?" description="Demo trips run between Ann Arbor and Chicago."/></div>
+        <h1 className="dt-sr-only">Plan a trip</h1>
         {if failure { <div className="dt-error-summary" role="alert">{failure}</div> }}
         <p className="dt-sr-only" role="status" aria-live="polite">{"Checking synthetic schedules and ranking demo routes…" if busy else ""}</p>
         <div className="dt-search-tabs" role="tablist" aria-label="How to search">
-            <button type="button" role="tab" id="tab-describe" aria-selected={tab == "describe"} aria-controls="search-panel" onClick={lambda { showTab("describe"); }}>Describe your trip</button>
-            <button type="button" role="tab" id="tab-dates" aria-selected={tab == "dates"} aria-controls="search-panel" onClick={lambda { showTab("dates"); }}>Choose dates</button>
+            <button type="button" role="tab" id="tab-describe" aria-selected={tab == "describe"} aria-controls="search-panel" onClick={lambda { showTab("describe"); }}><Icon name="sparkles" size={24}/><span>Ask Detour</span></button>
+            <button type="button" role="tab" id="tab-dates" aria-selected={tab == "dates"} aria-controls="search-panel" onClick={lambda { showTab("dates"); }}><Icon name="calendar" size={24}/><span>Choose dates</span></button>
         </div>
         <div id="search-panel" role="tabpanel" aria-labelledby={"tab-" + tab}>
             {(<DescribeBar onSearch={describe} busy={asking or busy} initial={described}/> if tab == "describe" else None)}
