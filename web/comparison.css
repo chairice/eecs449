@@ -47,3 +47,19 @@
 .dt-booking .dt-booking-note { margin-top:var(--dt-space-4); text-align:center; }
 @media (max-width:983px) { .dt-booking { position:static; } }
 @media (max-width:743px) { .dt-comparison-heading { display:block; } .dt-comparison-heading > a { margin-top:var(--dt-space-4); } .dt-route-row { padding-inline:var(--dt-space-4); grid-template-columns:minmax(0,1fr) auto; } .dt-route-duration { grid-row:2; color:var(--dt-muted); } .dt-route-price { grid-row:1 / span 2; grid-column:2; } }
+
+/* Why this route, then its risks, between the booking box and Save trip. */
+.dt-booking .dt-booking-why { margin-bottom: var(--dt-space-6); }
+.dt-booking-why h3 { font: var(--dt-body); color: var(--dt-text); margin-bottom: var(--dt-space-1); }
+.dt-booking-why ul { margin: 0 0 var(--dt-space-2); padding-left: var(--dt-space-6); }
+
+/* Airbnb's compact search pill above results: the trip in three segments and a
+   round search icon. Clicking anywhere on it returns to edit the search. */
+.dt-search-summary { display: flex; align-items: center; width: fit-content; max-width: 100%; margin: 0 auto var(--dt-space-16); padding: var(--dt-space-2) var(--dt-space-2) var(--dt-space-2) var(--dt-space-6); border: 1px solid var(--dt-border); border-radius: var(--dt-radius-pill); background: var(--dt-surface); box-shadow: var(--dt-shadow); color: var(--dt-text); text-decoration: none; transition: box-shadow var(--dt-duration); }
+.dt-search-summary:hover { box-shadow: 0 6px 16px rgb(0 0 0 / 12%); }
+.dt-search-summary > span:not(.dt-search-summary-icon) { padding: 0 var(--dt-space-4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dt-search-summary > span:first-child { padding-left: 0; }
+.dt-search-summary > span + span:not(.dt-search-summary-icon) { border-left: 1px solid var(--dt-border); }
+.dt-search-summary > span:nth-child(3) { color: var(--dt-muted); }
+.dt-search-summary-icon { display: inline-grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; margin-left: var(--dt-space-2); border-radius: 50%; background: var(--dt-accent); color: var(--dt-accent-text); }
+@media (max-width:743px) { .dt-search-summary > span:nth-child(3) { display: none; } }

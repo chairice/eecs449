@@ -3,3 +3,6 @@
 __pycache__/
 .DS_Store
 web/dist/
+
+# Jac compiler installed by scripts/render-build.sh
+.render/

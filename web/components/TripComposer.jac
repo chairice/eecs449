@@ -129,11 +129,15 @@ def:pub TripComposer(
     earliestDate: str = "",
     onValidDraft: Callable[[ComposerDraft], None] | None = None,
     busy: bool = False,
-    submitLabel: str = "Check trip details"
+    submitLabel: str = "Check trip details",
+    # The plan page keeps the manual search tucked away until it is asked for;
+    # the map below it still shows. startPanel opens "where" or "when" on mount.
+    searchHidden: bool = False,
+    startPanel: str = ""
 ) -> JsxElement {
     has form: ComposerInput = starting_form(initial);
     has errors: list[FieldError] = [], validated: ComposerDraft | None = None;
-    has submitting: bool = False, panel: str = "", monthOffset: int = 0;
+    has submitting: bool = False, panel: str = startPanel, monthOffset: int = 0;
     # Airbnb-style range: the first pick is the departure, the second the return,
     # which is searched as its own trip back. hoverDate previews the range.
     has hoverDate: str = "";
@@ -200,16 +204,16 @@ def:pub TripComposer(
     stops = [stop for stop in [known_stop(form.origin_text), known_stop(form.destination_text)] if stop is not None];
 
     return <div className="dt-composer">
-        <form noValidate={True} onSubmit={submit}>
+        <form noValidate={True} onSubmit={submit} hidden={searchHidden}>
             <fieldset className="dt-composer-controls" disabled={busy or submitting}>
             <p className="dt-sr-only" role="alert">{" ".join([error.message for error in errors])}</p>
             <div className="dt-search" ref={searchBox}>
             <div className={"dt-search-bar" + (" is-active" if showWhen or showWhere else "")}>
                 <span className={"dt-search-pill at-" + str(pillAt.current)} aria-hidden="true"></span>
-                <label className={"dt-search-field" + (" is-open" if showWhere else "")} htmlFor="destination_text"><span>Where</span><input id="destination_text" type="text" placeholder="Search destinations" onFocus={lambda { panel = "where"; }} aria-expanded={showWhere} aria-controls="dt-where" role="combobox" aria-autocomplete="list" required={True} value={form.destination_text} onChange={lambda (e: ChangeEvent) { setField("destination_text", e.target.value); panel = "where"; }} autoComplete="off" aria-invalid={destinationError != ""} aria-describedby="error-destination_text"/></label>
+                <label className={"dt-search-field" + (" is-open" if showWhere else "")} htmlFor="destination_text"><span className={"dt-sr-only" if form.destination_text != "" else ""}>Where</span><input id="destination_text" type="text" placeholder="Search destinations" onFocus={lambda { panel = "where"; }} aria-expanded={showWhere} aria-controls="dt-where" role="combobox" aria-autocomplete="list" required={True} value={form.destination_text} onChange={lambda (e: ChangeEvent) { setField("destination_text", e.target.value); panel = "where"; }} autoComplete="off" aria-invalid={destinationError != ""} aria-describedby="error-destination_text"/></label>
                 <div className={"dt-search-field dt-search-segment" + (" is-open" if showWhen else "")}>
                     <button className="dt-search-trigger" type="button" aria-expanded={showWhen} aria-controls="dt-when" onClick={lambda { panel = "" if showWhen else "when"; }}>
-                        <span>When</span>
+                        <span className={"dt-sr-only" if summary != "" else ""}>When</span>
                         <span className={"dt-search-value" if summary != "" else "dt-search-placeholder"}>{summary if summary != "" else "Add dates"}</span>
                     </button>
                     <button className="dt-search-submit" type="submit" disabled={busy or submitting} aria-label={"Searching" if busy or submitting else submitLabel}><Icon name="magnifyingglass"/></button>

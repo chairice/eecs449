@@ -163,13 +163,28 @@ obj TripRequest {
     }
 }
 
+glob MAX_PATH_POINTS: int = 2000;
+
+def:pub validate_path(path: list[list[float]]) {
+    if not isinstance(path, list) or len(path) > MAX_PATH_POINTS or len(path) == 1 { raise ValueError("invalid leg path"); }
+    for point in path {
+        if not isinstance(point, list) or len(point) != 2 { raise ValueError("invalid leg path point"); }
+        require_finite(point[0], "path latitude"); require_finite(point[1], "path longitude");
+        if not -90.0 <= point[0] <= 90.0 or not -180.0 <= point[1] <= 180.0 { raise ValueError("leg path point out of range"); }
+    }
+}
+
 obj RouteLeg {
     has id: str, mode: TravelMode, origin: Place, destination: Place, departure_at: str, arrival_at: str;
     has operator: str = "", service: str = "", status: ServiceStatus = ServiceStatus.UNKNOWN;
     has predicted_delay_minutes: int | None = None;
+    # Where the leg runs, as [latitude, longitude] points for drawing it on a
+    # map; empty when the provider has no alignment for it.
+    has path: list[list[float]] = [];
     def postinit { self.validate(); }
     def validate {
         require_text(self.id, "leg id");
+        validate_path(self.path);
         if not isinstance(self.mode, TravelMode) or not isinstance(self.status, ServiceStatus) { raise ValueError("invalid leg enum"); }
         if parse_timestamp(self.arrival_at) <= parse_timestamp(self.departure_at) { raise ValueError("arrival must follow departure"); }
         if self.predicted_delay_minutes is not None { require_nonnegative(self.predicted_delay_minutes, "delay minutes"); }
@@ -341,7 +356,7 @@ def model_to_object(value: object) -> object {
         fields = {"code": value.code, "message": value.message, "retryable": value.retryable, "field_name": value.field_name};
     } elif isinstance(value, RouteLeg) {
         value.validate();
-        fields = {"id": value.id, "mode": value.mode, "origin": value.origin, "destination": value.destination, "departure_at": value.departure_at, "arrival_at": value.arrival_at, "operator": value.operator, "service": value.service, "status": value.status, "predicted_delay_minutes": value.predicted_delay_minutes};
+        fields = {"id": value.id, "mode": value.mode, "origin": value.origin, "destination": value.destination, "departure_at": value.departure_at, "arrival_at": value.arrival_at, "operator": value.operator, "service": value.service, "status": value.status, "predicted_delay_minutes": value.predicted_delay_minutes, "path": [[point[0], point[1]] for point in value.path]};
     } elif isinstance(value, RouteOption) {
         value.validate();
         fields = {"id": value.id, "legs": value.legs, "source": value.source, "price_cents": value.price_cents, "currency": value.currency};
@@ -400,6 +415,16 @@ def json_array(value: object) -> list[object] {
     if not isinstance(value, list) { raise ValueError("expected an array"); }
     return [item for item in value];
 }
+def:pub path_from_array(value: object) -> list[list[float]] {
+    path: list[list[float]] = [];
+    for item in json_array(value) {
+        pair = json_array(item);
+        if len(pair) != 2 { raise ValueError("leg path points are [latitude, longitude]"); }
+        path.append([json_number(pair[0]), json_number(pair[1])]);
+    }
+    validate_path(path);
+    return path;
+}
 def check_keys(value: dict[str, object], allowed: list[str]) {
     for key in value {
         if key not in allowed { raise ValueError("unknown field: " + key); }
@@ -439,13 +464,14 @@ def route_option_from_json(payload: str) -> RouteOption {
     legs: list[RouteLeg] = [];
     for item in json_array(raw.get("legs")) {
         leg = json_object(item);
-        check_keys(leg, ["id", "mode", "origin", "destination", "departure_at", "arrival_at", "operator", "service", "status", "predicted_delay_minutes"]);
+        check_keys(leg, ["id", "mode", "origin", "destination", "departure_at", "arrival_at", "operator", "service", "status", "predicted_delay_minutes", "path"]);
         legs.append(RouteLeg(
             id=json_text(leg.get("id")), mode=TravelMode(json_text(leg.get("mode"))),
             origin=place_from_object(leg.get("origin")), destination=place_from_object(leg.get("destination")),
             departure_at=json_text(leg.get("departure_at")), arrival_at=json_text(leg.get("arrival_at")),
             operator=json_text(leg.get("operator", "")), service=json_text(leg.get("service", "")), status=ServiceStatus(json_text(leg.get("status", "UNKNOWN"))),
-            predicted_delay_minutes=json_optional_integer(leg.get("predicted_delay_minutes"))
+            predicted_delay_minutes=json_optional_integer(leg.get("predicted_delay_minutes")),
+            path=path_from_array(leg.get("path", []))
         ));
     }
     return RouteOption(id=json_text(raw.get("id")), legs=legs, source=metadata_from_object(raw.get("source")), price_cents=json_optional_integer(raw.get("price_cents")), currency=json_text(raw.get("currency", "USD")));

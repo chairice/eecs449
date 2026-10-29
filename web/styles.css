@@ -173,7 +173,7 @@
 /* Trip search, after Airbnb's: Where and When in one rounded bar, split by
    straight hairlines, with a round search button. The demo button and map sit
    underneath. */
-.dt-composer { display: grid; gap: var(--dt-space-8); }
+.dt-composer { display: grid; gap: var(--dt-space-12); }
 .dt-search-bar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; padding: 0; border: 1px solid var(--dt-border); border-radius: var(--dt-radius-pill); background: var(--dt-surface); box-shadow: var(--dt-shadow); }
 .dt-search-field { position: relative; display: grid; align-content: center; min-height: 64px; padding: 0 var(--dt-space-8); border-radius: var(--dt-radius-pill); color: var(--dt-text); cursor: pointer; }
 /* Fields overlap the bar's 1px border, so an open pill reaches its very edge. */
@@ -188,8 +188,6 @@
    lifts the active field as a white pill, as on Airbnb; the panel beneath
    spans the bar with Leave after / Arrive by, two months and a time row. */
 .dt-search { position: relative; max-width: calc(8 * var(--grid-col) + 7 * var(--grid-gutter)); margin-inline: auto; }
-/* The plan page leads with a centred heading over the centred search. */
-.dt-plan-intro .dt-page-heading { margin-inline: auto; text-align: center; }
 .dt-search-bar { transition: background-color var(--dt-duration); }
 .dt-search-bar.is-active { background: var(--dt-surface-sunken); box-shadow: none; }
 .dt-search-bar.is-active .dt-search-field::before { opacity: 0; }
@@ -262,3 +260,34 @@
   .dt-search-pill { right: -1px; bottom: auto; width: auto; height: calc(50% + 1px); border-radius: var(--dt-radius-panel); }
   .dt-search-pill.at-when { transform: translateY(100%); }
 }
+
+/* Two tabs over one search bar, as Airbnb sets Homes / Experiences /
+   Services over its own: an icon above each label, and the current tab in
+   ink with an underline; the others are muted until hovered. */
+.dt-search-tabs { display: flex; justify-content: center; gap: var(--dt-space-10); margin: var(--dt-space-8) 0 var(--dt-space-6); }
+.dt-search-tabs button { display: grid; justify-items: center; gap: var(--dt-space-1); padding: var(--dt-space-1) var(--dt-space-1) var(--dt-space-2); border: 0; background: none; color: var(--dt-muted); font: var(--dt-body); cursor: pointer; transition: color var(--dt-duration), box-shadow var(--dt-duration); }
+.dt-search-tabs button:hover { color: var(--dt-text); box-shadow: inset 0 -2px 0 var(--dt-border); }
+.dt-search-tabs button[aria-selected="true"] { color: var(--dt-text); box-shadow: inset 0 -2px 0 var(--dt-text); }
+.dt-search-tabs button[aria-selected="true"] .dt-icon { color: var(--dt-accent); }
+/* Ask Detour: one white pill holding Detour's sparkle, the input and the send
+   button. Focus lifts the whole pill rather than greying a bar around it; the
+   placeholder speaks in Detour's voice and gives way as soon as you type. */
+.dt-describe { margin-bottom: var(--dt-space-12); }
+.dt-describe-bar { display: flex; align-items: center; gap: var(--dt-space-4); min-height: 64px; padding: var(--dt-space-2) var(--dt-space-2) var(--dt-space-2) var(--dt-space-6); border: 1px solid var(--dt-border); border-radius: var(--dt-radius-pill); background: var(--dt-surface); box-shadow: var(--dt-shadow); transition: box-shadow var(--dt-duration), border-color var(--dt-duration); }
+.dt-describe-bar.is-active { border-color: transparent; box-shadow: 0 6px 20px rgb(0 0 0 / 14%); }
+.dt-describe-mark { display: inline-grid; color: var(--dt-accent); }
+.dt-describe-bar.is-busy .dt-describe-mark { animation: dt-sparkle 1.2s ease-in-out infinite; }
+@keyframes dt-sparkle { 50% { opacity: .35; scale: .85; } }
+@media (prefers-reduced-motion: reduce) { .dt-describe-bar.is-busy .dt-describe-mark { animation: none; } }
+.dt-describe-bar input { flex: 1; min-width: 0; border: 0; padding: 0; background: transparent; color: var(--dt-text); font: var(--dt-body); }
+.dt-app .dt-describe-bar input:focus-visible { outline: none; }
+.dt-describe-bar input::placeholder { color: var(--dt-muted); opacity: 1; }
+.dt-panel-note { margin-top: var(--dt-space-2); padding-inline: var(--dt-space-2); color: var(--dt-muted); }
+.dt-describe .dt-where-panel { width: 100%; }
+/* The map's legend: a small white card in the top-left corner, keyed to the
+   solid train and dashed bus lines it explains. */
+.dt-map-frame { position: relative; }
+.dt-map-legend { position: absolute; z-index: 1; top: var(--dt-space-4); left: var(--dt-space-4); display: flex; gap: var(--dt-space-4); margin: 0; padding: var(--dt-space-2) var(--dt-space-4); list-style: none; border-radius: var(--dt-radius-pill); background: var(--dt-surface); box-shadow: var(--dt-shadow); color: var(--dt-text); font: var(--dt-body); }
+.dt-map-legend li { display: flex; align-items: center; gap: var(--dt-space-2); }
+.dt-map-key { width: 24px; height: 0; border-top: 4px solid var(--dt-accent); border-radius: 2px; }
+.dt-map-key.is-bus { border-top-style: dotted; }

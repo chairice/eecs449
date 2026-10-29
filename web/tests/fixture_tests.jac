@@ -158,3 +158,34 @@ test "representable local date overflow returns typed request or fixture failure
         assert failed_fixture.data is None;
     }
 }
+
+test "every demo leg carries a drawn path from its origin to its destination" {
+    provider = FixtureRouteProvider();
+    outbound = available_routes(provider.search(fixture_request()));
+    homeward = available_routes(provider.search(TripRequest(origin_text="Chicago, IL", destination_text="Ann Arbor, MI", local_date="2026-10-23", local_time="00:00", time_kind=TimeKind.DEPART_AFTER)));
+    for option in outbound + homeward {
+        for leg in option.legs {
+            assert len(leg.path) >= 2;
+            assert leg.path[0] == [leg.origin.latitude, leg.origin.longitude];
+            assert leg.path[-1] == [leg.destination.latitude, leg.destination.longitude];
+        }
+    }
+    # Train and bus between the same places follow different alignments.
+    assert outbound[0].legs[0].path != outbound[1].legs[0].path;
+    payload = provider_result_to_json(provider.search(fixture_request()));
+    assert '"path": [[42.2877, -83.743]' in payload;
+}
+
+test "a fixture path that is malformed or joins unknown places fails the fixture" {
+    original = Path(DEFAULT_FIXTURE_PATH).read_text(encoding="utf-8");
+    broken = [original.replace('"between": ["ann-arbor", "kalamazoo"]', '"between": ["ann-arbor", "nowhere"]'), original.replace('"points": [[42.2877, -83.743]', '"points": [[142.2877, -83.743]'), original.replace('"points": [[42.2877, -83.743]', '"points": [[42.2877]')];
+    with TemporaryDirectory() as temporary {
+        path = Path(temporary) / "broken.json";
+        for text in broken {
+            assert text != original;
+            _ = path.write_text(text, encoding="utf-8");
+            result = FixtureRouteProvider(fixture_path=str(path)).search(fixture_request());
+            assert result.data is None and result.error is not None;
+        }
+    }
+}

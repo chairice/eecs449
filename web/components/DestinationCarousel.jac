@@ -11,6 +11,7 @@ the photo's own Unsplash page.
 
 import "../home.css";
 import from "react" { useEffect }
+import from "@jac/runtime" { useNavigate }
 import from ..browser { mediaMatches }
 import from ..theme { REDUCED_MOTION_QUERY }
 import from .Icon { Icon }
@@ -33,6 +34,13 @@ glob:pub DESTINATIONS: list[DestinationPhoto] = [
     DestinationPhoto(city="Indianapolis", region="Indiana", photo="photo-1745097752885-217f4c9f0cf4", photographer="TROY ALLEN", page="indianapolis-skyline-at-dusk-with-a-waterway-SSkx6BhKumo", alt="The Indianapolis skyline at dusk beside a canal"),
     DestinationPhoto(city="St. Louis", region="Missouri", photo="photo-1675906798406-f609bc8a0168", photographer="Kenny Nguyễn", page="the-st-louis-arch-is-lit-up-at-night-Xuu-R6v8HCA", alt="The Gateway Arch lit up at night in St. Louis")
 ];
+
+# Cards the demo planner can reach, with the trip each one starts. Clicking one
+# at the front opens planning with it filled in; the rest say "Coming soon".
+glob PLANNABLE: dict[str, dict[str, str]] = {
+    "Chicago": {"origin": "Ann Arbor, MI", "destination": "Chicago, IL"},
+    "Ann Arbor": {"origin": "Chicago, IL", "destination": "Ann Arbor, MI"}
+};
 
 # Milliseconds each destination holds the front before the ring turns.
 glob ADVANCE_MS: int = 2500;
@@ -60,8 +68,14 @@ def:pub DestinationCarousel -> JsxElement {
     step = 360 / count;
     active = ((turns % count) + count) % count;
     current = DESTINATIONS[active];
+    navigate = useNavigate();
 
     def show(index: int) { turns = turns + ring_offset(index, active, count); }
+    def choose(index: int) {
+        city = DESTINATIONS[index].city;
+        if index == active and city in PLANNABLE { navigate("/plan", {"state": {"place": PLANNABLE[city]}}); }
+        else { show(index); }
+    }
 
     useEffect(lambda {
         if paused or mediaMatches(REDUCED_MOTION_QUERY) { return lambda { }; }
@@ -85,10 +99,10 @@ def:pub DestinationCarousel -> JsxElement {
                             "opacity": FADE[abs(ring_offset(index, active, count))] if abs(ring_offset(index, active, count)) < len(FADE) else "0"}}
                         tabIndex={0 if abs(ring_offset(index, active, count)) <= VISIBLE_REACH else -1}
                         aria-current={"true" if index == active else None}
-                        aria-label={place.city + ", " + place.region}
-                        onClick={lambda { show(index); }}>
+                        aria-label={place.city + ", " + place.region + (", plan a trip" if place.city in PLANNABLE else ", coming soon")}
+                        onClick={lambda { choose(index); }}>
                         <img src={photo_url(place.photo, 600)} srcSet={photo_url(place.photo, 600) + " 600w, " + photo_url(place.photo, 900) + " 900w"} sizes="300px" alt={place.alt} loading="eager" draggable={False}/>
-                        <span className="dt-card-caption" aria-hidden="true"><span className="dt-card-city">{place.city}</span><span>{place.region}</span></span>
+                        <span className="dt-card-caption" aria-hidden="true"><span className="dt-card-city">{place.city}</span><span>{place.region + ("" if place.city in PLANNABLE else " · Coming soon")}</span></span>
                     </button>
                 }}
             </div>
