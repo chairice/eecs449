@@ -5,8 +5,7 @@ services:
     name: detour
     runtime: python
     plan: free
-    # The demo branch; switch to main once it is merged.
-    branch: v2-portfolio-styling
+    branch: main
     buildCommand: bash scripts/render-build.sh
     startCommand: bash scripts/render-start.sh
     healthCheckPath: /
