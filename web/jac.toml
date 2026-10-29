@@ -30,12 +30,6 @@ watchdog = ">=3.0.0"
 host = "127.0.0.1"
 base_route_app = "app"
 
-# Plain-language trip requests (server/interpret.jac). The key comes only from
-# the ANTHROPIC_API_KEY environment variable; without it the rule-based reader
-# answers instead. DETOUR_MODEL overrides the model for one deployment.
-[byllm.model]
-default_model = "${DETOUR_MODEL:-anthropic/claude-haiku-5-5}"
-
 # What a browser tab and a shared link show.
 [client.app_meta_data]
 title = "Detour"

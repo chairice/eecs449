@@ -1,15 +1,18 @@
 """Plain-language trip requests become structured search fields.
 
-Claude reads the request through byLLM when ANTHROPIC_API_KEY is set. Without
-a key, or when the model call fails, a rule-based reader handles the common
-phrasings, so a live demo never depends on the network. Either way the output
-is only a proposal for the search form: the planner still validates every
-field, and nothing is booked or saved.
+Claude reads the request when ANTHROPIC_API_KEY is set, through one direct
+call to Anthropic's Messages API using only the standard library (byLLM's
+dependencies are too heavy to install on a small host). Without a key, or
+when the call fails, a rule-based reader handles the common phrasings, so a
+live demo never depends on the network. Either way the output is only a
+proposal for the search form: the planner still validates every field, and
+nothing is booked or saved.
 """
 
 import os;
 import re;
 import json;
+import urllib.request;
 import from datetime { date, datetime, timedelta }
 import from zoneinfo { ZoneInfo }
 
@@ -28,22 +31,52 @@ obj:pub TripIntent {
     has max_price: int = 0, min_transfer_minutes: int = 0, return_date: str = "";
     has priority: str = "BALANCED";
 }
-sem TripIntent = "A trip request turned into search fields. Leave a field at its default when the request does not say it.";
-sem TripIntent.origin = "Starting city written as 'City, ST' (for example 'Ann Arbor, MI'), or '' when not stated.";
-sem TripIntent.destination = "Destination city written as 'City, ST' (for example 'Chicago, IL'), or '' when not stated.";
-sem TripIntent.date = "Outbound travel date as YYYY-MM-DD, resolved against today's date; '' when not stated.";
-sem TripIntent.time = "Local time as 24-hour HH:MM; '' when not stated. 'after 4' in the afternoon means 16:00.";
-sem TripIntent.time_kind = "DEPART_AFTER when the time is when to leave ('after 4', 'leave at 5'); ARRIVE_BY when it is a deadline ('by 9', 'before 9 pm').";
-sem TripIntent.max_price = "Maximum total fare in whole US dollars; 0 when no budget is given.";
-sem TripIntent.min_transfer_minutes = "Minimum minutes wanted between connections; 45 for 'avoid tight transfers'; 0 when not stated.";
-sem TripIntent.priority = "How to rank routes: LOWEST_COST for 'cheap' or 'as cheap as possible', FASTEST for 'fast' or 'quickest', FEWEST_TRANSFERS for 'direct' or 'no transfers', MOST_RELIABLE for 'reliable'; BALANCED otherwise.";
-sem TripIntent.return_date = "Return travel date as YYYY-MM-DD when the request mentions coming back; '' otherwise.";
+glob ANTHROPIC_URL: str = "https://api.anthropic.com/v1/messages";
+glob DEFAULT_MODEL: str = "claude-haiku-5-5";
+glob CLAUDE_TIMEOUT_SECONDS: int = 8;
+glob CLAUDE_INSTRUCTIONS: str = """You turn a commuter's plain-language request for a train or bus trip into search fields.
+Reply with only one JSON object, no prose, with exactly these keys:
+- "origin": starting city as "City, ST" (e.g. "Ann Arbor, MI"), or "" when not stated
+- "destination": destination city as "City, ST" (e.g. "Chicago, IL"), or "" when not stated
+- "date": outbound date as YYYY-MM-DD resolved against today's date, or "" when not stated
+- "time": local time as 24-hour HH:MM, or "" when not stated ("after 4" in the afternoon is 16:00)
+- "time_kind": "ARRIVE_BY" when the time is a deadline ("by 9", "before 9 pm"), otherwise "DEPART_AFTER"
+- "max_price": maximum total fare in whole US dollars, or 0 when no budget is given
+- "min_transfer_minutes": minimum minutes between connections, 45 for "avoid tight transfers", or 0 when not stated
+- "return_date": return date as YYYY-MM-DD when the request mentions coming back, or ""
+- "priority": "LOWEST_COST" for cheap, "FASTEST" for fast, "FEWEST_TRANSFERS" for direct, "MOST_RELIABLE" for reliable, otherwise "BALANCED"
+""";
 
-def extract_intent(request: str, today: str, weekday: str) -> TripIntent by llm(temperature=0.0, max_tokens=300);
-sem extract_intent = "Read a commuter's plain-language request for a train or bus trip and fill in the structured search fields.";
-sem extract_intent.request = "What the commuter typed, for example 'Get me to Chicago Friday after 4 PM, under $50'.";
-sem extract_intent.today = "Today's date as YYYY-MM-DD in the commuter's time zone.";
-sem extract_intent.weekday = "Today's weekday name, for resolving words like 'Friday' or 'tomorrow'.";
+"""The first JSON object in Claude's reply, as a TripIntent; raises if there is none."""
+def:pub intent_from_reply(reply: str) -> TripIntent {
+    found = re.search(r"\{.*\}", reply, re.DOTALL);
+    if not found { raise ValueError("no JSON object in reply"); }
+    raw = json.loads(found.group(0));
+    if not isinstance(raw, dict) { raise ValueError("reply is not an object"); }
+    return TripIntent(
+        origin=str(raw.get("origin", "")), destination=str(raw.get("destination", "")),
+        date=str(raw.get("date", "")), time=str(raw.get("time", "")), time_kind=str(raw.get("time_kind", "DEPART_AFTER")),
+        max_price=int(raw.get("max_price", 0) or 0), min_transfer_minutes=int(raw.get("min_transfer_minutes", 0) or 0),
+        return_date=str(raw.get("return_date", "")), priority=str(raw.get("priority", "BALANCED"))
+    );
+}
+
+"""Ask Claude to read the request; raises on any network, HTTP or format error."""
+def claude_intent(request: str, today: str, weekday: str, key: str) -> TripIntent {
+    body = json.dumps({
+        "model": os.environ.get("DETOUR_MODEL", DEFAULT_MODEL), "max_tokens": 300, "temperature": 0,
+        "system": CLAUDE_INSTRUCTIONS,
+        "messages": [{"role": "user", "content": "Today is " + weekday + ", " + today + ".\nRequest: " + request}]
+    }).encode("utf-8");
+    call = urllib.request.Request(ANTHROPIC_URL, data=body, method="POST", headers={
+        "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"
+    });
+    with urllib.request.urlopen(call, timeout=CLAUDE_TIMEOUT_SECONDS) as response {
+        payload = json.loads(response.read().decode("utf-8"));
+    }
+    reply = "".join([block.get("text", "") for block in payload.get("content", []) if block.get("type") == "text"]);
+    return intent_from_reply(reply);
+}
 
 def today_local -> date {
     return datetime.now(ZoneInfo(HOME_ZONE)).date();
@@ -182,9 +215,10 @@ def:pub interpret_trip(text: str) -> str {
     source = "rules";
     if text {
         intent = rule_intent(text, today);
-        if os.environ.get("ANTHROPIC_API_KEY") {
+        key = os.environ.get("ANTHROPIC_API_KEY", "");
+        if key {
             try {
-                intent = cleaned(extract_intent(text, today.isoformat(), WEEKDAYS[today.weekday()].capitalize()));
+                intent = cleaned(claude_intent(text, today.isoformat(), WEEKDAYS[today.weekday()].capitalize(), key));
                 source = "claude";
             } except Exception {
                 source = "rules";

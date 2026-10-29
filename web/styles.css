@@ -85,8 +85,9 @@
 .dt-skip-link { position: fixed; z-index: 20; top: var(--dt-space-2); left: var(--dt-space-2); transform: translateY(-180%); background: var(--dt-surface); color: var(--dt-text); padding: var(--dt-space-2) var(--dt-space-4); border-radius: var(--dt-radius-control); }
 .dt-skip-link:focus { transform: translateY(0); }
 @media (max-width: 743px) {
-  .dt-header-inner { gap: var(--dt-space-2); }
-  .dt-nav { order: 3; width: 100%; gap: var(--dt-space-1); padding-inline: var(--dt-space-4); justify-content: space-between; }
+  /* Same row as on larger screens: the brand left, a compact nav pill right. */
+  .dt-header-inner { flex-wrap: nowrap; gap: var(--dt-space-2); }
+  .dt-nav { gap: var(--dt-space-2); padding-inline: var(--dt-space-4); }
 }
 @media (prefers-reduced-motion: reduce) {
   .dt-app * { transition: none !important; scroll-behavior: auto !important; }
