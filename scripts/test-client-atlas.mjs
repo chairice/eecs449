@@ -33,7 +33,10 @@ function storage(initial = null, failWrite = false) {
     getItem(name) { assert.equal(name, key); return raw; },
     setItem(name, value) { assert.equal(name, key); if (failWrite) throw new Error('quota'); writes++; raw = value; },
   }};
-  return { raw: () => raw, writes: () => writes };
+  load_atlas();
+  return { raw: () => raw, writes: () => writes,
+    replaceExternally(value) { raw = value; },
+    failWrites(value) { failWrite = value; } };
 }
 
 test('fresh journeys and clones do not share nested arrays', () => {
@@ -137,6 +140,46 @@ test('incomplete or malformed proposals cannot partially overwrite a journey', (
   assert.deepEqual(fallback.unresolved, ['Review Unparsed request']);
 });
 
+test('unchanged proposal queries retain manually disambiguated stop occurrences and road geometry', () => {
+  const sameName1 = city('10', 'Springfield', 'MI', 'County One');
+  const sameName2 = city('11', 'Springfield', 'MI', 'County Two');
+  const duplicateCatalog = [sameName1, sameName2, chicago];
+  let original = add_stop(add_stop(add_stop(new_journey())));
+  original.title = 'Selected Springfields';
+  original = update_stop(original, 0, sameName1, 'Springfield, MI');
+  original = update_stop(original, 1, chicago, 'Chicago, IL');
+  original = update_stop(original, 2, sameName2, 'Springfield, MI');
+  original.legs.forEach((leg, i) => Object.assign(leg, { mode: 'DRIVE',
+    route: { status: 'READY', points: [[42, -83], [41, -87]], message: `route ${i}`, source: 'OSRM' } }));
+  const snapshot = structuredClone(original);
+  const applied = apply_proposal(original, { title: 'Refined', stops: ['springfield Michigan', 'Chicago, IL', 'Springfield MI'],
+    legs: [{ mode: 'DRIVE', departDate: '2026-11-01' }, { mode: 'DRIVE' }], unresolved: ['Review the refinement'] }, duplicateCatalog);
+  assert.deepEqual(applied.stops.map(stop => stop.place.id), [sameName1.id, chicago.id, sameName2.id]);
+  assert.deepEqual(applied.legs.map(leg => leg.route), original.legs.map(leg => leg.route));
+  assert.equal(applied.legs[0].departDate, '2026-11-01');
+  assert.deepEqual(original, snapshot);
+  applied.legs[0].route.points[0][0] = 0;
+  assert.equal(original.legs[0].route.points[0][0], 42);
+  const extra = apply_proposal(original, { stops: ['Springfield MI', 'Chicago IL', 'Springfield MI', 'Springfield MI'],
+    legs: [{ mode: 'DRIVE' }, { mode: 'DRIVE' }, { mode: 'DRIVE' }] }, duplicateCatalog);
+  assert.equal(extra.stops[3].place, null); // Both previous user selections were consumed.
+});
+
+test('proposal routes require unchanged ordered endpoint IDs and mode and consume each old leg once', () => {
+  const original = journey();
+  original.legs[0].route = { status: 'READY', points: [[42, -83], [41, -87]], message: 'Keep me', source: 'OSRM' };
+  for (const proposal of [
+    { stops: ['Ann Arbor MI', 'DTW'], legs: [{ mode: 'DRIVE' }] },
+    { stops: ['Chicago IL', 'Ann Arbor MI'], legs: [{ mode: 'DRIVE' }] },
+    { stops: ['Ann Arbor MI', 'Chicago IL'], legs: [{ mode: 'FLIGHT' }] },
+  ]) assert.equal(apply_proposal(original, proposal, catalog).legs[0].route.status, 'UNROUTED');
+  const repeated = apply_proposal(original, { stops: ['Ann Arbor MI', 'Chicago IL', 'Ann Arbor MI', 'Chicago IL'],
+    legs: [{ mode: 'DRIVE' }, { mode: 'DRIVE' }, { mode: 'DRIVE' }] }, catalog);
+  assert.equal(repeated.legs[0].route.status, 'READY');
+  assert.equal(repeated.legs[1].route.status, 'UNROUTED');
+  assert.equal(repeated.legs[2].route.status, 'UNROUTED');
+});
+
 test('validation permits uncalculated routes but rejects malformed dates, modes and unresolved details', () => {
   assert.deepEqual(validate_journey(journey()), []);
   for (const [field, value] of [['departDate', '2026-02-30'], ['departTime', '25:00'], ['mode', 'UNKNOWN']]) {
@@ -198,6 +241,47 @@ test('quota failures and bad new records leave previous saved bytes intact', () 
   assert.ok(write_atlas([new_journey()], null)); assert.equal(valid.raw(), raw);
   globalThis.window = { get localStorage() { throw new Error('blocked'); } };
   assert.ok(load_atlas().error); assert.ok(write_atlas([], null));
+});
+
+test('external changes block stale saves, draft autosaves, trash and restore writes', () => {
+  const saved = journey();
+  const original = JSON.stringify({ schemaVersion: 1, journeys: [saved], draft: null });
+  const newer = { ...saved, title: 'Newer title from another tab' };
+  const newerRaw = JSON.stringify({ schemaVersion: 1, journeys: [newer], draft: null });
+  const draft = { ...saved, note: 'Keep these unsaved edits', pendingPrompt: 'And then go home' };
+  const draftSnapshot = structuredClone(draft);
+  const fixture = storage(original);
+  fixture.replaceExternally(newerRaw);
+  const trashed = { ...saved, deletedAt: '2026-10-30T12:00:00Z' };
+  for (const [journeys, pendingDraft] of [
+    [[saved], draft], [[draft], null], [[trashed], null], [[{ ...trashed, deletedAt: '' }], null],
+  ]) {
+    assert.match(write_atlas(journeys, pendingDraft), /changed in another tab/i);
+    assert.equal(fixture.raw(), newerRaw);
+    assert.equal(fixture.writes(), 0);
+    assert.deepEqual(draft, draftSnapshot);
+  }
+  // Only an explicit reload adopts newer bytes; failed writes never do.
+  assert.equal(load_atlas().journeys[0].title, newer.title);
+  assert.equal(write_atlas([newer], draft), '');
+  assert.equal(fixture.writes(), 1);
+});
+
+test('snapshot detects external creation, deletion and corruption and advances only after own success', () => {
+  const saved = journey();
+  const raw = JSON.stringify({ schemaVersion: 1, journeys: [saved], draft: null });
+  for (const [initial, external] of [[null, raw], [raw, null], [raw, 'corrupt']]) {
+    const fixture = storage(initial); fixture.replaceExternally(external);
+    assert.match(write_atlas([], null), /changed in another tab/i);
+    assert.equal(fixture.raw(), external); assert.equal(fixture.writes(), 0);
+  }
+  const fixture = storage(raw, true);
+  assert.match(write_atlas([saved], new_journey()), /could not save/i);
+  fixture.failWrites(false);
+  // A quota error did not advance the snapshot to the failed attempted bytes.
+  assert.equal(write_atlas([saved], null), '');
+  assert.equal(write_atlas([saved], new_journey()), '');
+  assert.equal(fixture.writes(), 2);
 });
 
 test('bundled primary-source catalog covers exactly 50 states and DC, with checked bytes', () => {

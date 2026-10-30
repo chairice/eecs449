@@ -8,6 +8,7 @@ import from react { useEffect, useRef }
 import from "@jac/runtime" { useNavigate }
 import from server.atlas { atlas_catalog, atlas_status, atlas_interpret, atlas_route }
 import from .AtlasMap { AtlasMap }
+import from ..client.atlas_navigation { set_atlas_history_handler }
 import from ..client.atlas_state {
     new_journey, clone_value, search_places, load_atlas, write_atlas,
     validate_journey, add_stop, update_stop, remove_stop, move_stop,
@@ -66,6 +67,7 @@ def:pub AtlasLegEditor(leg: any, index: int, routable: bool, onField: Callable[[
 def:pub AtlasStudio -> JsxElement {
     navigate = useNavigate();
     lifecycle = useRef({"active": True, "revision": 0});
+    historyGuard = useRef({"restoring": False, "allow": False, "action": None});
     has catalog: any = [], states: any = None;
     has journeys: any = [], draft: any = None, baseline: any = None;
     has ready: bool = False, aiAvailable: bool = False, busy: bool = False;
@@ -125,6 +127,10 @@ def:pub AtlasStudio -> JsxElement {
         pending = None; error = ""; notice = ""; prompt = "";
         lifecycle.current["revision"] += 1;
         if action["kind"] == "leave" { navigate(str(action["href"])); return; }
+        if action["kind"] == "history" {
+            historyGuard.current["allow"] = True;
+            window.history.go(int(action["delta"])); return;
+        }
         if action["kind"] == "new" { baseline = None; panel = "edit"; replaceDraft(new_journey()); return; }
         if action["kind"] == "edit" {
             for item in journeys {
@@ -169,6 +175,8 @@ def:pub AtlasStudio -> JsxElement {
     }
 
     useEffect(lambda {
+        historyState: any = window.history.state;
+        currentIndex = int(historyState["idx"]) if historyState and Number.isInteger(historyState["idx"]) else 0;
         leaving = lambda (event: any) {
             if dirty { event.preventDefault(); event.returnValue = ""; }
         };
@@ -180,11 +188,34 @@ def:pub AtlasStudio -> JsxElement {
             }
         };
         keyboard = lambda (event: any) { if event.key == "Escape" { presenting = False; } };
+        # Browser Back/Forward do not trigger anchor clicks or beforeunload.
+        # Undo the history move before asking; only explicit approval replays it.
+        historyChanging = lambda (event: any) {
+            if historyGuard.current["restoring"] {
+                event.stopImmediatePropagation();
+                historyGuard.current["restoring"] = False;
+                pending = historyGuard.current["action"];
+                return;
+            }
+            if historyGuard.current["allow"] { historyGuard.current["allow"] = False; return; }
+            targetState: any = event.state;
+            if dirty and targetState and Number.isInteger(targetState["idx"]) {
+                delta = int(targetState["idx"]) - currentIndex;
+                if delta != 0 {
+                    event.stopImmediatePropagation();
+                    historyGuard.current["restoring"] = True;
+                    historyGuard.current["action"] = {"kind": "history", "delta": delta};
+                    window.history.go(-delta);
+                }
+            }
+        };
         window.addEventListener("beforeunload", leaving);
+        set_atlas_history_handler(historyChanging);
         document.addEventListener("click", clicking, True);
         document.addEventListener("keydown", keyboard);
         return lambda {
             window.removeEventListener("beforeunload", leaving);
+            set_atlas_history_handler(None);
             document.removeEventListener("click", clicking, True);
             document.removeEventListener("keydown", keyboard);
         };
@@ -303,7 +334,7 @@ def:pub AtlasStudio -> JsxElement {
                 <p className="atlas-note">Saved only in this browser. Flight arcs are illustrative; road lines are calculated approximations. US destinations only. Dates never mark a journey completed automatically.</p>
                 <details className="atlas-note"><summary>Data, privacy & limitations</summary><p>Local place search uses GeoNames (CC BY 4.0) and OurAirports (public domain). Boundaries: Natural Earth (public domain). Road calculations send selected endpoints to the public OSRM service, which logs requests. No payment or booking occurs.</p><a href="https://routing.openstreetmap.de/about.html" target="_blank" rel="noreferrer">Routing service policy</a>{" · "}<a href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noreferrer">Fix the map</a></details>
             </aside>
-            <div className="atlas-map-shell"><AtlasMap journeys={displayed} states={states} selectedId={selectedId} modeFilter={modeFilter} fitVersion={fitVersion} resetVersion={resetVersion} onSelect={selectJourney} presentation={presenting}/></div>
+            <div className="atlas-map-shell"><AtlasMap journeys={displayed} states={states} selectedId={selectedId} modeFilter={"ALL" if panel == "edit" else modeFilter} fitVersion={fitVersion} resetVersion={resetVersion} onSelect={selectJourney} presentation={presenting}/></div>
         </div>
     </section>;
 }

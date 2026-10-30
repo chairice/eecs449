@@ -82,6 +82,23 @@ Notes, message counts, stop counts and geometry sizes are bounded. Data is local
 to this browser and is not shared or synchronized between devices. Clearing site
 data removes saved journeys.
 
+Each editing session retains the raw storage snapshot it loaded. Before a write,
+it compares the current bytes to that snapshot and rejects stale writes rather
+than overwriting another tab's saved journeys or draft. Failed writes do not
+refresh the snapshot. This is optimistic stale-tab protection, not an atomic
+cross-tab transaction: use one active editing tab. On a conflict, copy any unsaved
+text you need and reload to use the newer collection. Edits stay in memory until
+you explicitly leave; page and browser-history navigation prompt before leaving
+a dirty editor. A browser crash or forced close cannot recover edits that the
+browser refused to store.
+
+Unsent descriptions are included in recovery drafts. Conversation history is
+bounded at 80 messages; at the limit, the editor keeps the history and remains
+usable manually. Refinements retain explicit place selections for unchanged
+queries. Road geometry is reused only when ordered resolved endpoints and mode
+still match; stop moves/removals retain leg metadata only for unchanged adjacent
+stop occurrences.
+
 Dates are compared in itinerary order. Times are explicitly local wall-clock
 values without an attached timezone, so the validator does not compare clocks
 across stops: that could incorrectly reject westbound flights. It does not infer

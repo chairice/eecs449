@@ -6,6 +6,8 @@ validation rules. Malformed existing storage is never silently replaced.
 import from .composer_model { valid_date, valid_time }
 
 glob ATLAS_KEY: str = "detour.atlas.v1";
+glob storage_snapshot: any = None;
+glob storage_loaded: bool = False;
 glob STATE_CODES: str = "AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY";
 glob cached_catalog: any = None;
 glob cached_names: any = [];
@@ -122,24 +124,35 @@ def stored_error(value: any) -> str {
 }
 
 def:pub load_atlas -> any {
+    storage_loaded = False;
     try {
         raw = storage().getItem(ATLAS_KEY);
-        if raw is None { return {"journeys": [], "draft": None, "error": ""}; }
+        if raw is None {
+            storage_snapshot = raw; storage_loaded = True;
+            return {"journeys": [], "draft": None, "error": ""};
+        }
         parsed = JSON.parse(raw);
         error = stored_error(parsed);
         if error { return {"journeys": [], "draft": None, "error": error}; }
+        storage_snapshot = raw; storage_loaded = True;
         return {"journeys": parsed["journeys"], "draft": parsed["draft"], "error": ""};
     } except Exception { return {"journeys": [], "draft": None, "error": "Atlas could not read this browser's saved data. Existing data has been preserved."}; }
 }
 
 def:pub write_atlas(journeys: any, draft: any) -> str {
     try {
-        existing = load_atlas();
-        if existing["error"] { return existing["error"]; }
+        if not storage_loaded { return "Atlas could not load a valid storage snapshot. Existing data is preserved; copy your edits before reloading."; }
         value = {"schemaVersion": 1, "journeys": journeys, "draft": draft};
         error = stored_error(value);
         if error { return error; }
-        storage().setItem(ATLAS_KEY, JSON.stringify(value));
+        encoded = JSON.stringify(value);
+        # Never refresh the baseline from inside a write: doing so would adopt
+        # another tab's bytes while still overwriting them with our stale list.
+        # Compare immediately before setItem, after validation/serialization.
+        current = storage().getItem(ATLAS_KEY);
+        if current != storage_snapshot { return "Atlas changed in another tab. The newer saved data has been preserved and your edits remain in this tab. Copy your edits before reloading to load the newer data."; }
+        storage().setItem(ATLAS_KEY, encoded);
+        storage_snapshot = encoded;
         return "";
     } except Exception { return "Atlas could not save. Browser storage may be full or unavailable; your changes remain in this session."; }
 }
@@ -290,6 +303,30 @@ def resolve_exact(catalog: any, query: str) -> any {
     return found;
 }
 
+"""Reuse geometry only for the same ordered resolved endpoints and mode.
+
+Consume each old leg at most once so repeated journeys between the same places
+do not duplicate one old route over several newly proposed occurrences.
+"""
+def preserve_proposal_routes(previous: any, updated: any) {
+    consumed: list[int] = [];
+    for index in range(updated["legs"].length) {
+        start = updated["stops"][index]["place"];
+        finish = updated["stops"][index + 1]["place"];
+        if not place_ok(start) or not place_ok(finish) { continue; }
+        for old_index in range(previous["legs"].length) {
+            if old_index in consumed { continue; }
+            old_start = previous["stops"][old_index]["place"];
+            old_finish = previous["stops"][old_index + 1]["place"];
+            if place_ok(old_start) and place_ok(old_finish) and old_start["id"] == start["id"] and old_finish["id"] == finish["id"] and previous["legs"][old_index]["mode"] == updated["legs"][index]["mode"] {
+                updated["legs"][index]["route"] = clone_value(previous["legs"][old_index]["route"]);
+                consumed.append(old_index);
+                break;
+            }
+        }
+    }
+}
+
 def:pub apply_proposal(journey: any, proposal: any, catalog: any) -> any {
     updated = clone_value(journey);
     if not object_ok(proposal) { return updated; }
@@ -315,6 +352,7 @@ def:pub apply_proposal(journey: any, proposal: any, catalog: any) -> any {
     if not updated["note"].trim() and isinstance(proposal["note"], str) { updated["note"] = proposal["note"]; }
     if Array.isArray(proposal["unresolved"]) { updated["unresolved"] = clone_value(proposal["unresolved"]); }
     updated["stops"] = []; updated["legs"] = [];
+    consumed_stops: list[int] = [];
     for stop in proposal["stops"] {
         query = "";
         if isinstance(stop, str) { query = stop; }
@@ -326,7 +364,18 @@ def:pub apply_proposal(journey: any, proposal: any, catalog: any) -> any {
             }
         }
         if not text_ok(query, 240) or not query.strip() { return clone_value(journey); }
-        resolved = resolve_exact(catalog, query);
+        resolved: any = None;
+        # A previous explicit user selection is stronger evidence than an
+        # ambiguous catalog query. Match occurrences once, in their old order.
+        for old_index in range(journey["stops"].length) {
+            old_stop = journey["stops"][old_index];
+            if old_index not in consumed_stops and normalize_query(old_stop["query"]) == normalize_query(query) {
+                consumed_stops.append(old_index);
+                if place_ok(old_stop["place"]) { resolved = old_stop["place"]; }
+                break;
+            }
+        }
+        if resolved is None { resolved = resolve_exact(catalog, query); }
         updated["stops"].push({"query": query, "place": clone_value(resolved)});
         if updated["stops"].length > 1 { updated["legs"].push(new_leg()); }
     }
@@ -340,6 +389,7 @@ def:pub apply_proposal(journey: any, proposal: any, catalog: any) -> any {
             }
         }
     }
+    preserve_proposal_routes(journey, updated);
     if len(shape_errors(updated)) > 0 { return clone_value(journey); }
     return updated;
 }
