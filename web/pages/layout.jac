@@ -17,8 +17,8 @@ def:pub RootLayout -> JsxLayout {
     }
     segments = path.split("/");
     isTripDetail = len(segments) == 3 and segments[1] == "trips" and segments[2] != "";
-    appPage = path in ["/plan", "/plan/results", "/trips"] or isTripDetail;
-    activePath = "/trips" if path == "/trips" or isTripDetail else "/plan";
+    appPage = path in ["/atlas", "/plan", "/plan/results", "/trips"] or isTripDetail;
+    activePath = "/atlas" if path == "/atlas" else "/trips" if path == "/trips" or isTripDetail else "/plan";
 
     can with entry { loadStylesheet(FONTS_URL); }
     can with entry {
