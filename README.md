@@ -108,6 +108,42 @@ once the planning loop is reliable.
 
 ## Status
 
+### Atlas: travel history and future intentions
+
+Open **Atlas** (`/atlas`) for ordered, mixed flight/driving journeys on a minimal
+US map. Start with **Add journey** or the labeled example. Describe a journey,
+review proposed stops and modes, resolve ambiguous city/airport matches, add
+optional local dates/times, then **Save journey**. A no-key starting point is
+`DTW -> JFK -> BOS`; choose each leg's travel mode yourself. Complex language
+requires the optional server-side LLM or manual editing—the limited rules
+fallback keeps unsupported requests visible instead of claiming success.
+
+Past/Planned are explicit statuses. Flights are illustrative arcs; use
+**Calculate / retry road route** for free OSRM road geometry. Unavailable routes
+have no invented road line. Fit/Reset are explicit; editing does not move the
+camera. Filter journeys, explore Alaska/Hawaii, or **Present** (Escape exits).
+Saved journeys and recovery drafts, including unsent descriptions, stay in this
+browser. **Trash** is recoverable. This is not account sync, actual travel
+tracking, ticket search, hotel recommendations, or booking. **Plan** and
+**Trips** remain separate.
+
+See [Atlas architecture](docs/atlas-design.md),
+[data and storage contracts](docs/atlas-data.md), and
+[provider setup](web/README.md#atlas-configuration).
+
+Screenshots from the running app (the journeys shown are labeled QA examples):
+
+![Atlas desktop workspace with flight and road journeys](docs/screenshots/10-atlas.jpg)
+
+<details>
+<summary>Phone layout</summary>
+
+![Atlas phone map and bottom editor](docs/screenshots/11-atlas-mobile.jpg)
+
+</details>
+
+### Commuter planning preview
+
 The repository implements a read-only, fixture-backed planning preview:
 accessible structured input, a validated server endpoint, three synthetic
 Ann Arbor–Chicago routes, deterministic feasibility/scoring, and selectable

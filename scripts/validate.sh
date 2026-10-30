@@ -16,4 +16,4 @@ fi
 "$jac_bin" check .
 "$jac_bin" test -d tests/ -v
 "$jac_bin" build main.jac
-node --test "$repo_dir/scripts/test-client-comparison.mjs" "$repo_dir/scripts/test-client-composer.mjs"
+node --test "$repo_dir/scripts/test-client-comparison.mjs" "$repo_dir/scripts/test-client-composer.mjs" "$repo_dir/scripts/test-client-atlas.mjs" "$repo_dir/scripts/test-client-atlas-navigation.mjs"

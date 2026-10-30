@@ -1,13 +1,11 @@
 # Detour web application
 
-The current application has a Detour landing page and directly reachable
-planning, results, trips, trip-detail, and not-found routes. The
-composer validates a structured request locally, calls the stateless fixture
-planner, and displays ranked synthetic routes. There is no live provider
-access or trip persistence. Results recover
-from a missing request, trips show an empty state, and unavailable trip IDs
-show a not-found state. See [planning preview](../docs/planning-preview.md)
-for the current end-to-end boundary and remaining work.
+The app has a landing page, Atlas, planning/results, browser-local saved trips,
+trip detail, and a not-found route. The commuter planner ranks synthetic
+Ann Arbor–Chicago routes. Atlas is a separate travel journal and future-intent
+canvas with local place lookup, optional LLM proposals, and optional OSRM road
+geometry. Neither flow purchases travel. See [planning preview](../docs/planning-preview.md)
+and [Atlas design](../docs/atlas-design.md) for their separate boundaries.
 
 ## Toolchain and first setup
 
@@ -56,6 +54,32 @@ The development API uses port 8001. Stop with Ctrl+C. `jac run --show` prints
 the resolved entry point and serving mode. Run Jac commands from `web/` so
 they use this project's configuration.
 
+## Atlas configuration
+
+No key is needed for local place lookup, manual editing, illustrative flights,
+browser storage, or the limited explicit-route parser. Open `/atlas` after
+starting the app. A sample rules request is `DTW -> JFK -> BOS`; confirm modes
+and resolve all remaining details before saving.
+
+- `ANTHROPIC_API_KEY`: optional server-only credential for natural-language
+  creation/refinement. Never put it in client code or Git. Atlas sends only the
+  submitted sentence and selected itinerary fields, not other journeys or notes.
+- `ATLAS_MODEL`: optional model override; defaults to `DETOUR_MODEL` or
+  `claude-haiku-5-5`, matching the existing interpreter. Model access depends on
+  your provider account; failures visibly fall back to rules/manual editing.
+- `ATLAS_OSRM_BASE`: optional operator-controlled route endpoint. Default:
+  `https://routing.openstreetmap.de/routed-car/route/v1/driving/`.
+  The public service receives/logs the selected endpoints. No paid fallback.
+
+Road calls are gated at one/second per process, with a 64-entry one-hour cache
+(errors 15 seconds), 10-second timeout, and response/geometry bounds. AI calls
+have a 12-second timeout and a 30/hour per-process ceiling, at least two seconds
+apart. These are demo safeguards, not distributed production quotas. Proposals
+support up to 24 stops; all output needs review. Simplified US boundaries can
+reject valid coastal roads. Use a suitable self-hosted route backend before
+scaling. See [data documentation](../docs/atlas-data.md) for attribution and
+coverage. Atlas does not invoke the commuter planner or book anything.
+
 ## Baseline validation
 
 From the repository root:
@@ -65,8 +89,9 @@ bash scripts/validate.sh
 ```
 
 The script rejects a different Jac version, checks all source files with
-`jac check .`, runs `jac test tests/domain_tests.jac -v`, then builds with
-`jac build --as client`. It exits on any failure. If Jac is not on PATH, use
+`jac check .`, runs every suite with `jac test -d tests/ -v`, builds with
+`jac build main.jac`, then tests the emitted client helpers with Node. It exits
+on any failure. If Jac is not on PATH, use
 `JAC_BIN=/absolute/path/to/jac bash scripts/validate.sh`. The same script runs
 for pull requests and pushes to `main` in `.github/workflows/validate.yml`.
 The production client is emitted into `web/.jac/client/dist/`; it is not a
