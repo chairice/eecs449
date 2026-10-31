@@ -222,6 +222,70 @@ test "empty new journey context is accepted for an initial request" {
     assert json.loads(atlas_interpret("Detroit to Chicago", json.dumps(fresh)))["proposal"] is None;
 }
 
+test "blank manual stop slots do not block explicit route interpretation" {
+    selected = {"title": "Draft", "status": "PLANNED", "stops": [{"query": "", "place": None}], "legs": []};
+    context = svc._context(json.dumps(selected));
+    assert context["stops"] == [{"query": ""}];
+    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": ""}) {
+        result = json.loads(atlas_interpret("DTW -> JFK", json.dumps(selected)));
+        assert result["source"] == "rules";
+        assert [stop["query"] for stop in result["proposal"]["stops"]] == ["DTW", "JFK"];
+    }
+}
+
+test "draft context preserves named queries and leg fields around blank slots" {
+    selected = {"title": "Draft", "status": "PAST", "note": "PRIVATE",
+        "stops": [{"query": "Detroit"}, {"query": "   "}, {"query": "Chicago"}],
+        "legs": [svc._blank_leg("DRIVE"), svc._blank_leg("FLIGHT")]};
+    selected["legs"][0]["departDate"] = "2026-10-12";
+    selected["legs"][1]["timingNote"] = "evening departure";
+    context = svc._context(json.dumps(selected));
+    assert [stop["query"] for stop in context["stops"]] == ["Detroit", "", "Chicago"];
+    assert context["legs"] == selected["legs"];
+    assert context["status"] == "PAST";
+    assert "PRIVATE" not in json.dumps(context);
+    # A blank endpoint must not transfer a different leg's mode or dates.
+    replaced = svc._rules("Detroit to Chicago", context);
+    assert replaced["legs"][0] == svc._blank_leg();
+    # Details that cannot safely be assigned to a new leg remain visible for review.
+    assert "2026-10-12" in json.dumps(replaced["unresolved"]);
+    assert "evening departure" in json.dumps(replaced["unresolved"]);
+    assert "DRIVE" in json.dumps(replaced["unresolved"]);
+}
+
+test "mocked AI can fill a blank manual stop while output validation stays strict" {
+    selected = {"title": "Draft", "status": "PLANNED", "stops": [{"query": ""}], "legs": []};
+    proposal = svc._rules("DTW to JFK", None);
+    payload = {"stop_reason": "end_turn", "content": [{"type": "text", "text": json.dumps(proposal)}]};
+    response = MagicMock();
+    response.__enter__.return_value = response;
+    response.read.return_value = json.dumps(payload).encode();
+    with patch.object(svc.urllib.request, "urlopen", return_value=response), patch.object(svc, "_ai_calls", svc.deque()), patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-only"}) {
+        result = json.loads(atlas_interpret("DTW to JFK", json.dumps(selected)));
+        assert result["source"] == "llm";
+        assert len(result["proposal"]["stops"]) == 2;
+    }
+    failed = False;
+    try { _ = svc._proposal(selected); } except ValueError { failed = True; }
+    assert failed;
+}
+
+test "blank context does not exempt named stops or malformed values from validation" {
+    selected = {"title": "Draft", "status": "PLANNED", "stops": [{"query": "Detroit"}, {"query": ""}], "legs": [svc._blank_leg()]};
+    context = svc._context(json.dumps(selected));
+    failed = False;
+    try { svc._check_preserved("add Boston", context, svc._rules("Chicago to Boston", None)); } except ValueError { failed = True; }
+    assert failed;
+    malformed = json.loads(json.dumps(selected));
+    for bad in [42, None, [], {}] {
+        malformed["stops"][1]["query"] = bad;
+        assert json.loads(atlas_interpret("Detroit to Boston", json.dumps(malformed)))["proposal"] is None;
+    }
+    selected["stops"][1]["query"] = "";
+    selected["legs"] = [];
+    assert json.loads(atlas_interpret("Detroit to Boston", json.dumps(selected)))["proposal"] is None;
+}
+
 test "repeating a route preserves all existing leg dates and modes" {
     current = svc._rules("Detroit to Chicago to Detroit to Chicago", None);
     current["legs"][0]["mode"] = "DRIVE";

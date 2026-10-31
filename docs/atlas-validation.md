@@ -1,7 +1,7 @@
 # Atlas validation record
 
 Validated locally on 2026-10-30 with Jac 0.37.14 and Node 22.11.0.
-Final full run: 100 Jac tests, production build, and 30 emitted-JavaScript tests
+Initial release run: 100 Jac tests, production build, and 30 emitted-JavaScript tests
 passed (20 Atlas/navigation, 10 existing planner-client tests).
 
 ## Automated coverage
@@ -49,3 +49,35 @@ There is no production-scale provider/load test, distributed rate limiter,
 atomic cross-tab database, cross-device synchronization, offline service worker,
 ticket purchase or recommendation integration. Catalog coverage is not exhaustive.
 The public road service and conservative coastal-boundary limitations are real.
+
+## Follow-up validation of merged main
+
+Final follow-up run: all source checks, 104 Jac tests, the production build,
+and 36 emitted-JavaScript tests passed (26 Atlas/navigation, 10 existing).
+
+The requested second validation pass on October 30 found four additional
+regressions, tracked together in issue #45:
+
+- Dirty-journey navigation from presentation mode hid its confirmation inside
+  the hidden editor. Every guard now exits presentation before showing it;
+  emitted-component tests exercise both browser history and internal links.
+- Arrival-only dates could move backward between legs. Every known calendar
+  date is now checked in journey order, including across undated legs, without
+  inventing missing dates or comparing local wall-clock times across zones.
+- Historical GeoNames aliases crowded exact city names out of search results.
+  Exact airport codes and canonical names now precede aliases; canonical ties
+  use deterministic state/county/name/ID ordering. Tests include the real
+  bundled Springfield catalog, not just synthetic examples.
+- A blank manually added stop blocked subsequent conversation requests.
+  Input context now preserves blank slots and their neighboring leg details,
+  while model output remains strictly validated. Unassignable timing/mode
+  details remain visible for review rather than being silently discarded.
+
+Browser rechecks confirmed presentation Back shows a visible guard, reversed
+partial dates block saving, Springfield includes IL and MA ahead of aliases,
+and the Ann Arbor–Chicago live road route succeeds. Save/restore, unsent draft
+recovery, status/mode filters, stop reordering, Alaska/Hawaii, presentation exit,
+and existing saved-trip detail navigation were also exercised. Synthetic QA
+journeys are recoverably trashed after testing; existing saved trips are untouched.
+After restarting the server, a blank manual stop followed by `DTW -> JFK`
+successfully produced two resolved airport stops for review in the browser.
