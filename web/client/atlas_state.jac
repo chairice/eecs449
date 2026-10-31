@@ -100,12 +100,20 @@ def:pub validate_journey(journey: any) -> list[str] {
             if leg[key] and not valid_time(leg[key]) { errors.append("Use a valid 24-hour time."); }
         }
         depart = leg["departDate"]; arrive = leg["arriveDate"];
-        if depart and arrive and valid_date(depart) and valid_date(arrive) and arrive < depart { errors.append("Arrival date cannot precede departure date."); }
         # Times are local wall-clock values; comparing them across time zones
         # would reject legitimate flights. Only calendar dates are ordered.
-        if last_date and depart and valid_date(depart) and depart < last_date { errors.append("A leg cannot depart before the preceding leg arrives."); }
-        if arrive and valid_date(arrive) { last_date = arrive; }
-        elif depart and valid_date(depart) { last_date = depart; }
+        # Missing endpoints (or whole undated legs) must not reset the last
+        # known date: every supplied date follows the same ordered itinerary.
+        for key in ["departDate", "arriveDate"] {
+            date = leg[key];
+            if date and valid_date(date) {
+                if last_date and date < last_date {
+                    if key == "arriveDate" and depart and valid_date(depart) and arrive < depart { errors.append("Arrival date cannot precede departure date."); }
+                    else { errors.append("Known journey dates must follow the order of the legs."); }
+                }
+                else { last_date = date; }
+            }
+        }
     }
     return errors;
 }
@@ -190,7 +198,8 @@ def prepare_search(catalog: any) {
             exact.append(name + " " + county + " " + state);
             labels.append(name + " " + county + " " + state);
         }
-        cached_names.push({"place": place, "exact": exact, "labels": labels});
+        canonical = normalize(place["name"]);
+        cached_names.push({"place": place, "exact": exact, "labels": labels, "canonical": [canonical, canonical + " " + state, canonical + " " + county + " " + state]});
     }
 }
 
@@ -199,10 +208,13 @@ def:pub search_places(catalog: any, query: str) -> list[any] {
     if not needle or not Array.isArray(catalog) { return []; }
     prepare_search(catalog);
     parts = needle.split(" ");
-    codes: list[any] = []; exact: list[any] = []; prefix: list[any] = []; contains: list[any] = [];
+    codes: list[any] = []; canonical: list[any] = []; exact: list[any] = []; prefix: list[any] = []; contains: list[any] = [];
     for indexed in cached_names {
         place = indexed["place"];
         if place["kind"] == "AIRPORT" and (needle == normalize(place["code"]) or needle == normalize(place["code"]) + " " + normalize(place["state"])) { if len(codes) < 8 { codes.append(place); } continue; }
+        # Historic GeoNames aliases must not crowd current city names out of
+        # the eight suggestions. Keep canonical matches before alias matches.
+        if needle in indexed["canonical"] { canonical.append(place); continue; }
         if needle in indexed["exact"] { if len(exact) < 8 { exact.append(place); } continue; }
         starts = False; includes = False;
         for name in indexed["exact"] { if name.startsWith(needle) { starts = True; } }
@@ -214,7 +226,12 @@ def:pub search_places(catalog: any, query: str) -> list[any] {
         if starts and len(prefix) < 8 { prefix.append(place); }
         elif includes and len(contains) < 8 { contains.append(place); }
     }
-    return (codes + exact + prefix + contains)[:8];
+    # The offline catalog has no population data. State/county/name/id gives
+    # repeatable disambiguation without inventing a city-popularity ranking.
+    canonical = sorted(canonical, key=lambda (place: any) -> str {
+        return normalize(place["state"]) + "|" + normalize(place["county"]) + "|" + normalize(place["name"]) + "|" + str(place["id"]);
+    });
+    return (codes + canonical + exact + prefix + contains)[:8];
 }
 
 """Keep a leg only between the same ordered stop occurrences after an edit.

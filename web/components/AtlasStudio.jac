@@ -77,6 +77,12 @@ def:pub AtlasStudio -> JsxElement {
     has presenting: bool = False, pending: any = None;
     dirty = draft is not None and JSON.stringify(draft) != JSON.stringify(baseline);
 
+    def showPending(action: any) {
+        # Presentation hides the editor panel containing this confirmation.
+        # Reveal it before showing a navigation guard, including browser Back.
+        presenting = False;
+        pending = action;
+    }
     def remember(nextJourneys: any, nextDraft: any) -> bool {
         failure = write_atlas(nextJourneys, nextDraft);
         if failure { error = failure; return False; }
@@ -142,7 +148,7 @@ def:pub AtlasStudio -> JsxElement {
     }
     def requestOpen(action: any) {
         if busy { return; }
-        if dirty { pending = action; return; }
+        if dirty { showPending(action); return; }
         openNow(action);
     }
     def selectJourney(id: str) { if id != selectedId { requestOpen({"kind": "edit", "id": id}); } }
@@ -184,7 +190,7 @@ def:pub AtlasStudio -> JsxElement {
             target: any = event.target;
             anchor: any = target.closest("a[href]") if target and target.closest else None;
             if dirty and anchor and anchor.getAttribute("href").startsWith("/") and not anchor.getAttribute("href").startsWith("/atlas") {
-                event.preventDefault(); event.stopPropagation(); pending = {"kind": "leave", "href": anchor.getAttribute("href")};
+                event.preventDefault(); event.stopPropagation(); showPending({"kind": "leave", "href": anchor.getAttribute("href")});
             }
         };
         keyboard = lambda (event: any) { if event.key == "Escape" { presenting = False; } };
@@ -194,7 +200,7 @@ def:pub AtlasStudio -> JsxElement {
             if historyGuard.current["restoring"] {
                 event.stopImmediatePropagation();
                 historyGuard.current["restoring"] = False;
-                pending = historyGuard.current["action"];
+                showPending(historyGuard.current["action"]);
                 return;
             }
             if historyGuard.current["allow"] { historyGuard.current["allow"] = False; return; }
