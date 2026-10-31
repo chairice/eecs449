@@ -77,6 +77,30 @@ test('search prioritizes exact airport codes, names, state and county disambigua
   assert.ok(search_places(Array.from({ length: 20 }, (_, i) => city(i, 'Example ' + i, 'MI')), 'Example').length <= 8);
 });
 
+test('canonical city names and airport codes outrank historic aliases before the suggestion cap', () => {
+  const aliases = Array.from({ length: 12 }, (_, i) => ({
+    ...city(`historic-${i}`, `Other city ${i}`, 'PA'), aliases: ['Springfield', 'DTW'],
+  }));
+  const records = [...aliases, springfield2, springfield1, airport];
+  const matches = search_places(records, 'Springfield');
+  assert.equal(matches.length, 8);
+  assert.deepEqual(matches.slice(0, 2).map(place => place.id), [springfield1.id, springfield2.id]);
+  assert.equal(search_places(records, 'DTW')[0].id, airport.id);
+  assert.equal(search_places(records, 'Springfield PA')[0].state, 'PA');
+  assert.equal(search_places(records, 'Springfield Massachusetts')[0].id, springfield2.id);
+});
+
+test('bundled Springfield suggestions show current names with deterministic state disambiguation', () => {
+  const records = JSON.parse(gunzipSync(readFileSync(new URL('../web/fixtures/atlas/places.json.gz', import.meta.url))));
+  const matches = search_places(records, 'Springfield');
+  assert.equal(matches.length, 8);
+  assert.ok(matches.every(place => place.name === 'Springfield'));
+  assert.ok(matches.some(place => place.state === 'IL'));
+  assert.ok(matches.some(place => place.state === 'MA'));
+  assert.deepEqual(search_places([...records].reverse(), 'Springfield').map(place => place.id), matches.map(place => place.id));
+  assert.equal(search_places(records, 'Springfield, Massachusetts')[0].state, 'MA');
+});
+
 test('moving or removing stops retains metadata only for unchanged ordered stop occurrences', () => {
   let original = add_stop(add_stop(journey()));
   original = update_stop(original, 2, airport, 'DTW');
@@ -192,6 +216,43 @@ test('validation permits uncalculated routes but rejects malformed dates, modes 
   const past = journey(); past.status = 'PAST'; assert.deepEqual(validate_journey(past), []);
   assert.ok(validate_journey({}).length);
   assert.ok(validate_journey({ ...journey(), note: 'x'.repeat(8001) }).length);
+});
+
+test('chronology orders every known date across partially specified legs', () => {
+  const make = () => set_leg_field(update_stop(add_stop(journey()), 2, airport, 'DTW'), 1, 'mode', 'FLIGHT');
+  // Either endpoint can be omitted, but later known events cannot move back a day.
+  for (const previousField of ['departDate', 'arriveDate']) {
+    for (const nextField of ['departDate', 'arriveDate']) {
+      const value = make();
+      value.legs[0][previousField] = '2026-11-10';
+      value.legs[1][nextField] = '2026-11-09';
+      assert.ok(validate_journey(value).some(error => error.includes('order of the legs')),
+        `${previousField} followed by ${nextField} must remain chronological`);
+      value.legs[1][nextField] = '2026-11-10';
+      assert.deepEqual(validate_journey(value), []);
+      value.legs[1][nextField] = '2026-11-11';
+      assert.deepEqual(validate_journey(value), []);
+    }
+  }
+});
+
+test('chronology survives undated legs without inferring missing dates or comparing local times', () => {
+  let value = journey();
+  for (const place of [airport, ann]) {
+    value = update_stop(add_stop(value), value.stops.length, place, place.name);
+    value = set_leg_field(value, value.legs.length - 1, 'mode', 'FLIGHT');
+  }
+  value.legs[0].arriveDate = '2026-11-10';
+  value.legs[2].arriveDate = '2026-11-09';
+  assert.ok(validate_journey(value).some(error => error.includes('order of the legs')));
+  value.legs[2].arriveDate = '2026-11-10';
+  value.legs[0].arriveTime = '23:00';
+  value.legs[1].departTime = '05:00';
+  value.legs[2].arriveTime = '01:00';
+  assert.deepEqual(validate_journey(value), []);
+  assert.equal(value.legs[1].departDate, '');
+  assert.equal(value.legs[1].arriveDate, '');
+  assert.equal(value.legs[2].departDate, '');
 });
 
 test('one atomic write persists saved journeys and unresolved draft across reload', () => {
