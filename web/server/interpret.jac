@@ -38,9 +38,9 @@ glob CLAUDE_INSTRUCTIONS: str = """You turn a commuter's plain-language request 
 Reply with only one JSON object, no prose, with exactly these keys:
 - "origin": starting city as "City, ST" (e.g. "Ann Arbor, MI"), or "" when not stated
 - "destination": destination city as "City, ST" (e.g. "Chicago, IL"), or "" when not stated
-- "date": outbound date as YYYY-MM-DD resolved against today's date, or "" when not stated
+- "date": outbound date as YYYY-MM-DD resolved against today's date, or "" when not stated ("next Thursday" said on a Thursday is a week later)
 - "time": local time as 24-hour HH:MM, or "" when not stated ("after 4" in the afternoon is 16:00)
-- "time_kind": "ARRIVE_BY" when the time is a deadline ("by 9", "before 9 pm"), otherwise "DEPART_AFTER"
+- "time_kind": "ARRIVE_BY" when the time is a deadline ("by 9", "before 9 pm"), otherwise "DEPART_AFTER"; a deadline day with no time ("by Saturday") is "ARRIVE_BY" with time "23:59"
 - "max_price": maximum total fare in whole US dollars, or 0 when no budget is given
 - "min_transfer_minutes": minimum minutes between connections, 45 for "avoid tight transfers", or 0 when not stated
 - "return_date": return date as YYYY-MM-DD when the request mentions coming back, or ""
@@ -82,7 +82,7 @@ def today_local -> date {
     return datetime.now(ZoneInfo(HOME_ZONE)).date();
 }
 
-"""A weekday name means its next occurrence, today included."""
+"""A weekday name means its next occurrence, today included ("next" moves today's a week on)."""
 def next_weekday(today: date, name: str) -> date {
     ahead = (WEEKDAYS.index(name) - today.weekday()) % 7;
     return today + timedelta(days=ahead);
@@ -109,7 +109,13 @@ def read_date(text: str, today: date) -> str {
         } except ValueError { return ""; }
     }
     for name in WEEKDAYS {
-        if re.search(r"\b" + name[:3] + r"(" + name[3:] + r")?\b", text) { return next_weekday(today, name).isoformat(); }
+        named_day = re.search(r"\b(next\s+)?" + name[:3] + r"(" + name[3:] + r")?\b", text);
+        if named_day {
+            upcoming = next_weekday(today, name);
+            # "Next thursday" said on a thursday means a week out, not today.
+            if named_day.group(1) and upcoming == today { upcoming = today + timedelta(days=7); }
+            return upcoming.isoformat();
+        }
     }
     return "";
 }
@@ -125,15 +131,20 @@ def read_clock(hour_text: str, minute_text: str | None, meridiem: str | None) ->
     return f"{hour:02d}:{minute:02d}";
 }
 
+glob DAY_PHRASE: str = r"(?:(?:next|this|on|the)\s+)*(?:[a-z]+day|tomorrow|tonight|[a-z]{3,9}\.?\s+\d{1,2}|\d{1,2}/\d{1,2})";
+
 def read_time(text: str) -> tuple[str, str] {
     clock = r"(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|am|pm)?";
-    arrive = re.search(r"\b(?:by|before|arrive by|arriving by|get there by)\s+" + clock, text);
+    # A day may sit between the cue and the clock: "before next thursday at 5".
+    arrive = re.search(r"\b(?:by|before|arrive by|arriving by|get there by)\s+(?:" + DAY_PHRASE + r"\s+(?:at\s+)?)?" + clock, text);
     if arrive { return (read_clock(arrive.group(1), arrive.group(2), arrive.group(3)), "ARRIVE_BY"); }
     depart = re.search(r"\b(?:after|leave at|leaving at|leave|leaving|departing|depart|at|around)\s+" + clock, text);
     if depart { return (read_clock(depart.group(1), depart.group(2), depart.group(3)), "DEPART_AFTER"); }
     # A bare clock with am/pm, as in a follow-up reply like "4pm".
     bare = re.search(r"\b(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|am|pm)(?![a-z])", text);
     if bare { return (read_clock(bare.group(1), bare.group(2), bare.group(3)), "DEPART_AFTER"); }
+    # A deadline day with no time, "by next saturday", means by the end of that day.
+    if re.search(r"\b(?:by|before|arrive by|arriving by|get there by)\s+" + DAY_PHRASE + r"\b", text) { return ("23:59", "ARRIVE_BY"); }
     if re.search(r"\b(evening|tonight)\b", text) { return ("17:00", "DEPART_AFTER"); }
     if re.search(r"\bafternoon\b", text) { return ("13:00", "DEPART_AFTER"); }
     if re.search(r"\bmorning\b", text) { return ("08:00", "DEPART_AFTER"); }

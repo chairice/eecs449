@@ -1,3 +1,5 @@
+/* Hand-written styles sit in the legacy layer, below Tailwind utilities. */
+@layer legacy {
 /* Atlas is an editorial map workspace, with all rules scoped to its page. */
 .atlas-workspace {
   --atlas-paper: #faf9f5; --atlas-land: #eeeee5; --atlas-ink: #343a32;
@@ -26,8 +28,6 @@
 .atlas-workspace .atlas-panel > * + * { margin-top: 18px; }
 .atlas-workspace .atlas-map-shell { flex: 1; min-width: 0; position: relative; }
 .atlas-workspace .atlas-map-stage { width: 100%; height: 100%; position: relative; isolation: isolate; overflow: hidden; }
-.atlas-workspace .atlas-map { width: 100%; height: 100%; background: var(--atlas-paper); z-index: 0; font-family: Inter, system-ui, sans-serif; }
-.atlas-workspace .atlas-map:focus-visible { outline: 2px solid #70896d; outline-offset: -3px; }
 .atlas-workspace .atlas-map-caption { position: absolute; top: 26px; left: 28px; display: grid; gap: 4px; pointer-events: none; color: #7a8174; }
 .atlas-workspace .atlas-map-caption span:first-child { font-size: 10px; letter-spacing: 3px; }
 .atlas-workspace .atlas-map-caption span:last-child { font-size: 12px; color: #92978b; }
@@ -37,9 +37,6 @@
 .atlas-workspace .atlas-map-controls button:hover { background: #eceee4; }
 .atlas-workspace .atlas-map-controls > span { height: 1px; margin: 4px 8px; background: var(--atlas-line); }
 .atlas-workspace .atlas-map-footnote { position: absolute; left: 22px; bottom: 16px; max-width: calc(100% - 40px); padding: 5px 8px; background: #faf9f5d9; color: #81877b; font-size: 10px; letter-spacing: .1px; pointer-events: none; }
-.atlas-workspace .leaflet-tooltip.atlas-stop-label { border: none; background: #faf9f5eb; color: #454b40; border-radius: 4px; padding: 2px 6px; box-shadow: none; font-size: 11px; font-weight: 500; }
-.atlas-workspace .leaflet-tooltip.atlas-stop-label::before { display: none; }
-.atlas-workspace .leaflet-tooltip.atlas-route-tooltip { border: 1px solid var(--atlas-line); background: #fffefa; color: var(--atlas-ink); border-radius: 7px; padding: 6px 10px; box-shadow: 0 3px 10px #343a3210; }
 .atlas-workspace .atlas-flight-path { filter: drop-shadow(0 1px 1px #343a3210); }
 .atlas-workspace .atlas-map-footnote a { pointer-events: auto; text-decoration: underline; }
 .atlas-workspace .atlas-tabs { display: flex; gap: 3px; padding: 4px; background: #eeefe7; border-radius: 10px; }
@@ -112,3 +109,12 @@
 @media (prefers-reduced-motion: reduce) {
   .atlas-workspace *, .atlas-workspace *::before, .atlas-workspace *::after { transition: none !important; animation: none !important; }
 }
+
+}
+
+/* Leaflet's stylesheet is unlayered, so its overrides stay unlayered too. */
+.atlas-workspace .atlas-map { width: 100%; height: 100%; background: var(--atlas-paper); z-index: 0; font-family: Inter, system-ui, sans-serif; }
+.atlas-workspace .atlas-map:focus-visible { outline: 2px solid #70896d; outline-offset: -3px; }
+.atlas-workspace .leaflet-tooltip.atlas-stop-label { border: none; background: #faf9f5eb; color: #454b40; border-radius: 4px; padding: 2px 6px; box-shadow: none; font-size: 11px; font-weight: 500; }
+.atlas-workspace .leaflet-tooltip.atlas-stop-label::before { display: none; }
+.atlas-workspace .leaflet-tooltip.atlas-route-tooltip { border: 1px solid var(--atlas-line); background: #fffefa; color: var(--atlas-ink); border-radius: 7px; padding: 6px 10px; box-shadow: 0 3px 10px #343a3210; }

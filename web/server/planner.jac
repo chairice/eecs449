@@ -6,8 +6,9 @@ import from zoneinfo { ZoneInfo }
 import from server.models {
     TripRequest, RouteOption, ScoredRoute, ScoreDimensions, RiskAssessment,
     PriorityPreset, TravelMode, TimeKind, ServiceStatus, RiskLevel, ReasonCode,
-    DomainError, ErrorCode, parse_timestamp, model_to_json
+    DomainError, ErrorCode, WeatherEvidence, parse_timestamp, model_to_json
 }
+import from server.weather_rules { by_significance, pending_weather, route_weather_level }
 
 enum ConstraintCode: str {
     CANCELED = "CANCELED", MODE_EXCLUDED = "MODE_EXCLUDED",
@@ -68,7 +69,7 @@ def transfer_slack(route: RouteOption) -> list[float] {
     return result;
 }
 
-def rejection_reasons(request: TripRequest, route: RouteOption) -> list[ConstraintCode] {
+def rejection_reasons(request: TripRequest, route: RouteOption, now: datetime) -> list[ConstraintCode] {
     reasons: list[ConstraintCode] = [];
     if `any([leg.status == ServiceStatus.CANCELED for leg in route.legs]) { reasons.append(ConstraintCode.CANCELED); }
     if `any([leg.mode != TravelMode.WALK and leg.mode not in request.allowed_modes for leg in route.legs]) { reasons.append(ConstraintCode.MODE_EXCLUDED); }
@@ -83,12 +84,13 @@ def rejection_reasons(request: TripRequest, route: RouteOption) -> list[Constrai
         zone = route.legs[0].origin.timezone;
         instant = parse_timestamp(route.legs[0].departure_at);
         outside = instant < request_instant(request, zone);
+        outside = outside or instant.astimezone(ZoneInfo(zone)).date().isoformat() != request.local_date;
     } else {
+        # Arrive-by spans every day up to the deadline, but never a route already gone.
         zone = route.legs[-1].destination.timezone;
-        instant = parse_timestamp(route.legs[-1].arrival_at);
-        outside = instant > request_instant(request, zone);
+        outside = parse_timestamp(route.legs[-1].arrival_at) > request_instant(request, zone) or parse_timestamp(route.legs[0].departure_at) < now;
     }
-    if outside or instant.astimezone(ZoneInfo(zone)).date().isoformat() != request.local_date { reasons.append(ConstraintCode.OUTSIDE_WINDOW); }
+    if outside { reasons.append(ConstraintCode.OUTSIDE_WINDOW); }
     return reasons;
 }
 
@@ -121,9 +123,14 @@ def inferred_risk(request: TripRequest, route: RouteOption) -> RiskAssessment {
     return RiskAssessment(delay=level, transfer=transfer, weather=RiskLevel.UNKNOWN, uncertainty=0.25 if len(known) < len(delays) else 0.0);
 }
 
-"""Filter first, then normalize within feasible candidates; never mutates input."""
+"""Filter first, then normalize within feasible candidates; never mutates input.
+Weather evidence for a route, when supplied, sets its weather level. A route in
+`weather_from` isn't fully forecast yet: unless what is forecast already shows
+a hazard, its weather stays unknown without counting as missing data."""
 def rank_routes(request: TripRequest, candidates: list[RouteOption], as_of: str,
-                risk_by_route: dict[str, RiskAssessment] | None = None) -> RankingResult {
+                risk_by_route: dict[str, RiskAssessment] | None = None,
+                weather_by_route: dict[str, list[WeatherEvidence]] | None = None,
+                weather_from: dict[str, str] | None = None) -> RankingResult {
     weights = preset_weights(PriorityPreset.BALANCED);
     rejected: list[RejectedRoute] = [];
     feasible: list[RouteOption] = [];
@@ -137,7 +144,7 @@ def rank_routes(request: TripRequest, candidates: list[RouteOption], as_of: str,
             if risk_by_route is not None and route.id in risk_by_route { risk_by_route[route.id].validate(); }
             if route.id in ids { raise ValueError("duplicate route ID"); }
             ids.add(route.id);
-            reasons = rejection_reasons(request, route);
+            reasons = rejection_reasons(request, route, now);
             if reasons { rejected.append(RejectedRoute(route_id=route.id, reasons=reasons)); }
             else { feasible.append(route); }
         }
@@ -157,11 +164,18 @@ def rank_routes(request: TripRequest, candidates: list[RouteOption], as_of: str,
         supplied = risk_by_route.get(route.id) if risk_by_route is not None else None;
         evidence = supplied if supplied is not None else inferred_risk(request, route);
         evidence.validate();
+        observed: list[WeatherEvidence] = [];
+        if weather_by_route is not None and route.id in weather_by_route { observed = weather_by_route[route.id]; }
+        for item in observed { item.validate(); }
+        weather = route_weather_level(observed) if observed else evidence.weather;
+        settled = pending_weather(weather, weather_from.get(route.id) if weather_from is not None else None);
+        weather = settled[0];
+        forecast_from = settled[1];
         stale = route.source.expires_at is not None and parse_timestamp(route.source.expires_at) <= now;
         unknown_price = route.price_cents is None;
         delay_level = RiskLevel.UNKNOWN if stale else evidence.delay;
         unknown_delay = delay_level == RiskLevel.UNKNOWN or `any([leg.predicted_delay_minutes is None for leg in route.legs if leg.mode != TravelMode.WALK]);
-        unknown_weather = evidence.weather == RiskLevel.UNKNOWN;
+        unknown_weather = weather == RiskLevel.UNKNOWN and forecast_from is None;
         missing = float(int(unknown_price) + int(unknown_delay) + int(unknown_weather) + int(stale)) / 4.0;
         uncertainty = max(missing, evidence.uncertainty);
         price_feature = 0.5;
@@ -169,7 +183,7 @@ def rank_routes(request: TripRequest, candidates: list[RouteOption], as_of: str,
         features = ScoreDimensions(
             duration=normalized_cost(route.duration_minutes(), durations),
             reliability=risk_utility(delay_level), price=price_feature,
-            transfers=risk_utility(evidence.transfer) / (1.0 + route.transfers()), weather=risk_utility(evidence.weather)
+            transfers=risk_utility(evidence.transfer) / (1.0 + route.transfers()), weather=risk_utility(weather)
         );
         score = 100.0 * (weights.duration * features.duration + weights.reliability * features.reliability + weights.price * features.price + weights.transfers * features.transfers + weights.weather * features.weather) - 10.0 * uncertainty;
         codes = list(evidence.reason_codes);
@@ -179,13 +193,16 @@ def rank_routes(request: TripRequest, candidates: list[RouteOption], as_of: str,
         if request.max_price_cents is not None and route.price_cents is not None { codes.append(ReasonCode.WITHIN_BUDGET); }
         if transfer_slack(route) and evidence.transfer in [RiskLevel.MODERATE, RiskLevel.HIGH] { codes.append(ReasonCode.TIGHT_TRANSFER); }
         if delay_level == RiskLevel.HIGH { codes.append(ReasonCode.DELAY_RISK_HIGH); }
-        if evidence.weather == RiskLevel.HIGH { codes.append(ReasonCode.WEATHER_RISK_HIGH); }
+        if weather == RiskLevel.HIGH { codes.append(ReasonCode.WEATHER_RISK_HIGH); }
+        if weather == RiskLevel.MODERATE { codes.append(ReasonCode.WEATHER_ADVISORY); }
         if missing > 0.0 { codes.append(ReasonCode.MISSING_DATA); }
         if stale { codes.append(ReasonCode.STALE_DATA); }
         codes = list(dict.fromkeys(codes));
-        risk = RiskAssessment(delay=delay_level, transfer=evidence.transfer, weather=evidence.weather, uncertainty=uncertainty, reason_codes=codes);
-        scored.append(ScoredRoute(option=route, risk=risk, features=features, score=round(score, 6), reason_codes=codes));
+        risk = RiskAssessment(delay=delay_level, transfer=evidence.transfer, weather=weather, uncertainty=uncertainty, reason_codes=codes);
+        scored.append(ScoredRoute(option=route, risk=risk, features=features, score=round(score, 6), reason_codes=codes, weather=by_significance(observed), weather_from=forecast_from));
     }
-    scored.sort(key=lambda (item: ScoredRoute) { (-item.score, item.option.transfers(), parse_timestamp(item.option.legs[-1].arrival_at).timestamp(), item.option.price_cents if item.option.price_cents is not None else float("inf"), item.option.id); });
+    # Among equals, depart-after prefers the earliest arrival and arrive-by the latest.
+    lean = -1.0 if request.time_kind == TimeKind.ARRIVE_BY else 1.0;
+    scored.sort(key=lambda (item: ScoredRoute) { (-item.score, item.option.transfers(), lean * parse_timestamp(item.option.legs[-1].arrival_at).timestamp(), item.option.price_cents if item.option.price_cents is not None else float("inf"), item.option.id); });
     return RankingResult(scored, rejected, weights);
 }

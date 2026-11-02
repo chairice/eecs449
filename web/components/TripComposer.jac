@@ -151,8 +151,9 @@ def:pub TripComposer(
         # Editing a field settles its error; the rest wait for the next search.
         if field_error(errors, field) != "" { errors = [error for error in errors if error.field != field]; }
     }
+    """First click departs; a later or the same day returns, so clicking a day twice is a day trip."""
     def pickDay(iso: str) {
-        if form.local_date == "" or form.return_date != "" or iso <= form.local_date {
+        if form.local_date == "" or form.return_date != "" or iso < form.local_date {
             # Both fields in one update: a second setField would start from the stale form.
             form = update_input(update_input(form, "local_date", iso), "return_date", "");
             validated = None;

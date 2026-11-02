@@ -1,3 +1,5 @@
+/* Hand-written styles sit in the legacy layer, below Tailwind utilities. */
+@layer legacy {
 /* Home page: centred heading over a cylinder carousel of destination photos.
    Uses the shared tokens and the two type styles from styles.css. */
 .dt-home { display: grid; justify-items: center; gap: var(--dt-space-12); padding-block: var(--dt-space-16) var(--dt-space-24); text-align: center; }
@@ -26,4 +28,6 @@
   .dt-home { padding-block: var(--dt-space-8) var(--dt-space-16); gap: var(--dt-space-8); }
   .dt-carousel { --dt-card-w: 200px; }
   .dt-carousel-stage { -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent); }
+}
+
 }

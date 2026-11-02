@@ -20,10 +20,23 @@ obj:pub ComparisonRoute {
     # Fare in cents for totals; -1 when the fare is unknown.
     has price_cents: int = -1;
     has segments: list[ComparisonSegment] = [];
+    # What set the weather level, in a few words for a card and a sentence for the booking panel.
+    has weather_brief: str = "", weather_note: str = "";
+    # "Thu, Nov 12" while forecasts don't yet reach the trip, else "".
+    has weather_from: str = "";
+    # The departure's local day: "Thu, Nov 5", its ISO date, and its instant for ordering.
+    has day: str = "", date_iso: str = "", departure_ms: float = 0.0;
+    # When the last leg arrives, so a return can be matched to an outbound.
+    has arrival_ms: float = 0.0;
+    # "Wed, Nov 4, 10:30 PM CST": the arrival with its day, in the destination's zone.
+    has arrives: str = "";
+    # The legs as the planner sent them, minus status fields, so a saved trip can re-check its weather.
+    has weather_legs: list[any] = [];
 }
 obj:pub ComparisonView {
     has valid: bool = False, error: str = "", error_code: str = "";
     has title: str = "", date: str = "", preference: str = "", routes: list[ComparisonRoute] = [];
+    has time_kind: str = "", local_time: str = "";
 }
 
 def required_text(value: any) -> str {
@@ -71,7 +84,7 @@ def price_label(value: any, currency: str) -> str {
     amount: any = cents / 100.0;
     return "$" + str(amount.toFixed(2)) + " USD";
 }
-def risk_label(value: any) -> str {
+def:pub risk_label(value: any) -> str {
     level = required_text(value);
     if level == "LOW" { return "Low"; }
     if level == "MODERATE" { return "Moderate"; }
@@ -105,6 +118,44 @@ def preference_label(value: str) -> str {
     if value == "MOST_RELIABLE" { return "Most reliable"; }
     if value == "FEWEST_TRANSFERS" { return "Fewest transfers"; }
     return "Balanced priorities";
+}
+
+"""The forecast point that set the route's weather level, as (brief, sentence).
+The server lists the most significant point first; unknown weather says so."""
+def:pub weather_words(raw: list[any], level: str, opens: str) -> tuple[str, str] {
+    if opens {
+        return ("Forecast from " + opens, "Weather isn't forecast this far ahead. Detour will rate it from " + opens + ".");
+    }
+    if level == "Unknown" {
+        return ("No forecast yet", "Detour couldn't get a forecast for all of this trip, so weather is unknown, not clear.");
+    }
+    if len(raw) == 0 { return ("", ""); }
+    first = raw[0];
+    place = required_text(first["place"]["name"]);
+    where = "e" + place[1:] if place.startswith("En route") else "near " + place;
+    when = local_clock(required_text(first["valid_from"]), required_text(first["place"]["timezone"]));
+    alerts = required_list(first["alerts"]);
+    summary = str(first["summary"]) if first["summary"] else "Forecast";
+    if len(alerts) > 0 {
+        alert = required_text(alerts[0]);
+        return (alert, alert + " in force " + where + " around " + when + ".");
+    }
+    if level == "Low" { return (summary, summary + " along the way, with no weather alerts in force."); }
+    mph: any = 0.0 if first["wind_kph"] is None else required_number(first["wind_kph"]) / 1.609344;
+    gusty = ", winds near " + str(mph.toFixed(0)) + " mph" if mph >= 25.0 else "";
+    return (summary, summary + gusty + " " + where + " around " + when + ".");
+}
+
+def:pub day_label(timestamp: str, zone: str) -> str {
+    _ = instant_millis(timestamp);
+    day: any = new(Date, timestamp);
+    return str(day.toLocaleDateString("en-US", {"weekday": "short", "month": "short", "day": "numeric", "timeZone": zone}));
+}
+
+def iso_day(timestamp: str, zone: str) -> str {
+    _ = instant_millis(timestamp);
+    day: any = new(Date, timestamp);
+    return str(day.toLocaleDateString("en-CA", {"year": "numeric", "month": "2-digit", "day": "2-digit", "timeZone": zone}));
 }
 
 def map_stop(place: any) -> ComparisonStop | None {
@@ -189,12 +240,23 @@ def route_view(raw: any, as_of: str) -> ComparisonRoute {
     reasons = [reason_label(required_text(code)) for code in required_list(raw["reason_codes"])];
     transfers = max(0, transit_count - 1);
     score_value: any = required_number(raw["score"]);
+    weather = risk_label(raw["risk"]["weather"]);
+    opens = day_label(required_text(raw["weather_from"]), required_text(last["destination"]["timezone"])) if raw["weather_from"] else "";
+    if opens { weather = "Not yet forecast"; }
+    words = weather_words(required_list(raw["weather"]) if raw["weather"] else [], weather, opens);
     return ComparisonRoute(id=required_text(option["id"]), name=" + ".join(services), modes=" + ".join(modes),
         departure=legs[0].departure, arrival=legs[len(legs) - 1].arrival,
         duration=duration_label(required_text(first["departure_at"]), required_text(last["arrival_at"])),
         price=price_label(option["price_cents"], required_text(option["currency"])),
         transfers="Direct" if transfers == 0 else str(transfers) + (" transfer" if transfers == 1 else " transfers"),
-        score=str(score_value.toFixed(1)), delay=risk_label(raw["risk"]["delay"]), weather=risk_label(raw["risk"]["weather"]),
+        score=str(score_value.toFixed(1)), delay=risk_label(raw["risk"]["delay"]), weather=weather, weather_brief=words[0], weather_note=words[1], weather_from=opens,
+        day=day_label(required_text(first["departure_at"]), required_text(first["origin"]["timezone"])),
+        date_iso=iso_day(required_text(first["departure_at"]), required_text(first["origin"]["timezone"])),
+        departure_ms=instant_millis(required_text(first["departure_at"])),
+        arrival_ms=instant_millis(required_text(last["arrival_at"])),
+        weather_legs=[{"id": leg["id"], "mode": leg["mode"], "origin": leg["origin"], "destination": leg["destination"],
+            "departure_at": leg["departure_at"], "arrival_at": leg["arrival_at"], "path": leg["path"] if leg["path"] else []} for leg in raw_legs],
+        arrives=day_label(required_text(last["arrival_at"]), required_text(last["destination"]["timezone"])) + ", " + legs[len(legs) - 1].arrival,
         transfer_risk=risk_label(raw["risk"]["transfer"]), source=source_mode, provider=required_text(source["provider"]),
         freshness=freshness, source_time=utc_label(required_text(source["fetched_at"])) if source["fetched_at"] else "Timestamp unavailable", source_warnings=warnings,
         reasons=reasons, legs=legs, stops=route_stops(raw_legs), segments=route_segments(raw_legs),
@@ -217,7 +279,8 @@ def:pub comparison_view(preview: any) -> ComparisonView {
         }
         if not routes { return ComparisonView(valid=True, error="No routes match your trip details. Try another time, budget, or transfer buffer.", error_code="NO_ROUTES"); }
         return ComparisonView(valid=True, title=required_text(request["origin_text"]) + " → " + required_text(request["destination_text"]),
-            date=required_text(request["local_date"]), preference=preference_label(required_text(request["priority"])), routes=routes);
+            date=required_text(request["local_date"]), preference=preference_label(required_text(request["priority"])), routes=routes,
+            time_kind=required_text(request["time_kind"]), local_time=required_text(request["local_time"]));
     } except Exception {
         return ComparisonView(error="This comparison could not be read. Return to planning and search again.", error_code="INVALID_PREVIEW");
     }

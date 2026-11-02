@@ -22,6 +22,8 @@ vite = "^6.4.1"
 typescript = "^5.3.3"
 "@types/react" = "^18.2.0"
 "@types/react-dom" = "^18.2.0"
+tailwindcss = "^4.3.3"
+"@tailwindcss/vite" = "^4.3.3"
 
 [dev-dependencies]
 watchdog = ">=3.0.0"
@@ -34,3 +36,8 @@ base_route_app = "app"
 [client.app_meta_data]
 title = "Detour"
 description = "Plan a train or bus trip in one sentence. Detour compares the routes and spells out what's known, and what isn't."
+
+# Tailwind v4 utilities, layered above the hand-written styles (see tailwind.css).
+[client.vite]
+plugins = ["tailwindcss()"]
+lib_imports = ["import tailwindcss from '@tailwindcss/vite'"]

@@ -1,6 +1,6 @@
 """File-based router wrapper. Route discovery supplies the child tree."""
 
-import from server.api { plan_trip }
+import from server.api { plan_trip, trip_weather }
 import from server.interpret { interpret_trip }
 import from server.atlas { atlas_catalog, atlas_status, atlas_interpret, atlas_route }
 import from client.atlas_navigation { initialize_atlas_history }

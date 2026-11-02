@@ -9,7 +9,7 @@ import from server.models {
     DomainError, ErrorCode, Place, ProviderMetadata, ProviderResult, ProviderWarning,
     RouteLeg, RouteOption, ServiceStatus, SourceStatus, TimeKind, TravelMode, TripRequest,
     check_keys, json_array, json_integer, json_object, json_optional_integer,
-    json_text, metadata_from_object, path_from_array, place_from_object
+    json_text, metadata_from_object, parse_timestamp, path_from_array, place_from_object
 }
 import from server.providers.route_provider { RouteProvider }
 
@@ -50,6 +50,27 @@ def corridor_ends(request: TripRequest) -> tuple[str, str] | None {
     return None;
 }
 
+# An arrive-by search reaches back at most this many days before its deadline.
+glob MAX_WINDOW_DAYS: int = 7;
+
+"""Days before an arrive-by deadline still ahead of `as_of`, in the deadline's
+zone, oldest first; the deadline's own day is searched separately."""
+def earlier_days(request: TripRequest, as_of: str) -> list[str] {
+    ends = corridor_ends(request);
+    if request.time_kind != TimeKind.ARRIVE_BY or ends is None { return []; }
+    zone = ZoneInfo("America/Detroit" if ends[1] == "ann-arbor" else "America/Chicago");
+    today = parse_timestamp(as_of).astimezone(zone).date();
+    deadline = date.fromisoformat(request.local_date);
+    first = max(today, deadline - timedelta(days=MAX_WINDOW_DAYS));
+    return [(first + timedelta(days=offset)).isoformat() for offset in range((deadline - first).days)];
+}
+
+def on_day(request: TripRequest, day: str) -> TripRequest {
+    return TripRequest(origin_text=request.origin_text, destination_text=request.destination_text, local_date=day,
+        local_time=request.local_time, time_kind=request.time_kind, max_price_cents=request.max_price_cents,
+        min_transfer_minutes=request.min_transfer_minutes, allowed_modes=list(request.allowed_modes), priority=request.priority);
+}
+
 def fixture_failure(code: ErrorCode, message: str) -> ProviderResult[list[RouteOption]] {
     return ProviderResult(metadata=ProviderMetadata(provider="detour-synthetic-corridor-v1", status=SourceStatus.UNAVAILABLE), error=DomainError(code=code, message=message));
 }
@@ -57,7 +78,7 @@ def fixture_failure(code: ErrorCode, message: str) -> ProviderResult[list[RouteO
 obj FixtureRouteProvider(RouteProvider) {
     has fixture_path: str = DEFAULT_FIXTURE_PATH;
 
-    def search(request: TripRequest) -> ProviderResult[list[RouteOption]] {
+    def search(request: TripRequest, as_of: str | None = None) -> ProviderResult[list[RouteOption]] {
         try {
             request.validate();
             ends = corridor_ends(request);
@@ -71,7 +92,17 @@ obj FixtureRouteProvider(RouteProvider) {
             return fixture_failure(ErrorCode.INVALID_REQUEST, "Choose valid trip fields and an unambiguous local departure or arrival time.");
         }
         try {
-            return self.load_candidates(request);
+            found = self.load_candidates(request);
+            if found.data is None or as_of is None { return found; }
+            # Earlier days' copies of a route keep their template id plus the day.
+            routes = list(found.data);
+            for day in earlier_days(request, as_of) {
+                for route in self.load_candidates(on_day(request, day)).data or [] {
+                    route.id = route.id + "@" + day;
+                    routes.append(route);
+                }
+            }
+            return ProviderResult(metadata=found.metadata, data=routes);
         } except (OSError, ValueError, TypeError, KeyError, OverflowError) {
             return fixture_failure(ErrorCode.PROVIDER_UNAVAILABLE, "The synthetic route fixture could not be loaded or validated.");
         }
