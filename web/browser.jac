@@ -41,3 +41,14 @@ def:pub paintPage(background: str, dark: bool, smoothScroll: bool) {
     html.dataset.theme = "dark" if dark else "light";
     html.style.scrollBehavior = "smooth" if smoothScroll else "auto";
 }
+
+"""Scroll an element into view by id; does nothing when it isn't on the page."""
+def:pub scrollToId(id: str, smooth: bool) {
+    target: any = document.getElementById(id);
+    if target { target.scrollIntoView({"behavior": "smooth" if smooth else "auto", "block": "start"}); }
+}
+
+"""Jump to the top of the page, as a fresh page load would."""
+def:pub scrollToTop {
+    window.scrollTo(0, 0);
+}

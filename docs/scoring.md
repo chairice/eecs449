@@ -13,7 +13,12 @@ constraint codes, effective weights, and an optional typed error.
 A candidate is rejected if any leg is canceled, any transit mode is excluded,
 its known fare exceeds a strict cap, its unknown fare cannot be certified within
 that cap, its transfer slack is below the requested minimum, or its time falls
-outside the requested window. All applicable rejection codes are retained.
+outside the requested window. A depart-after window is the requested day from
+the requested time. An arrive-by window runs from the search (`as_of`) to the
+deadline, so it can span days (the fixture provider reaches back at most seven),
+and a route that has already left is outside it. All applicable rejection codes
+are retained. Among routes with equal scores and transfers, depart-after
+prefers the earliest arrival and arrive-by the latest.
 
 The requested date and departure cutoff use the first origin's IANA time zone;
 an arrival cutoff uses the final destination's zone. The constrained endpoint
@@ -52,8 +57,11 @@ Without supplied risk, the worst known transit-leg delay determines delay risk:
 under 15 minutes is low, 15 through 29 is moderate, and 30 or more is high. This
 coarse threshold model preserves the full delay minutes as evidence; delays
 above the high-risk threshold receive no further reliability decrease. Missing
-data on another leg never removes a known high-risk observation. Weather starts
-unknown. Transfer risk is moderate when slack is less than 15 minutes above the
+data on another leg never removes a known high-risk observation. Weather is
+unknown unless the caller supplies weather evidence for the route, in which
+case `server/weather_rules.jac` sets it (worst point wins; any unread point
+keeps an otherwise low route unknown) and a moderate level adds
+`WEATHER_ADVISORY`. Transfer risk is moderate when slack is less than 15 minutes above the
 minimum; otherwise it is low. Hard-infeasible transfers were already removed.
 This threshold changes utility as well as warnings: a single tight transfer has
 utility `0.25`, while a single comfortable transfer has utility `0.5`. A direct

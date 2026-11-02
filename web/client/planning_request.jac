@@ -61,7 +61,7 @@ def:pub restore_composer(state: any) -> ComposerInput {
         priority=request["priority"], allow_train="TRAIN" in modes, allow_bus="BUS" in modes);
     # A return day that no longer fits is dropped rather than discarding the form.
     returning: any = state.get("returnDate", "");
-    if isinstance(returning, str) and valid_date(returning) and returning > restored.local_date { restored.return_date = returning; }
+    if isinstance(returning, str) and valid_date(returning) and returning >= restored.local_date { restored.return_date = returning; }
     if validate_composer(restored).draft is None { return empty; }
     return restored;
 }

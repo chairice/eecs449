@@ -1,0 +1,9 @@
+{
+ "_note": "Recorded from api.weather.gov on 2026-11-02 and trimmed to the fields Detour reads.",
+ "properties": {
+  "gridId": "GRR",
+  "gridX": 46,
+  "gridY": 16,
+  "forecastHourly": "https://api.weather.gov/gridpoints/GRR/46,16/forecast/hourly"
+ }
+}

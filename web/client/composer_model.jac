@@ -123,7 +123,7 @@ def:pub validate_composer(value: ComposerInput, earliest_date: str = "") -> Comp
     if not valid_date(value.local_date) { errors.append(FieldError("local_date", "Enter a valid trip date.")); }
     elif earliest_date and valid_date(earliest_date) and value.local_date < earliest_date { errors.append(FieldError("local_date", "Choose a date on or after " + earliest_date + ".")); }
     if value.return_date and not valid_date(value.return_date) { errors.append(FieldError("return_date", "Enter a valid return date.")); }
-    elif value.return_date and valid_date(value.local_date) and value.return_date <= value.local_date { errors.append(FieldError("return_date", "Choose a return date after your departure date.")); }
+    elif value.return_date and valid_date(value.local_date) and value.return_date < value.local_date { errors.append(FieldError("return_date", "Choose a return date on or after your departure date.")); }
     if not valid_time(value.local_time) { errors.append(FieldError("local_time", "Enter a valid time, from 00:00 to 23:59.")); }
     if value.time_kind not in ["DEPART_AFTER", "ARRIVE_BY"] { errors.append(FieldError("time_kind", "Choose departure or arrival time.")); }
     cents = parse_budget(value.budget);

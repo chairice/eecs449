@@ -1,3 +1,5 @@
+/* Hand-written styles sit in the legacy layer, below Tailwind utilities. */
+@layer legacy {
 /* Shared Detour tokens; page and component styles consume these variables.
    Light mode only: white and green, laid on the v3 portfolio grid, with two
    type styles:
@@ -249,11 +251,6 @@
 .dt-place-text { display: grid; color: var(--dt-muted); }
 .dt-place-name { color: var(--dt-text); }
 
-.dt-map { height: 440px; border-radius: var(--dt-radius-panel); border: 1px solid var(--dt-border); background: var(--dt-surface-muted); overflow: hidden; z-index: 0; }
-.dt-map .leaflet-tile { filter: grayscale(1) contrast(.85) brightness(1.08); }
-.dt-map .leaflet-control-attribution { font: 400 11px/16px var(--dt-font-body); background: rgb(255 255 255 / 80%); }
-.dt-map .leaflet-tooltip { font: var(--dt-body); color: var(--dt-text); border-radius: var(--dt-radius-control); }
-@media (max-width: 983px) { .dt-map { height: 320px; } }
 @media (max-width: 463px) {
   .dt-search-bar { grid-template-columns: minmax(0, 1fr); border-radius: var(--dt-radius-panel); }
   .dt-search-field { border-radius: var(--dt-radius-control); }
@@ -292,3 +289,12 @@
 .dt-map-legend li { display: flex; align-items: center; gap: var(--dt-space-2); }
 .dt-map-key { width: 24px; height: 0; border-top: 4px solid var(--dt-accent); border-radius: 2px; }
 .dt-map-key.is-bus { border-top-style: dotted; }
+
+}
+
+/* Leaflet's stylesheet is unlayered, so its overrides stay unlayered too. */
+.dt-map { height: 440px; border-radius: var(--dt-radius-panel); border: 1px solid var(--dt-border); background: var(--dt-surface-muted); overflow: hidden; z-index: 0; }
+@media (max-width: 983px) { .dt-map { height: 320px; } }
+.dt-map .leaflet-tile { filter: grayscale(1) contrast(.85) brightness(1.08); }
+.dt-map .leaflet-control-attribution { font: 400 11px/16px var(--dt-font-body); background: rgb(255 255 255 / 80%); }
+.dt-map .leaflet-tooltip { font: var(--dt-body); color: var(--dt-text); border-radius: var(--dt-radius-control); }

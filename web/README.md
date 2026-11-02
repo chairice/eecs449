@@ -129,23 +129,84 @@ interaction testing as new functionality is added.
 | `server/models.jac` | Canonical domain objects, validation, and fixture JSON codecs. |
 | `tests/domain_tests.jac` | Domain boundary and serialization regression tests. |
 | `components/` | Shared `Brand`, `PublicHeader`, and `AppShell`, plus landing sections. |
+| `tailwind.css` | Tailwind v4 theme and utilities, layered above the hand-written styles. |
+| `client/account.jac` | Email/password sign-up, login, and logout over Jac's built-in user store. |
+| `components/AuthPanels.jac` | Home-page log-in and create-account panels. |
+| `components/AccountMenu.jac` | Header account control: Log in, or the signed-in email and Log out. The Trips tab shows the saved-trip count. |
+| `components/FloatingField.jac` | Input frame with a floating label, used by the account forms. |
+| `server/providers/weather.jac` | National Weather Service forecasts and alerts at hourly points along each route. |
+| `server/weather_rules.jac` | Pure rules turning weather evidence into Low, Moderate, High or Unknown. |
+| `fixtures/weather/` | Recorded NWS responses for `tests/weather_tests.jac`; tests never call the live API. |
+
+## Styling and accounts
+
+Tailwind v4 is layered on top of the original CSS rather than replacing it.
+`tailwind.css` loads Tailwind's theme and utilities without its Preflight reset,
+and every hand-written stylesheet is wrapped in `@layer legacy`, declared below
+`utilities`, so a utility class always wins over a hand-written rule on the same
+element. Rules that override Leaflet's own (unlayered) stylesheet sit outside
+the layer at the end of `styles.css` and `atlas.css`; keep new Leaflet
+overrides there. Without Preflight, buttons and lists keep browser defaults, so
+add `border-0` or `list-none p-0` where a component needs them.
+
+Accounts use `jacSignup`/`jacLogin` from `@jac/runtime`: the server stores
+hashed passwords and issues the session token; no email is sent. The browser
+remembers the signed-in email so the header can show it, and saved trips are
+stored under `detour.savedTrips.v1:<email>` while signed in (the shared
+`detour.savedTrips.v1` list otherwise). Planning and Atlas never require an
+account. Locally the dev server creates its own JWT secret; deployments set
+`JAC_SERVE_AUTH_SECRET` (already in `render.yaml`).
+
+## Weather
+
+`plan_trip` asks `api.weather.gov` (free, no key) for the hourly forecast and
+active alerts at each vehicle's start and end and at a point on its path for
+every further hour aboard, at the time the traveler is there. Responses are
+cached (grid lookups a day, forecasts 15 minutes, alerts 5 minutes) and fetched
+in parallel within an 8-second budget. `server/weather_rules.jac` then sets
+each route's level:
+
+- **High**: a warning, or a severe or extreme alert, in force at any point.
+- **Moderate**: a watch, advisory or moderate alert; an hour at least 50% likely
+  to bring snow, sleet, freezing rain, ice or thunderstorms; or wind of 35 mph
+  or more.
+- **Low**: every point's forecast and alerts were read and none of the above.
+- **Unknown**: any point couldn't be read. Unknown is never treated as safe.
+- **Not yet forecast**: the trip ends past the ~6-day forecast. The route
+  carries `weather_from` (when forecasts will cover it), its weather stays
+  unknown without counting as missing data, and the risk badge is set by delay
+  and connection risk; the card says "Forecast from Sat, Nov 14". A Moderate
+  or High reading on the part already forecast still counts.
+
+Saved trips keep each leg's route, its delay and connection levels, and its
+risk as of saving. Opening a trip asks `trip_weather` for that route's weather
+now, using the same rules as search, and shows "Risks now"; trips saved before
+routes were kept, or a failed check, fall back to "Risks when saved".
+`trip_weather` takes at most six legs, each under a day long, and stores nothing.
+
+Results cards show the forecast's words under the risk badge, and the booking
+card says what set the level. The ranker stays pure; the API passes it the
+evidence. Set `DETOUR_WEATHER=off` to skip live lookups, and
+`DETOUR_NWS_CONTACT` to a contact address on deployed servers (NWS asks
+callers to identify themselves). The thresholds are the place to apply a
+fitted delay model later.
 
 `AppShell` receives `dark`, `publicPage`, `minimalHeader`, `activePath`, and
 `navigationEnabled` from its caller and accepts page content through
 `children`, plus an optional `footer` rendered outside the main landmark.
 The landing uses its public variant, application routes share primary
-navigation, and unknown public URLs use the minimal brand-only header. The guest profile is
-display-only until authentication exists. Mobile navigation stays visible,
+navigation, and unknown public URLs use the minimal brand-only header. The guest profile is now
+replaced by the account control (Log in, or the signed-in email and Log out). Mobile navigation stays visible,
 and controls use at least 44px targets. Shell theme colors are centralized
 in `styles.css`; the legacy `Theme` helpers reference those same variables.
 
 | Route | Current behavior |
 |---|---|
-| `/` | Detour overview, illustrative request, and working planning link. |
+| `/` | Detour overview, destination carousel, and log-in / create-account panels. |
 | `/plan` | Local validation, pending/retry states, and read-only synthetic fixture search; no LLM calls. |
-| `/plan/results` | Ranked fixture routes or explicit errors; missing-request recovery on direct links. |
-| `/trips` | Empty saved-trips state. |
-| `/trips/:id` | Unavailable-trip state until persistence is connected. |
+| `/plan/results` | Ranked fixture routes, each dated, or explicit errors; arrive-by searches cover every day from now to the deadline. Travelers can sort by Recommended, price, or soonest/latest departure (departure sorts group by day; the top choice stays marked Recommended); risk isn't a sort while it is only a level. Round trips are two numbered steps (a return may be the same day, for day trips), and returns are limited to those leaving after the chosen outbound arrives; the default outbound is the best one some return can follow; missing-request recovery on direct links. |
+| `/trips` | Saved-trip cards (this browser, per account when signed in) with remove, or an empty state. |
+| `/trips/:id` | One saved trip with its route, map, and Remove trip; unavailable state for unknown ids. |
 | Any other path | 404 and link back to planning; no app navigation. |
 
 Use `Link` from `@jac/runtime` for internal navigation. Keep route components

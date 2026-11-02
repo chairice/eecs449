@@ -68,3 +68,32 @@ test "a reply without JSON is rejected so the rules answer instead" {
     try { _ = intent_from_reply("Sorry, I can't help with that."); } except ValueError { failed = True; }
     assert failed;
 }
+
+test "a deadline may name its day before its time" {
+    intent = rule_intent("Chicago before next Saturday at 5", TODAY);
+    assert intent.date == "2026-10-31" and intent.time == "17:00" and intent.time_kind == "ARRIVE_BY";
+    intent = rule_intent("get me to chicago by friday at 8pm", TODAY);
+    assert intent.date == "2026-10-30" and intent.time == "20:00" and intent.time_kind == "ARRIVE_BY";
+    intent = rule_intent("chicago by nov 3 at 9am", TODAY);
+    assert intent.date == "2026-11-03" and intent.time == "09:00" and intent.time_kind == "ARRIVE_BY";
+    intent = rule_intent("chicago friday after 4 pm", TODAY);
+    assert intent.time_kind == "DEPART_AFTER" and intent.time == "16:00";
+}
+
+test "a deadline day without a time means by the end of that day" {
+    for request in ["get me to chicago by next saturday", "chicago before saturday", "to chicago by nov 3"] {
+        intent = rule_intent(request, TODAY);
+        assert intent.time == "23:59" and intent.time_kind == "ARRIVE_BY";
+    }
+    assert rule_intent("get me to chicago by next saturday", TODAY).date == "2026-10-31";
+    # "by bus" and plain days are not deadlines.
+    for request in ["chicago saturday by bus", "chicago on saturday"] {
+        assert rule_intent(request, TODAY).time_kind == "DEPART_AFTER";
+    }
+}
+
+test "next names a later week only for today's own weekday" {
+    assert rule_intent("chicago next thursday after 4pm", TODAY).date == "2026-11-05";
+    assert rule_intent("chicago thursday after 4pm", TODAY).date == "2026-10-29";
+    assert rule_intent("chicago next saturday after 4pm", TODAY).date == "2026-10-31";
+}

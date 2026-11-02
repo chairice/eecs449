@@ -1,3 +1,5 @@
+/* Hand-written styles sit in the legacy layer, below Tailwind utilities. */
+@layer legacy {
 /* Results page, after Airbnb's listing page: options in one hairline-divided
    box on the left with the map beneath, a booking card on the right. Uses only
    the two type styles from styles.css. */
@@ -63,3 +65,5 @@
 .dt-search-summary > span:nth-child(3) { color: var(--dt-muted); }
 .dt-search-summary-icon { display: inline-grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; margin-left: var(--dt-space-2); border-radius: 50%; background: var(--dt-accent); color: var(--dt-accent-text); }
 @media (max-width:743px) { .dt-search-summary > span:nth-child(3) { display: none; } }
+
+}

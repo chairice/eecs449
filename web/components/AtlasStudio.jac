@@ -287,11 +287,11 @@ def:pub AtlasStudio -> JsxElement {
     filtered = [item for item in active if (statusFilter == "ALL" or item["status"] == statusFilter) and (modeFilter == "ALL" or len([leg for leg in item["legs"] if leg["mode"] == modeFilter]) > 0)];
     trashed = [item for item in journeys if item["deletedAt"]];
 
-    return <section className={"atlas-workspace" + (" is-presenting" if presenting else "")} aria-label="Travel atlas">
+    return <section className={"atlas-workspace" + (" is-presenting" if presenting else " rounded-2xl border-gray-200 shadow-sm")} aria-label="Travel atlas">
         <div className="atlas-toolbar">
-            <div className="atlas-heading"><span className="atlas-kicker">Your world, one journey at a time</span><h1>Atlas</h1><span className="atlas-count">{str(len(active)) + " saved journeys · this browser"}</span></div>
+            <div className="atlas-heading"><span className="atlas-kicker text-emerald-700">Your world, one journey at a time</span><h1 className="text-2xl font-semibold tracking-tight text-gray-900">Atlas</h1><span className="atlas-count">{str(len(active)) + " saved journeys · this browser"}</span></div>
             <div className="atlas-actions">
-                {(<><button type="button" disabled={busy or len(catalog) == 0} onClick={lambda { requestOpen({"kind": "new"}); }}>Add journey</button>
+                {(<><button type="button" className="border-0 bg-linear-to-r from-emerald-600 to-green-700 font-semibold text-white shadow-sm transition-transform duration-150 active:scale-98" disabled={busy or len(catalog) == 0} onClick={lambda { requestOpen({"kind": "new"}); }}>Add journey</button>
                     <button type="button" disabled={not selectedId} onClick={lambda { fitVersion += 1; }}>Fit journey</button>
                     <button type="button" onClick={lambda { resetVersion += 1; }}>Reset view</button></> if not presenting else None)}
                 <button type="button" onClick={lambda { presenting = not presenting; }}>{"Exit presentation" if presenting else "Present"}</button>

@@ -91,10 +91,12 @@ test "dated demo prefills missing fields while retaining user edits" {
     assert validate_composer(example_input(ComposerInput())).draft is not None;
 }
 
-test "a return date must come after departure and is carried into the draft" {
+test "a return date may not precede departure, may share its day, and is carried into the draft" {
     value = valid_form();
-    value.return_date = "2026-10-23";
+    value.return_date = "2026-10-22";
     assert field_error(validate_composer(value).errors, "return_date") != "";
+    value.return_date = "2026-10-23";
+    assert field_error(validate_composer(value).errors, "return_date") == "";
     value.return_date = "2026-10-30";
     draft = validate_composer(value).draft;
     assert draft is not None and draft.return_date == "2026-10-30";

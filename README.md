@@ -155,9 +155,14 @@ and [scoring rules](docs/scoring.md).
 Plain-language requests ("Chicago Friday after 4, under $50") are read by
 Claude (one direct API call) when `ANTHROPIC_API_KEY` is set, and by a rule-based
 parser otherwise (`web/server/interpret.jac`); either way they only fill the
-search form, which the planner validates. Saved trips are kept in the
-browser's local storage for now. Authentication, server-side saved trips, and
-live weather/transit integrations remain planned work. See the
+search form, which the planner validates. Visitors can create an account and
+log in with an email and password from the home page (Jac's built-in user
+store; no confirmation email). Saved trips are kept in the browser's local
+storage, in a separate list for each signed-in account. Each route's weather
+risk comes from live National Weather Service forecasts and alerts at the
+points a traveler passes, at the hour they pass them; trips more than about six
+days out, or a failed lookup, show weather as unknown. Server-side saved trips
+and live transit data remain planned work. See the
 [architecture decisions](docs/design/ARCHITECTURE_DECISIONS.md) for the system
 boundaries, algorithms, API choices, data lifecycle, and design tradeoffs.
 

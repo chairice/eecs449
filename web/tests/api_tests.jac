@@ -114,3 +114,27 @@ test "main entry registers anonymous planning endpoint and hides internal helper
         } finally { client.close(); }
     }
 }
+
+test "an arrive-by search covers every day from the search to the deadline" {
+    payload = model_to_json(TripRequest(origin_text="Ann Arbor", destination_text="Chicago", local_date="2026-11-05", local_time="23:00", time_kind=TimeKind.ARRIVE_BY));
+    # Monday 5 PM in Ann Arbor: that day's 4:30 PM connection has already left.
+    as_of = "2026-11-02T22:00:00Z";
+    result = json.loads(_plan_response(payload, FixtureRouteProvider(), as_of));
+    routes = result["routes"];
+    days = sorted(set(route["option"]["legs"][0]["departure_at"][:10] for route in routes));
+    assert result["error"] is None and days == ["2026-11-02", "2026-11-03", "2026-11-04", "2026-11-05"];
+    assert len(routes) == 11 and len(set(route["option"]["id"] for route in routes)) == 11;
+    assert all(parse_timestamp(route["option"]["legs"][0]["departure_at"]) >= parse_timestamp(as_of) for route in routes);
+    assert all(parse_timestamp(route["option"]["legs"][-1]["arrival_at"]) <= parse_timestamp("2026-11-05T23:00:00-06:00") for route in routes);
+    # Equal options lean toward the deadline day.
+    assert routes[0]["option"]["legs"][0]["departure_at"].startswith("2026-11-05");
+    leave = json.loads(_plan_response(payload.replace("ARRIVE_BY", "DEPART_AFTER").replace('"23:00"', '"16:00"'), FixtureRouteProvider(), as_of));
+    assert len(leave["routes"]) == 3;
+}
+
+test "an arrive-by window reaches back at most a week" {
+    payload = model_to_json(TripRequest(origin_text="Ann Arbor", destination_text="Chicago", local_date="2026-11-20", local_time="23:00", time_kind=TimeKind.ARRIVE_BY));
+    result = json.loads(_plan_response(payload, FixtureRouteProvider(), "2026-11-02T14:00:00Z"));
+    days = sorted(set(route["option"]["legs"][0]["departure_at"][:10] for route in result["routes"]));
+    assert days[0] == "2026-11-13" and days[-1] == "2026-11-20" and len(days) == 8;
+}

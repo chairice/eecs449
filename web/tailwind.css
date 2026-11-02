@@ -1,0 +1,14 @@
+/* Tailwind v4, layered on top of the hand-written Detour styles.
+   Preflight is left out: the legacy stylesheets carry their own reset, and the
+   legacy layer is declared before utilities so a utility class always wins
+   over a hand-written rule on the same element. Leaflet stays unlayered. */
+@layer theme, base, legacy, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+
+/* The build copies this file to .jac/client/compiled/; scan the Jac sources. */
+@source "../../../**/*.jac";
+
+@theme {
+  --font-sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+}

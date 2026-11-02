@@ -1,3 +1,5 @@
+/* Hand-written styles sit in the legacy layer, below Tailwind utilities. */
+@layer legacy {
 /* Saved trips list: one hairline card per trip, the route and dates on the
    left and the total on the right. Uses the two type styles from styles.css. */
 .dt-trip-list { display:grid; gap:var(--dt-space-4); margin:0; padding:0; list-style:none; }
@@ -9,3 +11,5 @@
 .dt-route-row.dt-route-static { cursor:default; }
 .dt-route-row.dt-route-static:hover { background:transparent; }
 .dt-booking .dt-trip-remove { margin-top:var(--dt-space-6); }
+
+}

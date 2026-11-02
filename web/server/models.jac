@@ -227,16 +227,21 @@ obj WeatherEvidence {
     has place: Place, valid_from: str, valid_until: str, source: ProviderMetadata;
     has precipitation_probability: float | None = None, wind_kph: float | None = None;
     has alert_severity: RiskLevel = RiskLevel.UNKNOWN;
+    # The forecast's own words ("Snow Likely") and the names of alerts in force,
+    # so an explanation can say what was seen rather than only a level.
+    has summary: str = "", alerts: list[str] = [];
     def postinit { self.validate(); }
     def validate {
         if parse_timestamp(self.valid_until) <= parse_timestamp(self.valid_from) { raise ValueError("invalid weather window"); }
+        if not isinstance(self.summary, str) { raise ValueError("weather summary must be text"); }
+        for alert in self.alerts { require_text(alert, "weather alert"); }
         if self.precipitation_probability is not None { require_unit(self.precipitation_probability, "precipitation probability"); }
         if self.wind_kph is not None {
             require_finite(self.wind_kph, "wind kph");
             if self.wind_kph < 0 { raise ValueError("invalid wind kph"); }
         }
         if not isinstance(self.alert_severity, RiskLevel) { raise ValueError("invalid weather severity"); }
-        if self.source.status == SourceStatus.UNAVAILABLE and (self.precipitation_probability is not None or self.wind_kph is not None or self.alert_severity != RiskLevel.UNKNOWN) {
+        if self.source.status == SourceStatus.UNAVAILABLE and (self.precipitation_probability is not None or self.wind_kph is not None or self.alert_severity != RiskLevel.UNKNOWN or self.summary or self.alerts) {
             raise ValueError("unavailable weather cannot contain known conditions");
         }
     }
@@ -269,9 +274,12 @@ obj ScoreDimensions {
 obj ScoredRoute {
     has option: RouteOption, risk: RiskAssessment, features: ScoreDimensions, score: float;
     has reason_codes: list[ReasonCode] = [], weather: list[WeatherEvidence] = [];
+    # When forecasts will first cover the whole trip, while they don't yet.
+    has weather_from: str | None = None;
     def postinit { self.validate(); }
     def validate {
         require_finite(self.score, "score");
+        if self.weather_from is not None { _ = parse_timestamp(self.weather_from); }
         if not isfinite(self.score) or not -10.0 <= self.score <= 100.0 { raise ValueError("score out of range"); }
         for reason in self.reason_codes {
             if not isinstance(reason, ReasonCode) { raise ValueError("invalid reason code"); }
@@ -362,7 +370,7 @@ def model_to_object(value: object) -> object {
         fields = {"id": value.id, "legs": value.legs, "source": value.source, "price_cents": value.price_cents, "currency": value.currency};
     } elif isinstance(value, WeatherEvidence) {
         value.validate();
-        fields = {"place": value.place, "valid_from": value.valid_from, "valid_until": value.valid_until, "source": value.source, "precipitation_probability": value.precipitation_probability, "wind_kph": value.wind_kph, "alert_severity": value.alert_severity};
+        fields = {"place": value.place, "valid_from": value.valid_from, "valid_until": value.valid_until, "source": value.source, "precipitation_probability": value.precipitation_probability, "wind_kph": value.wind_kph, "alert_severity": value.alert_severity, "summary": value.summary, "alerts": value.alerts};
     } elif isinstance(value, RiskAssessment) {
         value.validate();
         fields = {"delay": value.delay, "transfer": value.transfer, "weather": value.weather, "uncertainty": value.uncertainty, "reason_codes": value.reason_codes};
@@ -371,7 +379,7 @@ def model_to_object(value: object) -> object {
         fields = {"duration": value.duration, "reliability": value.reliability, "price": value.price, "transfers": value.transfers, "weather": value.weather};
     } elif isinstance(value, ScoredRoute) {
         value.validate();
-        fields = {"option": value.option, "risk": value.risk, "features": value.features, "score": value.score, "reason_codes": value.reason_codes, "weather": value.weather};
+        fields = {"option": value.option, "risk": value.risk, "features": value.features, "score": value.score, "reason_codes": value.reason_codes, "weather": value.weather, "weather_from": value.weather_from};
     } elif isinstance(value, TripPlanDraft) {
         value.validate();
         fields = {"id": value.id, "request": value.request, "routes": value.routes, "recommended_route_id": value.recommended_route_id, "weights": value.weights, "created_at": value.created_at, "expires_at": value.expires_at, "sources": value.sources};
