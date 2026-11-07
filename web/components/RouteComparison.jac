@@ -162,7 +162,7 @@ def:pub RecommendationPanel(route: ComparisonRoute, recommended: bool, returnRou
             <p>{risk_line(route)}</p>
             {(<p>{route.weather_note}</p> if route.weather_note else None)}
         </div>
-        <button type="button" className="dt-primary dt-booking-action h-12 rounded-xl border-0 bg-linear-to-r from-emerald-600 to-green-700 text-base font-semibold shadow-sm hover:scale-100 active:scale-98" disabled={onSave is None} onClick={lambda { if onSave is not None { onSave(); } }}>Save trip</button>
+        <button type="button" className="dt-primary dt-booking-action h-12 rounded-xl border-0 bg-linear-to-r from-emerald-600 to-green-700 text-base font-semibold text-white shadow-sm hover:scale-100 active:scale-98" disabled={onSave is None} onClick={lambda { if onSave is not None { onSave(); } }}>Save trip</button>
         {(<p className="dt-booking-note dt-field-error" role="alert">This browser wouldn't keep the trip. Check that site data is allowed.</p> if saveFailed else None)}
     </aside>;
 }

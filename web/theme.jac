@@ -1,7 +1,8 @@
 """Design tokens and shared style helpers for the landing page.
 
 Landing components consume the same CSS tokens as the shared application
-shell. The browser's color-scheme preference selects the token palette.
+shell. `<html data-theme>`, set by client/theme_mode.jac from the stored
+choice or the browser's color-scheme preference, selects the token palette.
 """
 
 obj:pub Theme {

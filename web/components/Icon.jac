@@ -15,6 +15,9 @@ def:pub Icon(name: str, size: int = 20) -> JsxElement {
             <><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></> if name == "arrow.left.arrow.right" else
             <><path d="M22 12a10.06 10.06 1 0 0-20 0Z"/><path d="M12 12v8a2 2 0 0 0 4 0"/><path d="M12 2v1"/></> if name == "umbrella" else
             <><path d="M20 6 9 17l-5-5"/></> if name == "checkmark" else
+            <><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></> if name == "sun" else
+            <><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></> if name == "moon" else
+            <><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></> if name == "display" else
             <><path d="M5 12h14"/></> if name == "minus" else
             <><path d="M5 12h14"/><path d="M12 5v14"/></> if name == "plus" else
             <><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></> if name == "building" else

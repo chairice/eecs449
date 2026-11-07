@@ -37,6 +37,19 @@ base_route_app = "app"
 title = "Detour"
 description = "Plan a train or bus trip in one sentence. Detour compares the routes and spells out what's known, and what isn't."
 
+# Paint the remembered light/dark theme before the bundle loads, so the first
+# frame has the right palette. Mirrors client/theme_mode.jac (same key and rule).
+[[client.app_meta_data.scripts]]
+content = """
+(function () {
+  var root = document.documentElement, pref = null, dark = false;
+  try { pref = window.localStorage.getItem("detour.theme.v1"); } catch (e) {}
+  try { dark = pref === "dark" || (pref !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches); } catch (e) {}
+  root.setAttribute("data-theme", dark ? "dark" : "light");
+  root.style.colorScheme = dark ? "dark" : "light";
+})();
+"""
+
 # Tailwind v4 utilities, layered above the hand-written styles (see tailwind.css).
 [client.vite]
 plugins = ["tailwindcss()"]

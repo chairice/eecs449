@@ -5,6 +5,7 @@ import "../styles.css";
 import from .Brand { Brand }
 import from .PublicHeader { HEADER, PublicHeader }
 import from .AccountMenu { AccountMenu }
+import from .ThemeToggle { ThemeToggle }
 import from "react" { useEffect }
 import from "@jac/runtime" { Link }
 import from ..client.account { watch_account }
@@ -27,7 +28,6 @@ def:pub NavItem(label: str, href: str, active: bool, enabled: bool, count: int =
 }
 
 def:pub AppShell(
-    dark: bool = False,
     publicPage: bool = False,
     minimalHeader: bool = False,
     activePath: str = "/plan",
@@ -41,10 +41,10 @@ def:pub AppShell(
         stop_account = watch_account(lambda { saved = len(load_trips()); });
         return lambda { stop_trips(); stop_account(); };
     }, []);
-    return <div className="dt-app bg-linear-to-br from-emerald-100/80 via-green-50 to-emerald-50" data-theme={"dark" if dark else "light"}>
+    return <div className="dt-app bg-linear-to-br from-emerald-100/80 via-green-50 to-emerald-50">
         <a className="dt-skip-link" href="#main-content">Skip to content</a>
         {(
-            <header className={HEADER}><div className="dt-header-inner"><Brand/><AccountMenu/></div></header> if minimalHeader else
+            <header className={HEADER}><div className="dt-header-inner"><Brand/><div className="flex items-center gap-2"><ThemeToggle/><AccountMenu/></div></div></header> if minimalHeader else
             <PublicHeader/> if publicPage else
             <header className={HEADER}>
                 <div className="dt-header-inner flex-wrap gap-y-3">
@@ -54,7 +54,7 @@ def:pub AppShell(
                         <NavItem label="Plan" href="/plan" active={activePath == "/plan"} enabled={navigationEnabled}/>
                         <NavItem label="Trips" href="/trips" active={activePath == "/trips"} enabled={navigationEnabled} count={saved}/>
                     </nav>
-                    <AccountMenu/>
+                    <div className="flex items-center gap-2"><ThemeToggle/><AccountMenu/></div>
                 </div>
             </header>
         )}
