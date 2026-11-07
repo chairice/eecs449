@@ -140,7 +140,20 @@ def saved_leg(label: str, route: ComparisonRoute) -> dict[str, any] {
         "risk": risk_badge(route), "risk_detail": risk_line(route), "weather": route.weather_note,
         "levels": {"delay": route.delay, "transfer": route.transfer_risk}, "route": route.weather_legs,
         "stops": [{"name": stop.name, "latitude": stop.latitude, "longitude": stop.longitude} for stop in route.stops],
-        "segments": [{"mode": segment.mode, "points": segment.points} for segment in route.segments]};
+        "segments": [{"mode": segment.mode, "points": segment.points} for segment in route.segments],
+        "fares": fare_breakdown(route), "ticketing": route.ticketing, "ticketing_note": route.ticketing_note};
+}
+
+"""Each vehicle leg's own fare for the trip page; empty unless every one has a fare,
+so the rows always add up to the total."""
+def fare_breakdown(route: ComparisonRoute) -> list[dict[str, str]] {
+    rows: list[dict[str, str]] = [];
+    for leg in route.legs {
+        if leg.mode == "Walk" { continue; }
+        if not leg.fare { return []; }
+        rows.append({"mode": leg.mode, "service": leg.service, "origin": leg.origin, "destination": leg.destination, "price": leg.fare});
+    }
+    return rows;
 }
 
 def risk_line(route: ComparisonRoute) -> str {

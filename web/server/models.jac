@@ -18,6 +18,9 @@ enum PriorityPreset: str {
     BALANCED = "BALANCED", FASTEST = "FASTEST", LOWEST_COST = "LOWEST_COST",
     MOST_RELIABLE = "MOST_RELIABLE", FEWEST_TRANSFERS = "FEWEST_TRANSFERS"
 }
+# How a multi-leg plan is bought: one ticket covering every leg, or a separate
+# ticket per leg from each operator (not reservable as a bundle).
+enum Ticketing: str { THROUGH = "THROUGH", SEPARATE = "SEPARATE" }
 enum RiskLevel: str { LOW = "LOW", MODERATE = "MODERATE", HIGH = "HIGH", UNKNOWN = "UNKNOWN" }
 enum ErrorCode: str {
     INVALID_REQUEST = "INVALID_REQUEST", CLARIFICATION_REQUIRED = "CLARIFICATION_REQUIRED",
@@ -178,6 +181,8 @@ obj RouteLeg {
     has id: str, mode: TravelMode, origin: Place, destination: Place, departure_at: str, arrival_at: str;
     has operator: str = "", service: str = "", status: ServiceStatus = ServiceStatus.UNKNOWN;
     has predicted_delay_minutes: int | None = None;
+    # This leg's own share of the route's fare; None when only a whole-route price is known.
+    has fare_cents: int | None = None;
     # Where the leg runs, as [latitude, longitude] points for drawing it on a
     # map; empty when the provider has no alignment for it.
     has path: list[list[float]] = [];
@@ -188,16 +193,29 @@ obj RouteLeg {
         if not isinstance(self.mode, TravelMode) or not isinstance(self.status, ServiceStatus) { raise ValueError("invalid leg enum"); }
         if parse_timestamp(self.arrival_at) <= parse_timestamp(self.departure_at) { raise ValueError("arrival must follow departure"); }
         if self.predicted_delay_minutes is not None { require_nonnegative(self.predicted_delay_minutes, "delay minutes"); }
+        if self.fare_cents is not None { require_nonnegative(self.fare_cents, "leg fare cents"); }
     }
+}
+
+"""Without a declared ticketing, legs run by more than one operator are separate tickets."""
+def:pub default_ticketing(legs: list[RouteLeg]) -> Ticketing {
+    operators = set([leg.operator.strip().casefold() for leg in legs if leg.mode != TravelMode.WALK and leg.operator.strip()]);
+    return Ticketing.SEPARATE if len(operators) > 1 else Ticketing.THROUGH;
 }
 
 obj RouteOption {
     has id: str, legs: list[RouteLeg], source: ProviderMetadata;
     has price_cents: int | None = None, currency: str = "USD";
-    def postinit { self.validate(); }
+    # None at construction means "work it out from the operators".
+    has ticketing: Ticketing | None = None;
+    def postinit {
+        if self.ticketing is None and self.legs { self.ticketing = default_ticketing(self.legs); }
+        self.validate();
+    }
     def validate {
         require_text(self.id, "route id");
         if not self.legs { raise ValueError("route needs at least one leg"); }
+        if not isinstance(self.ticketing, Ticketing) { raise ValueError("invalid route ticketing"); }
         if self.source.status == SourceStatus.UNAVAILABLE { raise ValueError("route source is unavailable"); }
         if self.currency != "USD" { raise ValueError("MVP supports USD only"); }
         if self.price_cents is not None { require_nonnegative(self.price_cents, "price cents"); }
@@ -212,6 +230,11 @@ obj RouteOption {
                 if previous.destination.id != leg.origin.id { raise ValueError("route legs are disconnected"); }
                 if parse_timestamp(previous.arrival_at) > parse_timestamp(leg.departure_at) { raise ValueError("route legs overlap"); }
             }
+        }
+        # A complete per-leg breakdown must account for the whole fare.
+        fares = [leg.fare_cents for leg in self.legs if leg.mode != TravelMode.WALK];
+        if self.price_cents is not None and fares and all(fare is not None for fare in fares) and sum(fares) != self.price_cents {
+            raise ValueError("leg fares must sum to the route price");
         }
     }
     def duration_minutes -> float {
@@ -364,10 +387,10 @@ def model_to_object(value: object) -> object {
         fields = {"code": value.code, "message": value.message, "retryable": value.retryable, "field_name": value.field_name};
     } elif isinstance(value, RouteLeg) {
         value.validate();
-        fields = {"id": value.id, "mode": value.mode, "origin": value.origin, "destination": value.destination, "departure_at": value.departure_at, "arrival_at": value.arrival_at, "operator": value.operator, "service": value.service, "status": value.status, "predicted_delay_minutes": value.predicted_delay_minutes, "path": [[point[0], point[1]] for point in value.path]};
+        fields = {"id": value.id, "mode": value.mode, "origin": value.origin, "destination": value.destination, "departure_at": value.departure_at, "arrival_at": value.arrival_at, "operator": value.operator, "service": value.service, "status": value.status, "predicted_delay_minutes": value.predicted_delay_minutes, "fare_cents": value.fare_cents, "path": [[point[0], point[1]] for point in value.path]};
     } elif isinstance(value, RouteOption) {
         value.validate();
-        fields = {"id": value.id, "legs": value.legs, "source": value.source, "price_cents": value.price_cents, "currency": value.currency};
+        fields = {"id": value.id, "legs": value.legs, "source": value.source, "price_cents": value.price_cents, "currency": value.currency, "ticketing": value.ticketing};
     } elif isinstance(value, WeatherEvidence) {
         value.validate();
         fields = {"place": value.place, "valid_from": value.valid_from, "valid_until": value.valid_until, "source": value.source, "precipitation_probability": value.precipitation_probability, "wind_kph": value.wind_kph, "alert_severity": value.alert_severity, "summary": value.summary, "alerts": value.alerts};
@@ -468,19 +491,21 @@ def metadata_from_object(value: object) -> ProviderMetadata {
 }
 def route_option_from_json(payload: str) -> RouteOption {
     raw = json_object(json.loads(payload));
-    check_keys(raw, ["id", "legs", "source", "price_cents", "currency"]);
+    check_keys(raw, ["id", "legs", "source", "price_cents", "currency", "ticketing"]);
     legs: list[RouteLeg] = [];
     for item in json_array(raw.get("legs")) {
         leg = json_object(item);
-        check_keys(leg, ["id", "mode", "origin", "destination", "departure_at", "arrival_at", "operator", "service", "status", "predicted_delay_minutes", "path"]);
+        check_keys(leg, ["id", "mode", "origin", "destination", "departure_at", "arrival_at", "operator", "service", "status", "predicted_delay_minutes", "fare_cents", "path"]);
         legs.append(RouteLeg(
             id=json_text(leg.get("id")), mode=TravelMode(json_text(leg.get("mode"))),
             origin=place_from_object(leg.get("origin")), destination=place_from_object(leg.get("destination")),
             departure_at=json_text(leg.get("departure_at")), arrival_at=json_text(leg.get("arrival_at")),
             operator=json_text(leg.get("operator", "")), service=json_text(leg.get("service", "")), status=ServiceStatus(json_text(leg.get("status", "UNKNOWN"))),
             predicted_delay_minutes=json_optional_integer(leg.get("predicted_delay_minutes")),
+            fare_cents=json_optional_integer(leg.get("fare_cents")),
             path=path_from_array(leg.get("path", []))
         ));
     }
-    return RouteOption(id=json_text(raw.get("id")), legs=legs, source=metadata_from_object(raw.get("source")), price_cents=json_optional_integer(raw.get("price_cents")), currency=json_text(raw.get("currency", "USD")));
+    return RouteOption(id=json_text(raw.get("id")), legs=legs, source=metadata_from_object(raw.get("source")), price_cents=json_optional_integer(raw.get("price_cents")), currency=json_text(raw.get("currency", "USD")),
+        ticketing=None if raw.get("ticketing") is None else Ticketing(json_text(raw.get("ticketing"))));
 }

@@ -2,6 +2,8 @@
 
 obj:pub ComparisonLeg {
     has id: str, mode: str, service: str, origin: str, destination: str, departure: str, arrival: str;
+    # This leg's own fare ("$24.00 USD"), or "" when only the route's total is known.
+    has fare: str = "";
 }
 """A stop the map can pin; only places that arrive with coordinates become one."""
 obj:pub ComparisonStop {
@@ -32,6 +34,8 @@ obj:pub ComparisonRoute {
     has arrives: str = "";
     # The legs as the planner sent them, minus status fields, so a saved trip can re-check its weather.
     has weather_legs: list[any] = [];
+    # How the fare is bought: "One ticket" or "Separate tickets", and a sentence saying what that means.
+    has ticketing: str = "", ticketing_note: str = "";
 }
 obj:pub ComparisonView {
     has valid: bool = False, error: str = "", error_code: str = "";
@@ -84,6 +88,25 @@ def price_label(value: any, currency: str) -> str {
     amount: any = cents / 100.0;
     return "$" + str(amount.toFixed(2)) + " USD";
 }
+"""A leg's own fare, or "" when the provider priced only the whole route."""
+def leg_fare(value: any, currency: str) -> str {
+    if value is None { return ""; }
+    return price_label(value, currency);
+}
+
+"""Whether a plan is one booking or several, as (label, sentence); "" when not stated."""
+def:pub ticketing_words(value: any, transit_legs: int) -> tuple[str, str] {
+    if value == "SEPARATE" {
+        return ("Separate tickets", "Each leg is its own ticket from its operator. They aren’t sold as a bundle, so each is booked on its own.");
+    }
+    if value == "THROUGH" {
+        if transit_legs > 1 { return ("One ticket", "One through fare covers every leg, booked together as a bundle."); }
+        return ("One ticket", "A single ticket covers this trip.");
+    }
+    if value is None { return ("", ""); }
+    raise ValueError("Invalid ticketing");
+}
+
 def:pub risk_label(value: any) -> str {
     level = required_text(value);
     if level == "LOW" { return "Low"; }
@@ -215,6 +238,7 @@ def route_view(raw: any, as_of: str) -> ComparisonRoute {
     modes: list[str] = [];
     services: list[str] = [];
     transit_count = 0;
+    currency = required_text(option["currency"]);
     for leg in required_list(option["legs"]) {
         mode = mode_label(leg["mode"]);
         service = required_text(leg["service"]) if leg["service"] else mode;
@@ -224,7 +248,8 @@ def route_view(raw: any, as_of: str) -> ComparisonRoute {
         legs.append(ComparisonLeg(id=required_text(leg["id"]), mode=mode, service=service,
             origin=required_text(leg["origin"]["name"]), destination=required_text(leg["destination"]["name"]),
             departure=local_clock(required_text(leg["departure_at"]), required_text(leg["origin"]["timezone"])),
-            arrival=local_clock(required_text(leg["arrival_at"]), required_text(leg["destination"]["timezone"]))));
+            arrival=local_clock(required_text(leg["arrival_at"]), required_text(leg["destination"]["timezone"])),
+            fare=leg_fare(leg["fare_cents"], currency)));
     }
     if len(legs) == 0 { raise ValueError("Route has no legs"); }
     raw_legs = required_list(option["legs"]);
@@ -244,6 +269,7 @@ def route_view(raw: any, as_of: str) -> ComparisonRoute {
     opens = day_label(required_text(raw["weather_from"]), required_text(last["destination"]["timezone"])) if raw["weather_from"] else "";
     if opens { weather = "Not yet forecast"; }
     words = weather_words(required_list(raw["weather"]) if raw["weather"] else [], weather, opens);
+    tickets = ticketing_words(option["ticketing"], transit_count);
     return ComparisonRoute(id=required_text(option["id"]), name=" + ".join(services), modes=" + ".join(modes),
         departure=legs[0].departure, arrival=legs[len(legs) - 1].arrival,
         duration=duration_label(required_text(first["departure_at"]), required_text(last["arrival_at"])),
@@ -260,7 +286,8 @@ def route_view(raw: any, as_of: str) -> ComparisonRoute {
         transfer_risk=risk_label(raw["risk"]["transfer"]), source=source_mode, provider=required_text(source["provider"]),
         freshness=freshness, source_time=utc_label(required_text(source["fetched_at"])) if source["fetched_at"] else "Timestamp unavailable", source_warnings=warnings,
         reasons=reasons, legs=legs, stops=route_stops(raw_legs), segments=route_segments(raw_legs),
-        price_cents=-1 if option["price_cents"] is None else int(required_number(option["price_cents"])));
+        price_cents=-1 if option["price_cents"] is None else int(required_number(option["price_cents"])),
+        ticketing=tickets[0], ticketing_note=tickets[1]);
 }
 
 def:pub comparison_view(preview: any) -> ComparisonView {

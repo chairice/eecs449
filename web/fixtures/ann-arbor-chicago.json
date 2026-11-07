@@ -22,50 +22,56 @@
       "id": "demo-direct-train",
       "price_cents": 4500,
       "currency": "USD",
+      "ticketing": "THROUGH",
       "legs": [
-        {"id": "demo-train-leg", "mode": "TRAIN", "origin_id": "ann-arbor", "destination_id": "chicago", "departure_time": "17:20", "arrival_time": "21:40", "departure_day_offset": 0, "arrival_day_offset": 0, "operator": "Demo Rail", "service": "Synthetic train A"}
+        {"id": "demo-train-leg", "mode": "TRAIN", "origin_id": "ann-arbor", "destination_id": "chicago", "departure_time": "17:20", "arrival_time": "21:40", "departure_day_offset": 0, "arrival_day_offset": 0, "operator": "Demo Rail", "service": "Synthetic train A", "fare_cents": 4500}
       ]
     },
     {
       "id": "demo-direct-bus",
       "price_cents": 3800,
       "currency": "USD",
+      "ticketing": "THROUGH",
       "legs": [
-        {"id": "demo-bus-leg", "mode": "BUS", "origin_id": "ann-arbor", "destination_id": "chicago", "departure_time": "18:00", "arrival_time": "22:30", "departure_day_offset": 0, "arrival_day_offset": 0, "operator": "Demo Coach", "service": "Synthetic bus B"}
+        {"id": "demo-bus-leg", "mode": "BUS", "origin_id": "ann-arbor", "destination_id": "chicago", "departure_time": "18:00", "arrival_time": "22:30", "departure_day_offset": 0, "arrival_day_offset": 0, "operator": "Demo Coach", "service": "Synthetic bus B", "fare_cents": 3800}
       ]
     },
     {
       "id": "demo-train-bus-transfer",
       "price_cents": 4200,
       "currency": "USD",
+      "ticketing": "SEPARATE",
       "legs": [
-        {"id": "demo-connection-train", "mode": "TRAIN", "origin_id": "ann-arbor", "destination_id": "kalamazoo", "departure_time": "16:30", "arrival_time": "18:40", "departure_day_offset": 0, "arrival_day_offset": 0, "operator": "Demo Rail", "service": "Synthetic train C"},
-        {"id": "demo-connection-bus", "mode": "BUS", "origin_id": "kalamazoo", "destination_id": "chicago", "departure_time": "19:30", "arrival_time": "21:30", "departure_day_offset": 0, "arrival_day_offset": 0, "operator": "Demo Coach", "service": "Synthetic bus D"}
+        {"id": "demo-connection-train", "mode": "TRAIN", "origin_id": "ann-arbor", "destination_id": "kalamazoo", "departure_time": "16:30", "arrival_time": "18:40", "departure_day_offset": 0, "arrival_day_offset": 0, "operator": "Demo Rail", "service": "Synthetic train C", "fare_cents": 2400},
+        {"id": "demo-connection-bus", "mode": "BUS", "origin_id": "kalamazoo", "destination_id": "chicago", "departure_time": "19:30", "arrival_time": "21:30", "departure_day_offset": 0, "arrival_day_offset": 0, "operator": "Demo Coach", "service": "Synthetic bus D", "fare_cents": 1800}
       ]
     },
     {
       "id": "demo-return-train",
       "price_cents": 4600,
       "currency": "USD",
+      "ticketing": "THROUGH",
       "legs": [
-        {"id": "demo-return-train-leg", "mode": "TRAIN", "origin_id": "chicago", "destination_id": "ann-arbor", "departure_time": "15:05", "arrival_time": "21:25", "departure_day_offset": 0, "arrival_day_offset": 0, "operator": "Demo Rail", "service": "Synthetic train E"}
+        {"id": "demo-return-train-leg", "mode": "TRAIN", "origin_id": "chicago", "destination_id": "ann-arbor", "departure_time": "15:05", "arrival_time": "21:25", "departure_day_offset": 0, "arrival_day_offset": 0, "operator": "Demo Rail", "service": "Synthetic train E", "fare_cents": 4600}
       ]
     },
     {
       "id": "demo-return-bus",
       "price_cents": 3700,
       "currency": "USD",
+      "ticketing": "THROUGH",
       "legs": [
-        {"id": "demo-return-bus-leg", "mode": "BUS", "origin_id": "chicago", "destination_id": "ann-arbor", "departure_time": "16:00", "arrival_time": "22:30", "departure_day_offset": 0, "arrival_day_offset": 0, "operator": "Demo Coach", "service": "Synthetic bus F"}
+        {"id": "demo-return-bus-leg", "mode": "BUS", "origin_id": "chicago", "destination_id": "ann-arbor", "departure_time": "16:00", "arrival_time": "22:30", "departure_day_offset": 0, "arrival_day_offset": 0, "operator": "Demo Coach", "service": "Synthetic bus F", "fare_cents": 3700}
       ]
     },
     {
       "id": "demo-return-transfer",
       "price_cents": 4300,
       "currency": "USD",
+      "ticketing": "SEPARATE",
       "legs": [
-        {"id": "demo-return-connection-bus", "mode": "BUS", "origin_id": "chicago", "destination_id": "kalamazoo", "departure_time": "14:30", "arrival_time": "17:30", "departure_day_offset": 0, "arrival_day_offset": 0, "operator": "Demo Coach", "service": "Synthetic bus G"},
-        {"id": "demo-return-connection-train", "mode": "TRAIN", "origin_id": "kalamazoo", "destination_id": "ann-arbor", "departure_time": "18:15", "arrival_time": "20:25", "departure_day_offset": 0, "arrival_day_offset": 0, "operator": "Demo Rail", "service": "Synthetic train H"}
+        {"id": "demo-return-connection-bus", "mode": "BUS", "origin_id": "chicago", "destination_id": "kalamazoo", "departure_time": "14:30", "arrival_time": "17:30", "departure_day_offset": 0, "arrival_day_offset": 0, "operator": "Demo Coach", "service": "Synthetic bus G", "fare_cents": 1900},
+        {"id": "demo-return-connection-train", "mode": "TRAIN", "origin_id": "kalamazoo", "destination_id": "ann-arbor", "departure_time": "18:15", "arrival_time": "20:25", "departure_day_offset": 0, "arrival_day_offset": 0, "operator": "Demo Rail", "service": "Synthetic train H", "fare_cents": 2400}
       ]
     }
   ],

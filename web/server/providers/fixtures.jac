@@ -7,7 +7,7 @@ import from pathlib { Path }
 import from zoneinfo { ZoneInfo }
 import from server.models {
     DomainError, ErrorCode, Place, ProviderMetadata, ProviderResult, ProviderWarning,
-    RouteLeg, RouteOption, ServiceStatus, SourceStatus, TimeKind, TravelMode, TripRequest,
+    RouteLeg, RouteOption, ServiceStatus, SourceStatus, Ticketing, TimeKind, TravelMode, TripRequest,
     check_keys, json_array, json_integer, json_object, json_optional_integer,
     json_text, metadata_from_object, parse_timestamp, path_from_array, place_from_object
 }
@@ -143,23 +143,24 @@ obj FixtureRouteProvider(RouteProvider) {
         seen: set[str] = set();
         for item in json_array(payload.get("routes")) {
             raw = json_object(item);
-            check_keys(raw, ["id", "price_cents", "currency", "legs"]);
+            check_keys(raw, ["id", "price_cents", "currency", "ticketing", "legs"]);
             route_id = json_text(raw.get("id"));
             if route_id in seen { raise ValueError("duplicate fixture route id"); }
             seen.add(route_id);
             legs: list[RouteLeg] = [];
             for leg_value in json_array(raw.get("legs")) {
                 leg = json_object(leg_value);
-                check_keys(leg, ["id", "mode", "origin_id", "destination_id", "departure_time", "arrival_time", "departure_day_offset", "arrival_day_offset", "operator", "service"]);
+                check_keys(leg, ["id", "mode", "origin_id", "destination_id", "departure_time", "arrival_time", "departure_day_offset", "arrival_day_offset", "operator", "service", "fare_cents"]);
                 origin = places[json_text(leg.get("origin_id"))];
                 destination = places[json_text(leg.get("destination_id"))];
                 departure = local_instant(request.local_date, json_text(leg.get("departure_time")), origin.timezone, json_integer(leg.get("departure_day_offset", 0)));
                 arrival = local_instant(request.local_date, json_text(leg.get("arrival_time")), destination.timezone, json_integer(leg.get("arrival_day_offset", 0)));
                 mode = TravelMode(json_text(leg.get("mode")));
                 path = paths.get(mode.value + ":" + origin.id + ":" + destination.id, []);
-                legs.append(RouteLeg(id=json_text(leg.get("id")), mode=mode, origin=origin, destination=destination, departure_at=departure.isoformat(), arrival_at=arrival.isoformat(), operator=json_text(leg.get("operator")), service=json_text(leg.get("service")), status=ServiceStatus.SCHEDULED, path=path));
+                legs.append(RouteLeg(id=json_text(leg.get("id")), mode=mode, origin=origin, destination=destination, departure_at=departure.isoformat(), arrival_at=arrival.isoformat(), operator=json_text(leg.get("operator")), service=json_text(leg.get("service")), status=ServiceStatus.SCHEDULED, fare_cents=json_optional_integer(leg.get("fare_cents")), path=path));
             }
-            option = RouteOption(id=route_id, legs=legs, source=source, price_cents=json_optional_integer(raw.get("price_cents")), currency=json_text(raw.get("currency", "USD")));
+            option = RouteOption(id=route_id, legs=legs, source=source, price_cents=json_optional_integer(raw.get("price_cents")), currency=json_text(raw.get("currency", "USD")),
+                ticketing=None if raw.get("ticketing") is None else Ticketing(json_text(raw.get("ticketing"))));
             route_ends = (option.legs[0].origin.id, option.legs[-1].destination.id);
             if route_ends not in [("ann-arbor", "chicago"), ("chicago", "ann-arbor")] { raise ValueError("route is outside the fixture corridor"); }
             routes.append(option);
