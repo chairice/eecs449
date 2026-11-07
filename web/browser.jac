@@ -31,14 +31,15 @@ def:pub loadStylesheet(href: str) {
     head.appendChild(link);
 }
 
-"""Style the <html> and <body> elements, which sit outside the React tree."""
-def:pub paintPage(background: str, dark: bool, smoothScroll: bool) {
+"""Style the <html> and <body> elements, which sit outside the React tree.
+
+The colour theme is not set here: client/theme_mode.jac owns <html data-theme>.
+"""
+def:pub paintPage(background: str, smoothScroll: bool) {
     html: any = document.documentElement;
     body: any = document.body;
     body.style.margin = "0";
     body.style.background = background;
-    html.style.colorScheme = "dark" if dark else "light";
-    html.dataset.theme = "dark" if dark else "light";
     html.style.scrollBehavior = "smooth" if smoothScroll else "auto";
 }
 

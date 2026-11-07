@@ -87,7 +87,7 @@ def:pub AtlasMap(journeys: any, states: any, selectedId: str = "", modeFilter: s
         planned = journey["status"] == "PLANNED";
         opacity = 0.9 if active else 0.18;
         color = str(journey["color"] or "#b86645");
-        polyline(points, {"color": "#faf9f5", "weight": 6.5 if active else 4, "opacity": 0.75 if active else 0.15, "interactive": False, "lineCap": "round"}).addTo(group);
+        polyline(points, {"color": "#faf9f5", "weight": 6.5 if active else 4, "opacity": 0.75 if active else 0.15, "interactive": False, "lineCap": "round", "className": "atlas-casing"}).addTo(group);
         path = polyline(points, {"color": color, "weight": 2.4 if flight else 3.2, "opacity": opacity, "dashArray": "3 7" if planned else None, "lineCap": "round", "lineJoin": "round", "className": "atlas-flight-path" if flight else "atlas-drive-path"}).addTo(group);
         # The compiler's DOM stub returns object; Leaflet accepts this live DOM node.
         label: any = document.createElement("span");
@@ -126,7 +126,7 @@ def:pub AtlasMap(journeys: any, states: any, selectedId: str = "", modeFilter: s
                     after = index < len(legs) and legs[index]["mode"] == modeFilter;
                     if not before and not after { continue; }
                 }
-                pin = circleMarker([float(place["lat"]), float(place["lon"])], {"radius": 5 if active else 3, "color": "#faf9f5", "weight": 2, "fillColor": str(journey["color"] or "#b86645"), "fillOpacity": 1 if active else 0.25, "opacity": 1 if active else 0.3}).addTo(routes.current);
+                pin = circleMarker([float(place["lat"]), float(place["lon"])], {"radius": 5 if active else 3, "color": "#faf9f5", "weight": 2, "fillColor": str(journey["color"] or "#b86645"), "fillOpacity": 1 if active else 0.25, "opacity": 1 if active else 0.3, "className": "atlas-pin"}).addTo(routes.current);
                 label: any = document.createElement("span");
                 label.textContent = str(index + 1) + "  " + str(place["name"]);
                 pin.bindTooltip(label, {"permanent": bool(selectedId) and active, "direction": "top", "offset": [0, -8], "className": "atlas-stop-label"});
@@ -155,7 +155,7 @@ def:pub AtlasMap(journeys: any, states: any, selectedId: str = "", modeFilter: s
         if boundaries.current {
             boundaries.current.clearLayers();
             if states {
-                geoJSON(states, {"style": {"color": "#c6c8bb", "weight": 0.8, "opacity": 0.85, "fillColor": "#eeeee5", "fillOpacity": 1}, "interactive": False}).addTo(boundaries.current);
+                geoJSON(states, {"style": {"color": "#c6c8bb", "weight": 0.8, "opacity": 0.85, "fillColor": "#eeeee5", "fillOpacity": 1, "className": "atlas-boundary"}, "interactive": False}).addTo(boundaries.current);
                 boundaries.current.eachLayer(lambda (layer: any) { layer.bringToBack(); });
             }
         }

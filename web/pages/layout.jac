@@ -1,4 +1,4 @@
-"""One layout for the file-based router; Detour is light mode only."""
+"""One layout for the file-based router; the theme lives on <html> (client/theme_mode.jac)."""
 
 import from "@jac/runtime" { Outlet, useLocation }
 import from ..components.AppShell { AppShell }
@@ -22,7 +22,7 @@ def:pub RootLayout -> JsxLayout {
 
     can with entry { loadStylesheet(FONTS_URL); }
     can with entry {
-        paintPage("var(--dt-bg)", False, not mediaMatches(REDUCED_MOTION_QUERY));
+        paintPage("var(--dt-bg)", not mediaMatches(REDUCED_MOTION_QUERY));
     }
 
     return <AppShell publicPage={path == "/"} minimalHeader={path != "/" and not appPage}
