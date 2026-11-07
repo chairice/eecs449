@@ -50,7 +50,8 @@ retained description. Browser history is not a durable trip repository.
 ## Demo and limitations
 
 Use the dated October 23, 2026 example to fill empty fields, then search the
-Ann Arbor to Chicago corridor. All three schedules and fares are synthetic;
+Ann Arbor to Chicago corridor, or pick Detroit, Grand Rapids, Lansing, Toledo
+or Cleveland from Where. All schedules and fares are synthetic;
 delay and weather remain explicitly unknown. Arbitrary fixture dates are allowed
 for repeatable tests and demonstrations, including past dates. Neither the
 date nor the dataset's authored timestamp implies real service availability.

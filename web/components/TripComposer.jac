@@ -21,16 +21,37 @@ def starting_form(initial: ComposerInput | None) -> ComposerInput {
     return form;
 }
 
-"""Pin places the demo planner accepts, using its normalisation; anything else stays off the map."""
-def known_stop(text: str) -> ComparisonStop | None {
-    key = " ".join(text.lower().replace(",", " ").split());
-    if key in ["ann arbor", "ann arbor mi", "ann arbor michigan"] {
-        return ComparisonStop(name="Ann Arbor", latitude=42.2877, longitude=-83.743);
-    }
-    if key in ["chicago", "chicago il", "chicago illinois"] {
-        return ComparisonStop(name="Chicago", latitude=41.8786, longitude=-87.6405);
+"""A city the demo planner can route to or from, matching a fixture terminal."""
+obj:pub DemoCity { has name: str, state: str, state_name: str, latitude: float, longitude: float, note: str, icon: str; }
+
+# Mirrors the city names declared in web/fixtures/*.json; fixture tests keep the two in step.
+glob:pub DEMO_CITIES: list[DemoCity] = [
+    DemoCity(name="Ann Arbor", state="MI", state_name="michigan", latitude=42.2877, longitude=-83.743, note="", icon="home"),
+    DemoCity(name="Chicago", state="IL", state_name="illinois", latitude=41.8786, longitude=-87.6405, note="Demo trips by train and bus", icon="building"),
+    DemoCity(name="Detroit", state="MI", state_name="michigan", latitude=42.3681, longitude=-83.073, note="Demo trips by train and bus", icon="building"),
+    DemoCity(name="Grand Rapids", state="MI", state_name="michigan", latitude=42.9569, longitude=-85.6814, note="Demo trips by bus, or train and bus", icon="building"),
+    DemoCity(name="Lansing", state="MI", state_name="michigan", latitude=42.7325, longitude=-84.5555, note="Demo trips by bus", icon="building"),
+    DemoCity(name="Toledo", state="OH", state_name="ohio", latitude=41.6386, longitude=-83.5422, note="Demo trips by bus", icon="building"),
+    DemoCity(name="Cleveland", state="OH", state_name="ohio", latitude=41.5061, longitude=-81.6995, note="Demo trips by bus, or bus and train", icon="building")
+];
+
+def city_key(text: str) -> str { return " ".join(text.lower().replace(",", " ").split()); }
+
+"""The demo city a typed place names, using the planner's normalisation."""
+def demo_city(text: str) -> DemoCity | None {
+    key = city_key(text);
+    for city in DEMO_CITIES {
+        base = city.name.lower();
+        if key in [base, base + " " + city.state.lower(), base + " " + city.state_name] { return city; }
     }
     return None;
+}
+
+"""Pin places the demo planner accepts; anything else stays off the map."""
+def known_stop(text: str) -> ComparisonStop | None {
+    city = demo_city(text);
+    if city is None { return None; }
+    return ComparisonStop(name=city.name, latitude=city.latitude, longitude=city.longitude);
 }
 
 """One cell of the calendar; blank cells pad the first week."""
@@ -80,8 +101,8 @@ def calendar_month(offset: int, today: str) -> CalendarMonth {
 """A destination the Where menu can offer."""
 obj:pub Destination { has name: str, note: str, icon: str; }
 
-# The demo planner reaches one destination; the menu offers only what it can plan.
-glob DESTINATIONS: list[Destination] = [Destination(name="Chicago, IL", note="Demo trips from Ann Arbor by train and bus", icon="building")];
+# The menu offers only what the demo planner can reach from Ann Arbor.
+glob DESTINATIONS: list[Destination] = [Destination(name=city.name + ", " + city.state, note=city.note + " from Ann Arbor", icon=city.icon) for city in DEMO_CITIES if city.name != "Ann Arbor"];
 
 def destination_matches(text: str) -> list[Destination] {
     query = text.lower().strip();
@@ -229,7 +250,7 @@ def:pub TripComposer(
                         <span className="dt-place-text"><span className="dt-place-name">{place.name}</span><span>{place.note}</span></span>
                     </button>
                 }}
-                {if len(suggestions) == 0 { <p>Detour's demo plans trips from Ann Arbor to Chicago, IL for now.</p> }}
+                {if len(suggestions) == 0 { <p>Detour's demo plans trips from Ann Arbor to Chicago, Detroit, Grand Rapids, Lansing, Toledo and Cleveland for now.</p> }}
             </div>
             <div id="dt-when" className="dt-when-panel" role="group" aria-label="When" hidden={not showWhen} onKeyDown={lambda (e: KeyboardEvent) { if e.key == "Escape" { panel = ""; } }}>
                 <div id="local_date" className="dt-calendar" tabIndex={-1} aria-describedby="error-local_date" onMouseLeave={lambda { hoverDate = ""; }}>
@@ -254,7 +275,7 @@ def:pub TripComposer(
             </div>
             </fieldset>
         </form>
-        <RouteMap stops={stops} label={"Map of " + " to ".join([stop.name for stop in stops]) if len(stops) > 0 else "Map of the Ann Arbor to Chicago demo corridor"}/>
+        <RouteMap stops={stops} label={"Map of " + " to ".join([stop.name for stop in stops]) if len(stops) > 0 else "Map of the Detour demo region around Ann Arbor"}/>
         {if validated is not None and onValidDraft is None { <DraftSummary draft={validated}/> }}
     </div>;
 }
