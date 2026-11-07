@@ -33,10 +33,19 @@ obj:pub ComparisonRoute {
     # The legs as the planner sent them, minus status fields, so a saved trip can re-check its weather.
     has weather_legs: list[any] = [];
 }
+"""Where one kind of data came from and how fresh it is, as the page states it."""
+obj:pub SourceLine {
+    has kind: str, provider: str, status: str, fetched: str, stale: bool = False;
+}
 obj:pub ComparisonView {
     has valid: bool = False, error: str = "", error_code: str = "";
     has title: str = "", date: str = "", preference: str = "", routes: list[ComparisonRoute] = [];
     has time_kind: str = "", local_time: str = "";
+    # Why candidates were removed when none fit, and the one constraint to relax first.
+    has rejections: list[str] = [], suggestion: str = "";
+    has sources: list[SourceLine] = [];
+    # Weather is "unchecked" when no weather provider ran and "unavailable" when it failed.
+    has weather_checked: bool = False, weather_unavailable: bool = False, stale: bool = False;
 }
 
 def required_text(value: any) -> str {
@@ -263,24 +272,97 @@ def route_view(raw: any, as_of: str) -> ComparisonRoute {
         price_cents=-1 if option["price_cents"] is None else int(required_number(option["price_cents"])));
 }
 
+def:pub provider_label(provider: str) -> str {
+    if provider == "detour-synthetic-corridor-v1" { return "Detour synthetic schedules"; }
+    if provider == "nws" { return "National Weather Service"; }
+    return provider;
+}
+
+"""Each source the server consulted; a malformed entry is left out rather than guessed."""
+def source_lines(raw: any, as_of: str) -> list[SourceLine] {
+    lines: list[SourceLine] = [];
+    if not isinstance(raw, list) { return lines; }
+    for (index, source) in enumerate(raw) {
+        if not source or not isinstance(source["provider"], str) or not isinstance(source["status"], str) { continue; }
+        status = str(source["status"]);
+        if status not in ["FIXTURE", "LIVE", "CACHED", "UNAVAILABLE"] { continue; }
+        fetched: any = source["fetched_at"];
+        expires: any = source["expires_at"];
+        stale = False;
+        if isinstance(expires, str) and Number.isFinite(Date.parse(expires)) and Number.isFinite(Date.parse(as_of)) {
+            stale = float(Date.parse(expires)) <= float(Date.parse(as_of));
+        }
+        words = {"FIXTURE": "Synthetic demo data", "LIVE": "Live", "CACHED": "Cached", "UNAVAILABLE": "Unavailable"}[status];
+        if stale { words += " · out of date"; }
+        when = utc_label(str(fetched)) if isinstance(fetched, str) and Number.isFinite(Date.parse(fetched)) else "Not fetched";
+        lines.append(SourceLine(kind="routes" if index == 0 else "weather", provider=provider_label(str(source["provider"])), status=words, fetched=when, stale=stale));
+    }
+    return lines;
+}
+
+"""Which constraints removed candidates, most common first, and one to relax."""
+def rejection_lines(raw: any, request: any) -> tuple[list[str], str] {
+    if not isinstance(raw, list) { return ([], ""); }
+    counts: dict[str, int] = {};
+    order: list[str] = [];
+    for item in raw {
+        if not item or not isinstance(item["reasons"], list) { continue; }
+        for code in item["reasons"] {
+            if not isinstance(code, str) { continue; }
+            if code not in counts { counts[code] = 0; order.append(code); }
+            counts[code] = counts[code] + 1;
+        }
+    }
+    buffer: any = request["min_transfer_minutes"] if request else None;
+    buffer_words = str(buffer) + "-minute" if isinstance(buffer, (int, float)) and not isinstance(buffer, bool) else "minimum";
+    what = {"OUTSIDE_WINDOW": "Outside your travel time", "OVER_BUDGET": "Over your maximum price",
+        "FARE_UNKNOWN": "No published fare to check against your maximum price",
+        "TRANSFER_TOO_SHORT": "A connection shorter than your " + buffer_words + " buffer",
+        "MODE_EXCLUDED": "Uses a mode you turned off", "CANCELED": "Canceled"};
+    relax = {"OUTSIDE_WINDOW": "Try another time or day.", "OVER_BUDGET": "Raise or remove the maximum price.",
+        "FARE_UNKNOWN": "Remove the maximum price to include routes without a published fare.",
+        "TRANSFER_TOO_SHORT": "Lower the connection buffer.", "MODE_EXCLUDED": "Allow both train and bus."};
+    ranked = sorted(order, key=lambda (code: str) -> int { return -counts[code]; });
+    lines: list[str] = [];
+    suggestion = "";
+    for code in ranked {
+        if code not in what { continue; }
+        lines.append(what[code] + ": " + str(counts[code]) + (" route" if counts[code] == 1 else " routes"));
+        if not suggestion and code in relax { suggestion = relax[code]; }
+    }
+    return (lines, suggestion);
+}
+
 def:pub comparison_view(preview: any) -> ComparisonView {
     if not preview { return ComparisonView(); }
     try {
         if preview["schema_version"] != 1 or preview["mode"] != "FIXTURE" { raise ValueError("Unsupported planning result"); }
-        if preview["error"] {
-            return ComparisonView(valid=True, error=required_text(preview["error"]["message"]), error_code=required_text(preview["error"]["code"]));
-        }
+        as_of = str(preview["as_of"]) if isinstance(preview["as_of"], str) else "";
+        sources = source_lines(preview["sources"], as_of);
         request = preview["request"];
+        if preview["error"] {
+            code = required_text(preview["error"]["code"]);
+            why = rejection_lines(preview["rejected"], request) if code == "NO_ROUTES" else ([], "");
+            return ComparisonView(valid=True, error=required_text(preview["error"]["message"]), error_code=code,
+                rejections=why[0], suggestion=why[1], sources=sources);
+        }
         routes = [route_view(raw, required_text(preview["as_of"])) for raw in required_list(preview["routes"])];
         ids: list[str] = [];
         for route in routes {
             if route.id in ids { raise ValueError("Duplicate route option"); }
             ids.append(route.id);
         }
-        if not routes { return ComparisonView(valid=True, error="No routes match your trip details. Try another time, budget, or transfer buffer.", error_code="NO_ROUTES"); }
+        if not routes {
+            why = rejection_lines(preview["rejected"], request);
+            return ComparisonView(valid=True, error="No routes match your trip details. Try another time, budget, or transfer buffer.", error_code="NO_ROUTES",
+                rejections=why[0], suggestion=why[1], sources=sources);
+        }
+        weather = [line for line in sources if line.kind == "weather"];
+        stale = `any([line.stale for line in sources]) or `any(["stale" in route.freshness for route in routes]);
         return ComparisonView(valid=True, title=required_text(request["origin_text"]) + " → " + required_text(request["destination_text"]),
             date=required_text(request["local_date"]), preference=preference_label(required_text(request["priority"])), routes=routes,
-            time_kind=required_text(request["time_kind"]), local_time=required_text(request["local_time"]));
+            time_kind=required_text(request["time_kind"]), local_time=required_text(request["local_time"]),
+            sources=sources, weather_checked=len(weather) > 0, weather_unavailable=`any([line.status == "Unavailable" for line in weather]), stale=stale);
     } except Exception {
         return ComparisonView(error="This comparison could not be read. Return to planning and search again.", error_code="INVALID_PREVIEW");
     }

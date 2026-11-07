@@ -2,11 +2,14 @@
 
 import "../comparison.css";
 import from "@jac/runtime" { Link, useNavigate }
+import from react { useRef }
 import from .PageHeading { PageHeading }
 import from .EmptyState { EmptyState }
-import from .comparison_view { ComparisonRoute, comparison_view }
+import from .comparison_view { ComparisonRoute, comparison_view, provider_label }
 import from .RouteMap { RouteMap }
-import from ..client.saved_trips { new_trip_id, save_trip }
+import from .SourceStatus { SourceStatus }
+import from ..client.saved_trips { save_trip }
+import from ..client.planning_states { PlanningOutcome, data_notices, plan_trip_id, planning_outcome }
 import from ..browser { scrollToTop }
 import from .Icon { Icon }
 import from .RiskBadge { RiskBadge, risk_summary, risk_words }
@@ -33,6 +36,11 @@ def travel_time(duration: str) -> str {
     hours = parts[0].replace("h", "");
     minutes = parts[1].replace("m", "") if len(parts) > 1 else "0";
     return hours + " hr" + ("" if minutes == "0" else " " + minutes + " min");
+}
+
+"""Where a route's data came from and how fresh it is, in one line."""
+def source_line(route: ComparisonRoute) -> str {
+    return "Source: " + provider_label(route.provider) + " · " + route.freshness + " · fetched " + route.source_time;
 }
 
 def risk_badge(route: ComparisonRoute) -> str {
@@ -65,8 +73,9 @@ def:pub RouteCard(route: ComparisonRoute, index: int, selected: bool, onSelect: 
         <span className="col-span-2 flex items-baseline justify-between gap-2 border-t border-gray-100 pt-3 sm:col-span-1 sm:grid sm:justify-items-end sm:border-0 sm:pt-0">
             <span className={CELL_LABEL}>Fare</span>
             <strong className="text-lg font-semibold tracking-tight text-gray-900">{route.price.replace(" USD", "")}</strong>
+            {(<span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">Out of date</span> if "stale" in route.freshness else None)}
         </span>
-        <span id={key + "-summary"} className="dt-sr-only">{route.day} {route.departure} to {route.arrival}, {route.modes}, {route.price}, {risk_line(route)}. {route.weather_note}</span>
+        <span id={key + "-summary"} className="dt-sr-only">{route.day} {route.departure} to {route.arrival}, {route.modes}, {route.price}, {risk_line(route)}. {route.weather_note} {source_line(route)}.</span>
     </label>;
 }
 
@@ -147,7 +156,7 @@ def risk_line(route: ComparisonRoute) -> str {
     return risk_summary(route.delay, route.weather, route.transfer_risk);
 }
 
-def:pub RecommendationPanel(route: ComparisonRoute, recommended: bool, returnRoute: ComparisonRoute | None = None, onSave: Callable[[], None] | None = None, saveFailed: bool = False, returnMissing: bool = False) -> JsxElement {
+def:pub RecommendationPanel(route: ComparisonRoute, recommended: bool, returnRoute: ComparisonRoute | None = None, onSave: Callable[[], None] | None = None, saveFailed: bool = False, returnMissing: bool = False, saving: bool = False) -> JsxElement {
     roundTrip = returnRoute is not None;
     return <aside className="dt-booking rounded-2xl border-gray-200 shadow-md" aria-labelledby="selection-heading">
         <h2 id="selection-heading" className="dt-booking-price font-semibold tracking-tight">{booking_total(route, returnRoute)}</h2>
@@ -161,9 +170,11 @@ def:pub RecommendationPanel(route: ComparisonRoute, recommended: bool, returnRou
             <ul>{for reason in route.reasons[:2] { <li key={reason}>{reason}</li> }}</ul>
             <p>{risk_line(route)}</p>
             {(<p>{route.weather_note}</p> if route.weather_note else None)}
+            <p className="text-xs text-gray-500">{source_line(route)}</p>
+            {for warning in route.source_warnings { <p key={warning} className="text-xs text-gray-500">{warning}</p> }}
         </div>
-        <button type="button" className="dt-primary dt-booking-action h-12 rounded-xl border-0 bg-linear-to-r from-emerald-600 to-green-700 text-base font-semibold shadow-sm hover:scale-100 active:scale-98" disabled={onSave is None} onClick={lambda { if onSave is not None { onSave(); } }}>Save trip</button>
-        {(<p className="dt-booking-note dt-field-error" role="alert">This browser wouldn't keep the trip. Check that site data is allowed.</p> if saveFailed else None)}
+        <button type="button" className="dt-primary dt-booking-action h-12 rounded-xl border-0 bg-linear-to-r from-emerald-600 to-green-700 text-base font-semibold shadow-sm hover:scale-100 active:scale-98" disabled={onSave is None or saving} onClick={lambda { if onSave is not None { onSave(); } }}>{"Saving…" if saving else "Try saving again" if saveFailed else "Save trip"}</button>
+        {(<p className="dt-booking-note dt-field-error" role="alert">This browser wouldn't keep the trip. Your selection is still here; check that site data is allowed, then try again.</p> if saveFailed else None)}
     </aside>;
 }
 
@@ -201,21 +212,51 @@ def results_heading(count: int, destination: str, day: str, timeKind: str = "", 
     return ("1 way" if count == 1 else str(count) + " ways") + " to get to " + city + " " + when;
 }
 
-def:pub RouteComparison(preview: any = None, requestText: str = "", submittedRequest: any = None, returnPreview: any = None, returnRequested: bool = False, returnDate: str = "", readBy: str = "") -> JsxElement {
-    has selectedId: str = "", returnSelectedId: str = "", mapLeg: str = "outbound", saveFailed: bool = False, sortKey: str = "recommended";
+"""A search that ended without routes to compare. No routes (the constraints
+removed every candidate) reads calmly as a status; a provider failure or an
+unreadable result is an alert with a retry. Both keep the request for editing."""
+def:pub PlanningStateMessage(outcome: PlanningOutcome, editState: any, onRetry: Callable[[], None] | None = None) -> JsxElement {
+    failed = outcome.role == "alert";
+    frame = "border-red-300 bg-red-50" if failed else "border-gray-200 bg-white";
+    return <section className={"dt-panel rounded-2xl border p-5 shadow-sm " + frame} role={outcome.role} aria-labelledby="planning-state-heading" data-state={outcome.kind}>
+        <h2 id="planning-state-heading" className="flex items-center gap-2 text-xl font-semibold tracking-tight text-gray-900">
+            <Icon name={"exclamationmark.triangle" if failed else "magnifyingglass"} size={20}/><span>{outcome.title}</span>
+        </h2>
+        <p className="dt-muted">{outcome.message}</p>
+        {(<ul className="mt-2 grid gap-1 pl-5 text-sm text-gray-700">{for line in outcome.details { <li key={line}>{line}</li> }}</ul> if len(outcome.details) > 0 else None)}
+        <div className="mt-4 flex flex-wrap gap-3">
+            {(<button type="button" className="dt-primary bg-linear-to-r from-emerald-600 to-green-700 font-semibold shadow-sm active:scale-98" onClick={lambda { onRetry(); }}>Try again</button> if outcome.retry and onRetry is not None else None)}
+            <Link className={"inline-flex h-11 items-center rounded-full border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700" if outcome.retry and onRetry is not None else "dt-primary"} to="/plan" state={editState}>Edit trip details</Link>
+        </div>
+    </section>;
+}
+
+def:pub RouteComparison(preview: any = None, requestText: str = "", submittedRequest: any = None, returnPreview: any = None, returnRequested: bool = False, returnDate: str = "", readBy: str = "", returnFailed: bool = False) -> JsxElement {
+    has selectedId: str = "", returnSelectedId: str = "", mapLeg: str = "outbound", saveFailed: bool = False, sortKey: str = "recommended", saving: bool = False;
+    # Guards the synchronous save against a second click before React re-renders.
+    savingRef = useRef(False);
     navigate = useNavigate();
     view = comparison_view(preview);
     editRequest: any = submittedRequest if submittedRequest else preview["request"] if preview else None;
     editState = {"draft": editRequest, "returnDate": returnDate, "requestText": requestText};
-    if view.error {
-        return <><PageHeading title={"No matching routes yet." if view.error_code == "NO_ROUTES" else "Let’s try that again."} description="Your trip details can be adjusted before another search."/>
-            <section className="dt-panel" role="status"><h2>{"Adjust your trip" if view.error_code == "NO_ROUTES" else "Comparison unavailable"}</h2><p>{view.error}</p><Link className="dt-primary" to="/plan" state={editState}>Edit trip details</Link></section></>;
+    # Search again from /plan with the same request, so the traveler sees honest progress.
+    def retrySearch {
+        navigate("/plan", {"state": {"draft": editRequest, "returnDate": returnDate, "requestText": requestText, "retry": True}});
     }
-    if not view.valid {
+    outcome = planning_outcome(view);
+    if outcome.kind == "empty" {
         return <><PageHeading title="A plan starts with your trip." description="Once you describe your trip, this is where you’ll compare options and understand the tradeoffs."/>
-            <EmptyState title="No trip request to compare yet" message="There is no active planning request in this session. Return to planning to start a new trip." actionLabel="Back to planning" actionPath="/plan"/></>;
+            <EmptyState title={outcome.title} message={outcome.message} actionLabel="Back to planning" actionPath="/plan"/></>;
     }
+    if outcome.kind != "ready" {
+        heading = "No matching routes yet." if outcome.kind == "no_routes" else "We couldn’t check routes." if outcome.kind == "provider_error" else "Let’s try that again.";
+        return <><PageHeading title={heading} description="Your trip details are kept and can be adjusted before another search."/>
+            <PlanningStateMessage outcome={outcome} editState={editState} onRetry={retrySearch if editRequest else None}/></>;
+    }
+    notices = data_notices(view);
     returnView = comparison_view(returnPreview);
+    # The return search failing is not the same as no return fitting.
+    returnUnchecked = returnRequested and (returnFailed or returnPreview is None or not returnView.valid or (bool(returnView.error) and returnView.error_code != "NO_ROUTES"));
     returnRoutes = returnView.routes if returnView.valid and not returnView.error else [];
     # For a round trip, the best outbound is the top-ranked one some return can follow.
     best = view.routes[0];
@@ -240,15 +281,25 @@ def:pub RouteComparison(preview: any = None, requestText: str = "", submittedReq
     # A saved trip is dated by the route chosen, which an arrive-by search may place days early.
     travel_days = trip_day(selected.date_iso if selected.date_iso else view.date) + (" – " + trip_day(returnDate) if returnRequested and returnDate else "");
     def saveTrip {
+        if savingRef.current { return; }
+        savingRef.current = True;
+        saving = True;
         legs = [saved_leg("Outbound", selected)];
         if returnRequested and returnSelected is not None { legs.append(saved_leg("Return", returnSelected)); }
         now: any = new(Date);
-        trip = {"id": new_trip_id(), "title": view.title, "days": travel_days, "start_date": selected.date_iso if selected.date_iso else view.date, "total": booking_total(selected, returnSelected if returnRequested else None),
+        # The same plan always gets the same ID, so saving it again replaces it.
+        tripId = plan_trip_id([view.title, travel_days, selected.id, returnSelected.id if returnRequested and returnSelected is not None else ""]);
+        trip = {"id": tripId, "title": view.title, "days": travel_days, "start_date": selected.date_iso if selected.date_iso else view.date, "total": booking_total(selected, returnSelected if returnRequested else None),
             "saved_at": str(now.toISOString()), "legs": legs};
         if save_trip(trip) {
             navigate("/trips");
             scrollToTop();
-        } else { saveFailed = True; }
+        } else {
+            # Keep the selection; the button becomes Try saving again.
+            savingRef.current = False;
+            saving = False;
+            saveFailed = True;
+        }
     }
     return <>
         <Link className="dt-search-summary" to="/plan" state={editState} aria-label={"Edit search: " + view.title + ", " + days + ", " + search_extras(editRequest)}>
@@ -257,6 +308,7 @@ def:pub RouteComparison(preview: any = None, requestText: str = "", submittedReq
         </Link>
         <div className="dt-comparison-heading"><PageHeading title={results_heading(len(view.routes), view.title.split(" → ")[1] if " → " in view.title else view.title, trip_day(view.date), view.time_kind, view.local_time)}
             description={("“" + requestText + "” · " + ("Read by Claude" if readBy == "claude" else "Read by Detour's built-in parser")) if requestText != "" and readBy != "" else "Demo schedules and fares"}/></div>
+        <SourceStatus sources={view.sources} notices={notices} onRetry={retrySearch if editRequest else None}/>
         {(<SortBar value={sortKey} onChange={lambda (key: str) { sortKey = key; }}/> if len(view.routes) > 1 or len(returnRoutes) > 1 else None)}
         <div className="dt-comparison-grid">
             <div className="dt-legs">
@@ -264,10 +316,11 @@ def:pub RouteComparison(preview: any = None, requestText: str = "", submittedReq
                   <RouteList title={str(len(view.routes)) + " options"} routes={view.routes} selectedId={selected.id} group="route" sortKey={sortKey} onSelect={lambda (id: str) { selectedId = id; }} titleHidden={True}/>)}
                 {(<RouteList title="2. Choose your return" routes={eligible} selectedId={returnSelected.id} group="return" sortKey={sortKey} onSelect={lambda (id: str) { returnSelectedId = id; mapLeg = "return"; }}/> if returnRequested and returnSelected is not None else None)}
                 {(<p className="m-0 -mt-2 text-sm text-gray-500" role="status">{str(hidden) + (" return leaves" if hidden == 1 else " returns leave") + " before your outbound arrives (" + selected.arrives + ") and " + ("is" if hidden == 1 else "are") + " hidden."}</p> if returnRequested and returnSelected is not None and hidden > 0 else None)}
-                {(<section className="dt-leg" role="status"><h2 className="dt-leg-title">2. Choose your return</h2><p className="dt-muted">{"No return routes for this day. Try another return date." if len(returnRoutes) == 0 else "No return leaves after this outbound arrives (" + selected.arrives + "). Pick an earlier outbound, or search another return date."}</p></section> if incomplete and returnDate else None)}
+                {(<section className="dt-leg" role="status"><h2 className="dt-leg-title">2. Choose your return</h2><p className="dt-muted">Return routes couldn't be checked, so this is not a no-routes result. The outbound options above are still usable.</p><button type="button" className="mt-2 inline-flex h-11 cursor-pointer items-center rounded-full border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700 hover:border-gray-500" onClick={lambda { retrySearch(); }}>Check again</button></section> if returnUnchecked and editRequest else None)}
+                {(<section className="dt-leg" role="status"><h2 className="dt-leg-title">2. Choose your return</h2><p className="dt-muted">{"No return routes for this day. Try another return date." if len(returnRoutes) == 0 else "No return leaves after this outbound arrives (" + selected.arrives + "). Pick an earlier outbound, or search another return date."}</p></section> if incomplete and returnDate and not returnUnchecked else None)}
                 <RouteMap stops={mapped.stops} segments={mapped.segments} label={"Map of the selected route: " + " to ".join([stop.name for stop in mapped.stops]) if len(mapped.stops) > 0 else "Map of the Ann Arbor to Chicago demo corridor"}/>
             </div>
-            <RecommendationPanel route={selected} recommended={selected.id == best.id} returnRoute={returnSelected if returnRequested else None} onSave={None if incomplete else saveTrip} saveFailed={saveFailed} returnMissing={incomplete}/>
+            <RecommendationPanel route={selected} recommended={selected.id == best.id} returnRoute={returnSelected if returnRequested else None} onSave={None if incomplete else saveTrip} saveFailed={saveFailed} returnMissing={incomplete} saving={saving}/>
         </div>
         <p className="dt-sr-only" role="status" aria-live="polite">Selected {mapped.name}. {mapped.price}. {mapped.duration}.</p>
     </>;
