@@ -12,6 +12,7 @@ function preview() {
     request: {
       origin_text: 'Ann Arbor', destination_text: 'Chicago',
       local_date: '2026-10-23', priority: 'BALANCED',
+      time_kind: 'DEPART_AFTER', local_time: '16:00',
     },
     error: null,
     routes: [{
@@ -70,6 +71,42 @@ test('missing fare remains distinct from free', () => {
   assert.equal(comparison_view(data).routes[0].price, 'Fare unavailable');
   data.routes[0].option.price_cents = 0;
   assert.equal(comparison_view(data).routes[0].price, '$0.00 USD');
+});
+
+test('hybrid plans show each leg fare and whether it is one ticket or several', () => {
+  const data = preview();
+  const option = data.routes[0].option;
+  option.price_cents = 4200;
+  option.ticketing = 'SEPARATE';
+  option.legs = [
+    { id: 'train-leg', mode: 'TRAIN', service: 'Example train', fare_cents: 2400,
+      origin: { name: 'Ann Arbor', timezone: 'America/Detroit' },
+      destination: { name: 'Kalamazoo', timezone: 'America/Detroit' },
+      departure_at: '2026-10-23T16:00:00-04:00', arrival_at: '2026-10-23T18:00:00-04:00' },
+    { id: 'bus-leg', mode: 'BUS', service: 'Example bus', fare_cents: 1800,
+      origin: { name: 'Kalamazoo', timezone: 'America/Detroit' },
+      destination: { name: 'Chicago', timezone: 'America/Chicago' },
+      departure_at: '2026-10-23T18:30:00-04:00', arrival_at: '2026-10-23T19:30:00-05:00' },
+  ];
+  let route = comparison_view(data).routes[0];
+  assert.deepEqual(route.legs.map(leg => [leg.mode, leg.fare]), [['Train', '$24.00 USD'], ['Bus', '$18.00 USD']]);
+  assert.equal(route.price, '$42.00 USD');
+  assert.equal(route.ticketing, 'Separate tickets');
+  assert.match(route.ticketing_note, /aren’t sold as a bundle/);
+  option.ticketing = 'THROUGH';
+  route = comparison_view(data).routes[0];
+  assert.equal(route.ticketing, 'One ticket');
+  assert.match(route.ticketing_note, /bundle/);
+  delete option.ticketing;
+  delete option.legs[1].fare_cents;
+  route = comparison_view(data).routes[0];
+  assert.equal(route.ticketing, '');
+  assert.equal(route.legs[1].fare, '');
+  option.ticketing = 'MAYBE';
+  assert.equal(comparison_view(data).error_code, 'INVALID_PREVIEW');
+  option.ticketing = 'SEPARATE';
+  option.legs[0].fare_cents = -5;
+  assert.equal(comparison_view(data).error_code, 'INVALID_PREVIEW');
 });
 
 test('missing timestamps and freshness never claim live data is current', () => {
