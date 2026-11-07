@@ -56,6 +56,7 @@ def:pub RouteCard(route: ComparisonRoute, index: int, selected: bool, onSelect: 
             <span className={CELL_LABEL}>Mode</span>
             <span className="text-gray-900">{route.modes}</span>
             <span className="text-sm text-gray-500">{route.transfers}</span>
+            {(<span className="text-xs text-gray-500">{route.connections}</span> if route.connections else None)}
         </span>
         <span className="grid justify-items-start gap-1">
             <span className={CELL_LABEL}>Risks</span>
@@ -66,7 +67,7 @@ def:pub RouteCard(route: ComparisonRoute, index: int, selected: bool, onSelect: 
             <span className={CELL_LABEL}>Fare</span>
             <strong className="text-lg font-semibold tracking-tight text-gray-900">{route.price.replace(" USD", "")}</strong>
         </span>
-        <span id={key + "-summary"} className="dt-sr-only">{route.day} {route.departure} to {route.arrival}, {route.modes}, {route.price}, {risk_line(route)}. {route.weather_note}</span>
+        <span id={key + "-summary"} className="dt-sr-only">{route.day} {route.departure} to {route.arrival}, {travel_time(route.duration)}{(" including " + route.connections) if route.connections else ""}, {route.modes}, {route.price}, {risk_line(route)}. {route.weather_note}</span>
     </label>;
 }
 
@@ -136,7 +137,7 @@ def booking_total(route: ComparisonRoute, returnRoute: ComparisonRoute | None) -
 """What Trips shows for one direction, in the same words as the results rows."""
 def saved_leg(label: str, route: ComparisonRoute) -> dict[str, any] {
     return {"label": label, "modes": route.modes, "departure": clock(route.departure), "arrival": clock(route.arrival),
-        "duration": travel_time(route.duration), "price": route.price,
+        "duration": travel_time(route.duration), "connections": route.connections, "price": route.price,
         "risk": risk_badge(route), "risk_detail": risk_line(route), "weather": route.weather_note,
         "levels": {"delay": route.delay, "transfer": route.transfer_risk}, "route": route.weather_legs,
         "stops": [{"name": stop.name, "latitude": stop.latitude, "longitude": stop.longitude} for stop in route.stops],

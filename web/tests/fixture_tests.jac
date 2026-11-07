@@ -38,6 +38,18 @@ test "normal fixture provides direct train bus and transfer with visible synthet
     assert '"FIXTURE"' in provider_result_to_json(result);
 }
 
+test "demo train and bus transfer counts its Kalamazoo wait in total travel time" {
+    routes = available_routes(FixtureRouteProvider().search(fixture_request()));
+    hybrid = [option for option in routes if option.id == "demo-train-bus-transfer"][0];
+    train = hybrid.legs[0]; bus = hybrid.legs[1];
+    assert train.mode == TravelMode.TRAIN and bus.mode == TravelMode.BUS;
+    aboard = (parse_timestamp(train.arrival_at) - parse_timestamp(train.departure_at)) + (parse_timestamp(bus.arrival_at) - parse_timestamp(bus.departure_at));
+    layover = parse_timestamp(bus.departure_at) - parse_timestamp(train.arrival_at);
+    assert aboard.total_seconds() / 60.0 == 310.0;
+    assert layover.total_seconds() / 60.0 == 50.0;
+    assert hybrid.duration_minutes() == 360.0;
+}
+
 test "repeated requests are deterministic and result mutation does not contaminate next search" {
     provider = FixtureRouteProvider();
     first = provider.search(fixture_request());
