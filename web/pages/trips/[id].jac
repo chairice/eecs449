@@ -15,6 +15,14 @@ import from ...components.RiskBadge { RiskBadge, risk_summary, risk_words }
 import from ...components.comparison_view { day_label, risk_label, weather_words }
 import from ...components.comparison_view { ComparisonStop, ComparisonSegment }
 import from ...client.saved_trips { find_trip, remove_trip, trip_countdown }
+import from ...components.FareSource { FareSource }
+
+"""Who sold a saved leg's fare; trips saved before this was kept show none."""
+def leg_operators(leg: any) -> list[str] {
+    raw: any = leg["operators"];
+    if not Array.isArray(raw) { return []; }
+    return [str(name) for name in raw if isinstance(name, str) and name != ""];
+}
 
 """Stops saved with a leg; anything without numeric coordinates is skipped."""
 def leg_stops(leg: any) -> list[ComparisonStop] {
@@ -107,7 +115,7 @@ def:pub TripDetailPage -> JsxPage {
                             <span className="grid gap-0.5"><span className="text-xs font-medium text-gray-500">Mode</span><span className="text-gray-900">{leg["modes"]}</span></span>
                             {(<span className="grid justify-items-start gap-1"><span className="text-xs font-medium text-gray-500">Risks now</span><RiskBadge label={fresh[index]["risk"]} detail={fresh[index]["detail"]}/><span className="text-xs text-gray-500">{fresh[index]["note"]}</span></span> if index < len(fresh) and fresh[index] else
                               <span className="grid justify-items-start gap-1"><span className="text-xs font-medium text-gray-500">Risks when saved</span><RiskBadge label={leg["risk"]} detail={leg["risk_detail"] if isinstance(leg["risk_detail"], str) else ""}/>{(<span className="text-xs text-gray-500">{leg["weather"]}</span> if isinstance(leg["weather"], str) and leg["weather"] else None)}</span> if isinstance(leg["risk"], str) and leg["risk"] else None)}
-                            <span className="grid justify-items-end gap-0.5"><span className="text-xs font-medium text-gray-500">Fare</span><strong className="text-lg font-semibold tracking-tight text-gray-900">{leg["price"].replace(" USD", "")}</strong></span>
+                            <span className="grid justify-items-end gap-0.5"><span className="text-xs font-medium text-gray-500">Fare</span><strong className="text-lg font-semibold tracking-tight text-gray-900">{leg["price"].replace(" USD", "")}</strong><FareSource operators={leg_operators(leg)}/></span>
                         </div>
                     </section>
                 }}

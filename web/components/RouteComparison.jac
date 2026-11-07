@@ -4,7 +4,8 @@ import "../comparison.css";
 import from "@jac/runtime" { Link, useNavigate }
 import from .PageHeading { PageHeading }
 import from .EmptyState { EmptyState }
-import from .comparison_view { ComparisonRoute, comparison_view }
+import from .comparison_view { ComparisonRoute, comparison_view, fare_source }
+import from .FareSource { FareSource }
 import from .RouteMap { RouteMap }
 import from ..client.saved_trips { new_trip_id, save_trip }
 import from ..browser { scrollToTop }
@@ -64,9 +65,12 @@ def:pub RouteCard(route: ComparisonRoute, index: int, selected: bool, onSelect: 
         </span>
         <span className="col-span-2 flex items-baseline justify-between gap-2 border-t border-gray-100 pt-3 sm:col-span-1 sm:grid sm:justify-items-end sm:border-0 sm:pt-0">
             <span className={CELL_LABEL}>Fare</span>
-            <strong className="text-lg font-semibold tracking-tight text-gray-900">{route.price.replace(" USD", "")}</strong>
+            <span className="grid justify-items-end gap-1">
+                <strong className="text-lg font-semibold tracking-tight text-gray-900">{route.price.replace(" USD", "")}</strong>
+                <FareSource operators={route.operators}/>
+            </span>
         </span>
-        <span id={key + "-summary"} className="dt-sr-only">{route.day} {route.departure} to {route.arrival}, {route.modes}, {route.price}, {risk_line(route)}. {route.weather_note}</span>
+        <span id={key + "-summary"} className="dt-sr-only">{route.day} {route.departure} to {route.arrival}, {route.modes}, {route.price}{(", " + fare_source(route.operators)) if len(route.operators) > 0 else ""}, {risk_line(route)}. {route.weather_note}</span>
     </label>;
 }
 
@@ -133,10 +137,19 @@ def booking_total(route: ComparisonRoute, returnRoute: ComparisonRoute | None) -
     return money(route.price_cents + returnRoute.price_cents);
 }
 
+"""Every company the booking total is bought from, each once, outbound first."""
+def booking_operators(route: ComparisonRoute, returnRoute: ComparisonRoute | None) -> list[str] {
+    names = list(route.operators);
+    if returnRoute is not None {
+        for name in returnRoute.operators { if name not in names { names.append(name); } }
+    }
+    return names;
+}
+
 """What Trips shows for one direction, in the same words as the results rows."""
 def saved_leg(label: str, route: ComparisonRoute) -> dict[str, any] {
     return {"label": label, "modes": route.modes, "departure": clock(route.departure), "arrival": clock(route.arrival),
-        "duration": travel_time(route.duration), "price": route.price,
+        "duration": travel_time(route.duration), "price": route.price, "operators": route.operators,
         "risk": risk_badge(route), "risk_detail": risk_line(route), "weather": route.weather_note,
         "levels": {"delay": route.delay, "transfer": route.transfer_risk}, "route": route.weather_legs,
         "stops": [{"name": stop.name, "latitude": stop.latitude, "longitude": stop.longitude} for stop in route.stops],
@@ -152,6 +165,7 @@ def:pub RecommendationPanel(route: ComparisonRoute, recommended: bool, returnRou
     return <aside className="dt-booking rounded-2xl border-gray-200 shadow-md" aria-labelledby="selection-heading">
         <h2 id="selection-heading" className="dt-booking-price font-semibold tracking-tight">{booking_total(route, returnRoute)}</h2>
         <p className="dt-muted">{"Round trip" if roundTrip else "Outbound only · no return fits it yet" if returnMissing else "One way"}</p>
+        {(<p className="dt-muted">{fare_source(booking_operators(route, returnRoute))}</p> if len(booking_operators(route, returnRoute)) > 0 else None)}
         <dl className="dt-booking-box rounded-xl border-gray-300">
             <div><dt>Depart</dt><dd>{route.day}<br/>{route.departure}</dd></div>
             {(<div><dt>Return</dt><dd>{returnRoute.day}<br/>{returnRoute.departure}</dd></div> if returnRoute is not None else <div><dt>Arrive</dt><dd>{route.day}<br/>{route.arrival}</dd></div>)}

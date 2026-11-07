@@ -2,6 +2,8 @@
 
 obj:pub ComparisonLeg {
     has id: str, mode: str, service: str, origin: str, destination: str, departure: str, arrival: str;
+    # Who runs and sells the leg ("Amtrak"), or "" when the provider doesn't say.
+    has operator: str = "";
 }
 """A stop the map can pin; only places that arrive with coordinates become one."""
 obj:pub ComparisonStop {
@@ -32,6 +34,8 @@ obj:pub ComparisonRoute {
     has arrives: str = "";
     # The legs as the planner sent them, minus status fields, so a saved trip can re-check its weather.
     has weather_legs: list[any] = [];
+    # The companies selling this fare, each once in travel order, so travelers know who they buy from.
+    has operators: list[str] = [];
 }
 obj:pub ComparisonView {
     has valid: bool = False, error: str = "", error_code: str = "";
@@ -209,10 +213,29 @@ def route_segments(raw_legs: list[any]) -> list[ComparisonSegment] {
     return segments;
 }
 
+"""A leg's operator name, or "" when it is missing or blank."""
+def operator_name(value: any) -> str {
+    return str(value).strip() if isinstance(value, str) else "";
+}
+
+"""Who a fare is bought from, in a few words: "Sold by Amtrak + Greyhound", or "" when unknown."""
+def:pub fare_source(operators: list[str]) -> str {
+    return "Sold by " + " + ".join(operators) if len(operators) > 0 else "";
+}
+
+"""A text badge standing in for a company's logo: "Demo Rail" as "DR", "Amtrak" as "AM"."""
+def:pub operator_initials(name: str) -> str {
+    words = [word for word in name.split(" ") if word];
+    if len(words) == 0 { return ""; }
+    if len(words) == 1 { return words[0][:2].upper(); }
+    return (words[0][:1] + words[1][:1]).upper();
+}
+
 def route_view(raw: any, as_of: str) -> ComparisonRoute {
     option = raw["option"];
     legs: list[ComparisonLeg] = [];
     modes: list[str] = [];
+    operators: list[str] = [];
     services: list[str] = [];
     transit_count = 0;
     for leg in required_list(option["legs"]) {
@@ -221,7 +244,9 @@ def route_view(raw: any, as_of: str) -> ComparisonRoute {
         if mode != "Walk" { transit_count += 1; }
         if mode not in modes { modes.append(mode); }
         services.append(service);
-        legs.append(ComparisonLeg(id=required_text(leg["id"]), mode=mode, service=service,
+        operator = operator_name(leg["operator"]);
+        if operator and operator not in operators { operators.append(operator); }
+        legs.append(ComparisonLeg(id=required_text(leg["id"]), mode=mode, service=service, operator=operator,
             origin=required_text(leg["origin"]["name"]), destination=required_text(leg["destination"]["name"]),
             departure=local_clock(required_text(leg["departure_at"]), required_text(leg["origin"]["timezone"])),
             arrival=local_clock(required_text(leg["arrival_at"]), required_text(leg["destination"]["timezone"]))));
@@ -259,7 +284,7 @@ def route_view(raw: any, as_of: str) -> ComparisonRoute {
         arrives=day_label(required_text(last["arrival_at"]), required_text(last["destination"]["timezone"])) + ", " + legs[len(legs) - 1].arrival,
         transfer_risk=risk_label(raw["risk"]["transfer"]), source=source_mode, provider=required_text(source["provider"]),
         freshness=freshness, source_time=utc_label(required_text(source["fetched_at"])) if source["fetched_at"] else "Timestamp unavailable", source_warnings=warnings,
-        reasons=reasons, legs=legs, stops=route_stops(raw_legs), segments=route_segments(raw_legs),
+        reasons=reasons, legs=legs, stops=route_stops(raw_legs), segments=route_segments(raw_legs), operators=operators,
         price_cents=-1 if option["price_cents"] is None else int(required_number(option["price_cents"])));
 }
 

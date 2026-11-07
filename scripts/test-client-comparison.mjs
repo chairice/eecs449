@@ -2,7 +2,7 @@
 // No running server, browser, credentials, or network access required.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { comparison_view } from '../web/.jac/client/compiled/components/comparison_view.js';
+import { comparison_view, fare_source, operator_initials } from '../web/.jac/client/compiled/components/comparison_view.js';
 
 function preview() {
   return {
@@ -12,6 +12,7 @@ function preview() {
     request: {
       origin_text: 'Ann Arbor', destination_text: 'Chicago',
       local_date: '2026-10-23', priority: 'BALANCED',
+      time_kind: 'DEPART_AFTER', local_time: '00:00',
     },
     error: null,
     routes: [{
@@ -128,4 +129,27 @@ test('time zones are explicit and daylight saving offsets do not change duration
   leg.departure_at = '2026-11-01T01:30:00-04:00';
   leg.arrival_at = '2026-11-01T01:30:00-06:00';
   assert.equal(comparison_view(data).routes[0].duration, '2h 0m');
+});
+
+test('each fare names the companies selling it, once each in travel order', () => {
+  const data = preview();
+  assert.deepEqual(comparison_view(data).routes[0].operators, []);
+  const legs = data.routes[0].option.legs;
+  legs[0].operator = 'Amtrak';
+  legs.push({ ...structuredClone(legs[0]), id: 'second-leg', operator: ' Greyhound ' });
+  legs.push({ ...structuredClone(legs[0]), id: 'third-leg', operator: 'Amtrak' });
+  const route = comparison_view(data).routes[0];
+  assert.equal(route.legs.length, 3);
+  assert.deepEqual(route.operators, ['Amtrak', 'Greyhound']);
+  assert.deepEqual(route.legs.map(leg => leg.operator), ['Amtrak', 'Greyhound', 'Amtrak']);
+  legs[1].operator = '   ';
+  assert.deepEqual(comparison_view(data).routes[0].operators, ['Amtrak']);
+});
+
+test('fare source reads as words and initials badges, never an empty claim', () => {
+  assert.equal(fare_source(['Amtrak', 'Greyhound']), 'Sold by Amtrak + Greyhound');
+  assert.equal(fare_source([]), '');
+  assert.equal(operator_initials('Demo Rail'), 'DR');
+  assert.equal(operator_initials('Amtrak'), 'AM');
+  assert.equal(operator_initials('  '), '');
 });
