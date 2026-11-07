@@ -12,6 +12,10 @@
       {"code": "NO_REALTIME_DATA", "message": "No cancellation, delay, weather or seat-availability information is available."}
     ]
   },
+  "cities": [
+    {"place_id": "ann-arbor", "names": ["ann arbor", "ann arbor mi", "ann arbor michigan"]},
+    {"place_id": "chicago", "names": ["chicago", "chicago il", "chicago illinois"]}
+  ],
   "places": [
     {"id": "ann-arbor", "name": "Ann Arbor demo terminal", "latitude": 42.2877, "longitude": -83.7430, "timezone": "America/Detroit"},
     {"id": "kalamazoo", "name": "Kalamazoo demo interchange", "latitude": 42.2952, "longitude": -85.5841, "timezone": "America/Detroit"},

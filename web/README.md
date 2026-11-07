@@ -2,7 +2,8 @@
 
 The app has a landing page, Atlas, planning/results, browser-local saved trips,
 trip detail, and a not-found route. The commuter planner ranks synthetic
-Ann Arbor–Chicago routes. Atlas is a separate travel journal and future-intent
+routes from Ann Arbor to Chicago, Detroit, Grand Rapids, Lansing, Toledo and
+Cleveland. Atlas is a separate travel journal and future-intent
 canvas with local place lookup, optional LLM proposals, and optional OSRM road
 geometry. Neither flow purchases travel. See [planning preview](../docs/planning-preview.md)
 and [Atlas design](../docs/atlas-design.md) for their separate boundaries.

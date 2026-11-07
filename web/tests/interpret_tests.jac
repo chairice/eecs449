@@ -97,3 +97,13 @@ test "next names a later week only for today's own weekday" {
     assert rule_intent("chicago thursday after 4pm", TODAY).date == "2026-10-29";
     assert rule_intent("chicago next saturday after 4pm", TODAY).date == "2026-10-31";
 }
+
+test "the rule reader knows every demo city" {
+    assert rule_intent("Detroit tomorrow morning, under $20", TODAY).destination == "Detroit, MI";
+    assert rule_intent("from Cleveland to Ann Arbor on saturday", TODAY).origin == "Cleveland, OH";
+    assert rule_intent("grand rapids friday after 4pm", TODAY).destination == "Grand Rapids, MI";
+    assert rule_intent("bus to toledo tomorrow", TODAY).destination == "Toledo, OH";
+    assert rule_intent("lansing next thursday", TODAY).destination == "Lansing, MI";
+    intent = rule_intent("Cleveland on Saturday, back Sunday", TODAY);
+    assert intent.destination == "Cleveland, OH" and intent.date != "";
+}
