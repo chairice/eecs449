@@ -12,6 +12,7 @@ function preview() {
     request: {
       origin_text: 'Ann Arbor', destination_text: 'Chicago',
       local_date: '2026-10-23', priority: 'BALANCED',
+      time_kind: 'DEPART_AFTER', local_time: '16:00',
     },
     error: null,
     routes: [{
@@ -128,4 +129,50 @@ test('time zones are explicit and daylight saving offsets do not change duration
   leg.departure_at = '2026-11-01T01:30:00-04:00';
   leg.arrival_at = '2026-11-01T01:30:00-06:00';
   assert.equal(comparison_view(data).routes[0].duration, '2h 0m');
+});
+
+test('hybrid train and bus route duration includes the connection wait and names it', () => {
+  const data = preview();
+  data.routes[0].option.legs = [
+    {
+      id: 'hybrid-train', mode: 'TRAIN', service: 'Example train',
+      origin: { name: 'Ann Arbor', timezone: 'America/Detroit' },
+      destination: { name: 'Kalamazoo', timezone: 'America/Detroit' },
+      departure_at: '2026-10-23T16:30:00-04:00',
+      arrival_at: '2026-10-23T18:40:00-04:00',
+    },
+    {
+      id: 'hybrid-walk', mode: 'WALK', service: '',
+      origin: { name: 'Kalamazoo', timezone: 'America/Detroit' },
+      destination: { name: 'Kalamazoo', timezone: 'America/Detroit' },
+      departure_at: '2026-10-23T18:45:00-04:00',
+      arrival_at: '2026-10-23T18:55:00-04:00',
+    },
+    {
+      id: 'hybrid-bus', mode: 'BUS', service: 'Example bus',
+      origin: { name: 'Kalamazoo', timezone: 'America/Detroit' },
+      destination: { name: 'Chicago', timezone: 'America/Chicago' },
+      departure_at: '2026-10-23T19:30:00-04:00',
+      arrival_at: '2026-10-23T21:30:00-05:00',
+    },
+  ];
+  const route = comparison_view(data).routes[0];
+  // 130 min train + 10 min walk + 180 min bus aboard; 40 min standing between legs.
+  assert.equal(route.duration, '6h 0m');
+  assert.equal(route.transfers, '1 transfer');
+  assert.equal(route.connections, '50 min connection at Kalamazoo');
+  assert.deepEqual(route.legs.map(leg => leg.layover_minutes), [0, 5, 35]);
+});
+
+test('direct routes have no connection text and long connections read in hours', () => {
+  assert.equal(comparison_view(preview()).routes[0].connections, '');
+  const data = preview();
+  const base = data.routes[0].option.legs[0];
+  data.routes[0].option.legs = [
+    { ...base, id: 'first', destination: { name: 'Kalamazoo', timezone: 'America/Detroit' }, arrival_at: '2026-10-23T17:00:00-04:00' },
+    { ...base, id: 'second', origin: { name: 'Kalamazoo', timezone: 'America/Detroit' }, departure_at: '2026-10-23T18:05:00-04:00', arrival_at: '2026-10-23T19:00:00-05:00' },
+  ];
+  const route = comparison_view(data).routes[0];
+  assert.equal(route.duration, '4h 0m');
+  assert.equal(route.connections, '1 hr 5 min connection at Kalamazoo');
 });
