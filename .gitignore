@@ -15,3 +15,7 @@ web/dist/
 workers/.venv/
 workers/artifacts/
 workers/.browsers/
+
+# Private production state: account data, worker captures and signing keys.
+.detour-production/
+.detour-production-smoke/

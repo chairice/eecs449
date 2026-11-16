@@ -1,3 +1,5 @@
+# HISTORICAL ONLY: this old commuter blueprint does not run the current worker or persist account trips.
+# Retained as provenance; do not connect this file to a Render Blueprint.
 # Render blueprint: one web service that builds and serves the Jac app.
 # New > Blueprint in the Render dashboard reads this file from the repository.
 services:

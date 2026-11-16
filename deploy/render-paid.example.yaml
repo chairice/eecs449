@@ -1,0 +1,24 @@
+# Optional PAID Render example, not a free-deployment path.
+# Free Render services have no persistent disk and insufficient headroom for the
+# combined Jac/Postgres/Chromium worker. Do not provision this for a free request.
+services:
+  - type: web
+    name: detour
+    runtime: docker
+    plan: standard
+    branch: main
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    disk:
+      name: detour-private-state
+      mountPath: /data/detour
+      sizeGB: 10
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: DETOUR_STATE_DIR
+        value: /data/detour
+      - key: JAC_SERVE_AUTH_SECRET
+        generateValue: true
+      - key: ANTHROPIC_API_KEY
+        sync: false

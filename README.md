@@ -2,6 +2,8 @@
 
 A conversational U.S. trip planner built in Jac. Start at the familiar Detour landing page, then talk through a professional trip or multi-day vacation in the linked map, itinerary and chat workspace. Routine requested edits apply immediately with Undo; consequential changes proposed by the assistant are confirmed in plain chat.
 
+Production setup and the free public-hosting approach are documented in [the deployment guide](deploy/README.md). The public URL will be added after deployment is verified.
+
 See [current implementation and verification](docs/trip-planner-implementation-status.md#current-detour-implementation) and [the Detour product contract](docs/DETOUR-AGENT-HANDOFF.md). Older Atlas, universal-approval, all-in-total-only and studio-as-home descriptions are historical where they conflict with the current contract.
 
 ## Run locally
@@ -42,7 +44,7 @@ Current browser QA passed **28/28 checks with zero page errors**, including desk
 
 The exact live research scenario produced **six real offers** across DTW → SFO on November 22, SFO → XNA on November 25, and a San Francisco hotel November 22–25, 2026 for one adult/one room. A fresh guest conversation then completed the actual app → queue → worker → staging → chat journey with **nine real cards**, three per component, unchanged itinerary and zero errors. Separate Airbnb research produced **three real dated home/room offers**. The actual car-chat pipeline also passed with **three genuine dated car cards**, using an observed provider-results URL as its research lead and preserving the itinerary. These are observed source results, not guaranteed future inventory or booked travel. See [evidence and material limits](docs/trip-planner-implementation-status.md#current-detour-implementation).
 
-Final validation passed **68 Jac source checks, 124 Jac tests, 59 Node tests and 152 Python tests**, plus the actual Chromium date-picker/stale-reference regression, complete release build, offline-worker finalization and bundle secret scan. Expanded native API verification also passed against the final restarted server; the site returned HTTP 200 and the worker is ready. The [status document](docs/trip-planner-implementation-status.md#current-detour-implementation) records the full app journeys and their limits.
+After integration with remote `main`, complete validation passed **74 Jac source checks, 134 Jac tests, 81 Node tests and 162 Python tests**, plus the real Chromium date-picker/stale-reference regression, sealed release build, offline finalization and secret scan. That integration run is separate from the production-package tests and deployment verification, which are recorded in the [status document](docs/trip-planner-implementation-status.md#release-and-deployment-status). Earlier live UI/API evidence remains recorded there.
 
 ## Validate and preview
 
@@ -54,7 +56,7 @@ workers/.venv/bin/python scripts/preview-studio.py  # built production client on
 
 Validation checks every Jac source, runs Jac tests, builds the client and Jac artifact, installs the studio's offline service worker in both outputs, scans for packaged secrets, and runs client/worker regressions. The deterministic suites require no API key or public-site access. The local Chromium interaction regression uses the browser installed during setup above. [Live test commands](workers/README.md#live-verification) deliberately use model credits and public sites.
 
-The runtime requires one supervised Jac server/worker host, a persistent Jac PostgreSQL store and private worker volume. A static client host alone does not provide planning or account persistence. See [release and deployment status](docs/trip-planner-implementation-status.md#release-and-deployment-status) for the current publishing/hosting result and the [worker deployment boundary](workers/README.md#resource-and-deployment-boundary) for required resources.
+The runtime requires one supervised Jac server/worker host, a persistent Jac PostgreSQL store and private worker volume. [Production setup](deploy/README.md) serves the sealed release on port 8080 with a stable private application/data path and optional free HTTPS tunnel. A static client host alone does not provide planning or account persistence. See [release and deployment status](docs/trip-planner-implementation-status.md#release-and-deployment-status) for the current publishing/hosting result and the [worker deployment boundary](workers/README.md#resource-and-deployment-boundary) for required resources.
 
 ## Design and source
 

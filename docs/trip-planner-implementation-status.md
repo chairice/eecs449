@@ -2,7 +2,7 @@
 
 ## Current Detour implementation
 
-Updated November 15, 2026 (America/Detroit). This section describes the implemented [Detour handoff](DETOUR-AGENT-HANDOFF.md). The November 14 and early November 15 evidence retained below is historical: Atlas branding, universal approval, studio-at-home, strict all-in-only offer presentation and missing new-studio weather have been superseded. No deployment, commit, PR or publication has been performed. Existing working changes, saved trips and private configuration were preserved.
+Updated November 15, 2026 (America/Detroit). This section describes the implemented [Detour handoff](DETOUR-AGENT-HANDOFF.md). The November 14 and early November 15 evidence retained below is historical: Atlas branding, universal approval, studio-at-home, strict all-in-only offer presentation and missing new-studio weather have been superseded. The feature snapshot has been committed and merged to remote `main`; production packaging and public hosting are being verified as described below. Existing working changes, saved trips and private configuration were preserved.
 
 ### Implemented behavior
 
@@ -47,16 +47,21 @@ The development supervisor was stopped for the build because Jac shares prepared
 
 ### Release and deployment status
 
-The validated application snapshot is being prepared for commit and merge to `main`, followed by a free-hosting attempt. This section will record the actual commit/merge and public deployment results once verified. The local validation and browser evidence above remains separate from public hosting.
+<!-- RELEASE_AND_DEPLOYMENT_STATUS -->
+Remote `main` now contains the Detour feature and integrated teammate updates at [`78baaf7`](https://github.com/chairice/eecs449/commit/78baaf7063be403f9f8f4ed0f36a2ec8ffd34767), including feature commit `c82eb6e`. This was a verified fast-forward publication; no pull request was created. Commit/merge was completed before deployment work resumed.
 
-The complete app needs both the Jac server and the isolated Chromium research worker, persistent private queue/capture/upload storage, Jac PostgreSQL and stable authentication configuration. A static client upload does not provide those services. Free hosting must be checked against those requirements before calling it a complete deployment.
+The combined-main validation passed **74 Jac source checks, 134 Jac tests, 81 Node tests and 162 Python tests**, real local Chromium regression, sealed client/JAB build, offline-worker finalization and secret scan (`/tmp/detour-merge-validation.log`). The later production supervisor/materializer package adds targeted tests; its final test count, native production/restart proof and public URL remain to be recorded after verification.
+
+The selected free deployment runs the sealed Jac app, Chromium worker and persistent private database/queue on the existing Mac, with a temporary public Cloudflare Quick Tunnel. The Mac, supervisor, network and tunnel must remain available; this is not permanent managed cloud hosting. Anthropic requests consume the host's configured model credits. JacHammer was investigated first, but permanent hosting requires a paid plan and the app's additional worker/storage topology was not verified on its free sandbox. See [the deployment guide](../deploy/README.md) for actual commands, private state, backup/upgrade behavior and hosting limits.
+
+Public deployment verification is in progress. No public URL or successful production/restart result is claimed until those checks finish. The root Render auto-provision blueprint has been removed; the retained Render examples are non-default historical or explicitly paid configurations and are not used for this free deployment.
 
 ### Remaining limits
 
 - The exact flight/stay, Airbnb and car examples passed. General provider coverage remains best effort; the car app acceptance used an observed provider-results URL as a lead and does not prove unaided coverage across rental sites.
 - Public sites can block access, change controls, drop dates or omit charges. Genuine observed options, price bases and source handoffs are required; missing coverage must remain unresolved rather than invented.
 - Weather and geographic data are bounded best effort. Official alerts/forecast horizons depend on source availability; flight weather describes ground endpoints rather than airborne risk.
-- The runtime remains one host, one elected worker, private persistent worker storage and Jac PostgreSQL. No public-load, penetration, multi-host or deployment validation has been performed. Offline access covers the last online-loaded saved itinerary, not live maps/research or new edits.
+- The runtime remains one host, one elected worker, private persistent worker storage and Jac PostgreSQL. Production/deployment verification is recorded above; public-load, penetration and multi-host validation have not been performed. Offline access covers the last online-loaded saved itinerary, not live maps/research or new edits.
 
 ## Historical implementation evidence: November 14–15
 

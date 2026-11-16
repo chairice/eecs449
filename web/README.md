@@ -74,6 +74,10 @@ The worker queue, captures and uploads are private data under `web/.jac/data/pla
 
 A production deployment needs the Jac server, a supervised Chromium-capable worker, private persistent worker storage, PostgreSQL and stable authentication configuration. Current deployment status is recorded in [implementation status](../docs/trip-planner-implementation-status.md#release-and-deployment-status); local test results alone do not establish public hosting.
 
+## Production deployment
+
+Use [the deployment guide](../deploy/README.md) for the sealed server/worker supervisor, persistent storage, health check and free temporary HTTPS tunnel. Production uses one origin/port for both the built client and API; it does not use the development bridge on port 8001. Jac's graph browser and API documentation are disabled in production. The native production store is separate from development data, and the sealed app is materialized at a stable path to preserve database identity across upgrades.
+
 ## Retained compatibility routes
 
 The earlier commuter planner remains at `/commuter`, `/plan` and `/trips`; the earlier Atlas journal remains at `/atlas`. Their fixture inventory, browser-local trip keys and legacy weather DTOs are separate from Detour's current studio. The [historical web reference](README-legacy.md) preserves their implementation details and the [legacy repository README](../docs/commuter-readme-legacy.md) preserves the earlier project description.
