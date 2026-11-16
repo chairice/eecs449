@@ -2,7 +2,9 @@
 
 A conversational U.S. trip planner built in Jac. Start at the familiar Detour landing page, then talk through a professional trip or multi-day vacation in the linked map, itinerary and chat workspace. Routine requested edits apply immediately with Undo; consequential changes proposed by the assistant are confirmed in plain chat.
 
-Production setup and the free public-hosting approach are documented in [the deployment guide](deploy/README.md). The public URL will be added after deployment is verified.
+**Open Detour: [https://activity-fed-fame-sense.trycloudflare.com/](https://activity-fed-fame-sense.trycloudflare.com/)** · [Trip studio](https://activity-fed-fame-sense.trycloudflare.com/studio)
+
+This free public deployment runs on the existing Mac through a temporary Cloudflare Quick Tunnel. The Mac, app and tunnel must remain running; the hostname changes if the tunnel is recreated. Setup, persistence and hosting limits are documented in [the deployment guide](deploy/README.md).
 
 See [current implementation and verification](docs/trip-planner-implementation-status.md#current-detour-implementation) and [the Detour product contract](docs/DETOUR-AGENT-HANDOFF.md). Older Atlas, universal-approval, all-in-total-only and studio-as-home descriptions are historical where they conflict with the current contract.
 
@@ -44,7 +46,7 @@ Current browser QA passed **28/28 checks with zero page errors**, including desk
 
 The exact live research scenario produced **six real offers** across DTW → SFO on November 22, SFO → XNA on November 25, and a San Francisco hotel November 22–25, 2026 for one adult/one room. A fresh guest conversation then completed the actual app → queue → worker → staging → chat journey with **nine real cards**, three per component, unchanged itinerary and zero errors. Separate Airbnb research produced **three real dated home/room offers**. The actual car-chat pipeline also passed with **three genuine dated car cards**, using an observed provider-results URL as its research lead and preserving the itinerary. These are observed source results, not guaranteed future inventory or booked travel. See [evidence and material limits](docs/trip-planner-implementation-status.md#current-detour-implementation).
 
-After integration with remote `main`, complete validation passed **74 Jac source checks, 134 Jac tests, 81 Node tests and 162 Python tests**, plus the real Chromium date-picker/stale-reference regression, sealed release build, offline finalization and secret scan. That integration run is separate from the production-package tests and deployment verification, which are recorded in the [status document](docs/trip-planner-implementation-status.md#release-and-deployment-status). Earlier live UI/API evidence remains recorded there.
+Merged-main validation passed **74 Jac source checks, 134 Jac tests and 81 Node tests**; the final Python suite passed **167 tests**, including production supervision, stable release materialization and sealed-manifest integrity regressions. The real Chromium control regression, sealed release build, offline finalization and secret scan also passed. The public HTTPS chat → queue → Anthropic → staged reply journey passed, as did native production ownership/revision checks and account/session/trip persistence across artifact upgrades and restart. See [release and deployment evidence](docs/trip-planner-implementation-status.md#release-and-deployment-status).
 
 ## Validate and preview
 

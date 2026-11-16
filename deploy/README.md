@@ -3,7 +3,11 @@
 Detour runs a sealed Jac application and a separate Anthropic/Chromium research worker on one host. Both use private persistent storage. A static client upload does not provide account storage, trip planning or research.
 
 <!-- PUBLIC_DEPLOYMENT_STATUS -->
-The application has been committed and merged to remote `main` at [`78baaf7`](https://github.com/chairice/eecs449/commit/78baaf7063be403f9f8f4ed0f36a2ec8ffd34767). Production packaging and public deployment are being verified; a working public URL will be recorded here after verification. The [implementation status](../docs/trip-planner-implementation-status.md#release-and-deployment-status) separates local test evidence from deployment evidence.
+**Public app: [https://activity-fed-fame-sense.trycloudflare.com/](https://activity-fed-fame-sense.trycloudflare.com/)** · [Studio](https://activity-fed-fame-sense.trycloudflare.com/studio)
+
+The feature and integrated teammate changes were merged to remote `main` at [`78baaf7`](https://github.com/chairice/eecs449/commit/78baaf7063be403f9f8f4ed0f36a2ec8ffd34767) before deployment. The production package was committed and published at [`9abd340`](https://github.com/chairice/eecs449/commit/9abd340). Public HTTPS home/studio and the same-origin chat → queue → Anthropic → staged/rendered reply journey passed in a real browser. This is a free temporary public self-hosted deployment; its availability depends on the Mac and tunnel below.
+
+Native production checks passed for worker health, authentication/ownership, concurrent revisions, Undo, deletion/recovery and weather. Stable signing/session state, login and an exact saved trip survived a different-artifact upgrade and restoration of the original artifact. The final Python suite passed **167 tests**. Detailed local evidence paths are in [implementation status](../docs/trip-planner-implementation-status.md#release-and-deployment-status).
 
 ## Free deployment selected for this release
 
@@ -23,7 +27,7 @@ From the repository root:
 bash scripts/build-studio.sh
 ```
 
-This installs the locked worker dependencies and Chromium, installs the Jac project dependencies, builds the complete `web/dist/everyday-agent-web.jab`, finalizes the production offline worker and scans the artifact for packaged secrets. It does not replace the full [validation command](../README.md#validate-and-preview), which also runs source checks and regression suites. Keep production code and the artifact from the same release checkout.
+This installs the locked worker dependencies and Chromium, installs the Jac project dependencies, builds the complete `web/dist/everyday-agent-web.jab`, finalizes the production offline worker, updates and verifies the sealed manifest payload hashes, and scans the artifact for packaged secrets. It does not replace the full [validation command](../README.md#validate-and-preview), which also runs source checks and regression suites. Keep production code and the artifact from the same release checkout.
 
 ## Start the sealed app and worker
 
@@ -50,10 +54,10 @@ The command succeeds only when the web health endpoint responds and the worker r
 Install `cloudflared` following [Cloudflare's official download instructions](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/), then run it in a second terminal:
 
 ```sh
-cloudflared tunnel --url http://127.0.0.1:8080
+caffeinate -i cloudflared tunnel --url http://127.0.0.1:8080
 ```
 
-Use the generated HTTPS URL for `/`, `/studio` and same-origin API requests. No separate CORS origin or public development API port is required. Keep this process running alongside the production supervisor. Ending either process makes the public app unavailable.
+The current Mac run uses `caffeinate -i` to prevent idle sleep while the tunnel process is running. On another operating system, invoke `cloudflared` directly. Use the generated HTTPS URL for `/`, `/studio` and same-origin API requests. No separate CORS origin or public development API port is required. Keep this process running alongside the production supervisor. Ending either process makes the public app unavailable.
 
 Guest caches belong to the browser origin. Recreating the random tunnel hostname opens a different guest cache; account-owned trips remain in the server's persistent store and can be resumed after signing in at the new hostname. The public hostname is a connection route, not a storage or authentication backup.
 
@@ -84,6 +88,6 @@ docker build -t detour .
 docker run --rm --name detour -p 8080:8000   --mount type=volume,source=detour-state,target=/data/detour   --env-file /absolute/private/detour.env detour
 ```
 
-The private environment file supplies `ANTHROPIC_API_KEY`; it is passed at runtime, not copied into the image. Container packaging is provided, but an actual Docker image build/run has not been verified in the current environment because no Docker engine is available. The selected native deployment is tested separately.
+The private environment file supplies `ANTHROPIC_API_KEY`; it is passed at runtime, not copied into the image. Container packaging is provided, but an actual Docker image build/run has not been verified in the current environment because no Docker engine is available. The selected native deployment and public HTTPS journey are verified as described above.
 
 There is no root `render.yaml` to auto-provision a paid service. `render-paid.example.yaml` is an explicitly optional **paid** container/disk example, not the requested free deployment. `render-legacy.example.yaml` preserves the unsupported historical single-process blueprint. Neither example is an active free-hosting configuration.

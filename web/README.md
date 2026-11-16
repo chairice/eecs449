@@ -40,7 +40,7 @@ JAC_BIN="$PWD/scripts/jac" bash scripts/validate.sh
 workers/.venv/bin/python scripts/test-studio-api.py
 ```
 
-Validation checks Jac sources, runs Jac tests, creates the complete production client and sealed `web/dist/everyday-agent-web.jab`, finalizes the offline worker in both outputs, scans for packaged secrets, and runs emitted-client, Python and real local Chromium regressions. The deterministic tests require no model key or public-source access; the Chromium binary must already be installed. Live model/source checks are separate opt-in commands in [the worker guide](../workers/README.md#live-verification).
+Validation checks Jac sources, runs Jac tests, creates the complete production client and sealed `web/dist/everyday-agent-web.jab`, finalizes the offline worker in both outputs, verifies sealed payload hashes, scans for packaged secrets, and runs emitted-client, Python and real local Chromium regressions. The deterministic tests require no model key or public-source access; the Chromium binary must already be installed. Live model/source checks are separate opt-in commands in [the worker guide](../workers/README.md#live-verification).
 
 The emitted client in `web/.jac/client/dist/` is only one part of the application. A static host alone cannot run accounts, graph persistence, planning jobs or browser research. For a direct build from `web/`, run `../scripts/jac build main.jac`, then `python3 ../scripts/finalize-studio-build.py` and the bundle secret scan before distributing the artifact. Restart development after building.
 
@@ -75,6 +75,8 @@ The worker queue, captures and uploads are private data under `web/.jac/data/pla
 A production deployment needs the Jac server, a supervised Chromium-capable worker, private persistent worker storage, PostgreSQL and stable authentication configuration. Current deployment status is recorded in [implementation status](../docs/trip-planner-implementation-status.md#release-and-deployment-status); local test results alone do not establish public hosting.
 
 ## Production deployment
+
+The current public [landing page](https://activity-fed-fame-sense.trycloudflare.com/) and [studio](https://activity-fed-fame-sense.trycloudflare.com/studio) run through a free temporary HTTPS tunnel to the Mac-hosted sealed production server. The public chat/worker/reply path was verified; the Mac, app and tunnel must remain available.
 
 Use [the deployment guide](../deploy/README.md) for the sealed server/worker supervisor, persistent storage, health check and free temporary HTTPS tunnel. Production uses one origin/port for both the built client and API; it does not use the development bridge on port 8001. Jac's graph browser and API documentation are disabled in production. The native production store is separate from development data, and the sealed app is materialized at a stable path to preserve database identity across upgrades.
 

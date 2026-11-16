@@ -2,7 +2,7 @@
 
 ## Current Detour implementation
 
-Updated November 15, 2026 (America/Detroit). This section describes the implemented [Detour handoff](DETOUR-AGENT-HANDOFF.md). The November 14 and early November 15 evidence retained below is historical: Atlas branding, universal approval, studio-at-home, strict all-in-only offer presentation and missing new-studio weather have been superseded. The feature snapshot has been committed and merged to remote `main`; production packaging and public hosting are being verified as described below. Existing working changes, saved trips and private configuration were preserved.
+Updated November 15, 2026 (America/Detroit). This section describes the implemented [Detour handoff](DETOUR-AGENT-HANDOFF.md). The November 14 and early November 15 evidence retained below is historical: Atlas branding, universal approval, studio-at-home, strict all-in-only offer presentation and missing new-studio weather have been superseded. The feature snapshot is merged to remote `main`, the production package is published, and the free temporary public deployment is verified as described below. Existing working changes, saved trips and private configuration were preserved.
 
 ### Implemented behavior
 
@@ -35,9 +35,9 @@ These checks used isolated/synthetic test trips and real model/public-source cal
 
 The browser screenshots were inspected: [landing](screenshots/17-detour-home.jpg), [desktop flight detail](screenshots/18-detour-flight-desktop.jpg), [desktop studio](screenshots/19-detour-studio-desktop.jpg), [phone chat](screenshots/20-detour-phone-chat.jpg), [phone flight detail](screenshots/21-detour-phone-flight.jpg), [real research cards](screenshots/22-detour-real-research.jpg), [actual live research pipeline](screenshots/23-detour-live-research-pipeline.jpg), and [actual live car pipeline](screenshots/24-detour-live-car-pipeline.jpg). Research results are observations from those runs, not a guarantee of future prices, availability or provider access.
 
-### Final validation and runtime status
+### Feature validation before main integration
 
-**The refreshed complete release validation passed: 68 Jac source checks, 124 Jac tests, 59 Node tests and 152 Python tests**, plus the real local Chromium date-picker/selection/stale-reference regression, production client/JAB build, offline-worker finalization and bundle secret scan. Evidence: `/tmp/detour-final-validation.log`. The final browser fixes capture generic focusable date-picker controls and strictly distinguish 12-hour/24-hour evidence so noon cannot validate a midnight query. The browser regression is part of `scripts/validate.sh`, with Chromium installed in CI.
+**The feature snapshot validation passed: 68 Jac source checks, 124 Jac tests, 59 Node tests and 152 Python tests**, plus the real local Chromium date-picker/selection/stale-reference regression, production client/JAB build, offline-worker finalization and bundle secret scan. Evidence: `/tmp/detour-final-validation.log`. The final browser fixes capture generic focusable date-picker controls and strictly distinguish 12-hour/24-hour evidence so noon cannot validate a midnight query. The browser regression is part of `scripts/validate.sh`, with Chromium installed in CI.
 
 The development supervisor was stopped for the build because Jac shares prepared-module caches, then restarted successfully against the final source using `bash scripts/dev-studio.sh`. Intended URLs are `http://localhost:8000/`, `/studio`, and API port 8001; runtime output is `/tmp/detour-implementation-running.log`.
 
@@ -48,13 +48,27 @@ The development supervisor was stopped for the build because Jac shares prepared
 ### Release and deployment status
 
 <!-- RELEASE_AND_DEPLOYMENT_STATUS -->
-Remote `main` now contains the Detour feature and integrated teammate updates at [`78baaf7`](https://github.com/chairice/eecs449/commit/78baaf7063be403f9f8f4ed0f36a2ec8ffd34767), including feature commit `c82eb6e`. This was a verified fast-forward publication; no pull request was created. Commit/merge was completed before deployment work resumed.
+**Public deployment: [https://activity-fed-fame-sense.trycloudflare.com/](https://activity-fed-fame-sense.trycloudflare.com/)** · [Studio](https://activity-fed-fame-sense.trycloudflare.com/studio)
 
-The combined-main validation passed **74 Jac source checks, 134 Jac tests, 81 Node tests and 162 Python tests**, real local Chromium regression, sealed client/JAB build, offline-worker finalization and secret scan (`/tmp/detour-merge-validation.log`). The later production supervisor/materializer package adds targeted tests; its final test count, native production/restart proof and public URL remain to be recorded after verification.
+Remote `main` contains the Detour feature and integrated teammate updates at [`78baaf7`](https://github.com/chairice/eecs449/commit/78baaf7063be403f9f8f4ed0f36a2ec8ffd34767), including feature commit `c82eb6e`. This was a verified fast-forward publication; no pull request was created. Merge was completed before deployment work resumed. The production package was then committed and pushed at [`9abd340`](https://github.com/chairice/eecs449/commit/9abd340).
 
-The selected free deployment runs the sealed Jac app, Chromium worker and persistent private database/queue on the existing Mac, with a temporary public Cloudflare Quick Tunnel. The Mac, supervisor, network and tunnel must remain available; this is not permanent managed cloud hosting. Anthropic requests consume the host's configured model credits. JacHammer was investigated first, but permanent hosting requires a paid plan and the app's additional worker/storage topology was not verified on its free sandbox. See [the deployment guide](../deploy/README.md) for actual commands, private state, backup/upgrade behavior and hosting limits.
+Merged-main validation passed **74 Jac source checks, 134 Jac tests and 81 Node tests**, plus the real local Chromium regression, sealed client/JAB build, offline finalization and secret scan (`/tmp/detour-merge-validation.log`). The final Python suite passed **167 tests**, including production supervision, stable materialization across different artifact digests, and sealed service-worker manifest integrity. The offline finalizer updates `_precompiled/MANIFEST.json` hashes and verifies sealed payloads; the resulting artifact boots successfully in native production.
 
-Public deployment verification is in progress. No public URL or successful production/restart result is claimed until those checks finish. The root Render auto-provision blueprint has been removed; the retained Render examples are non-default historical or explicitly paid configurations and are not used for this free deployment.
+The production supervisor runs the sealed app and one research worker on port 8080, with private persistent state in ignored `.detour-production/`. Its stable `app/` materialization retains embedded database identity across artifact updates. The native production API checks passed authentication/ownership, concurrency, stale revisions, Undo, deletion/recovery and weather. The signing key, old token, account login and exact saved trip survived a different-artifact upgrade and restoration of the original validated artifact. API documentation and the graph browser are disabled; the production app uses one origin and no HMR.
+
+Actual production evidence:
+
+| Check | Result | Local evidence |
+| --- | --- | --- |
+| Native model/queue/stage | Real configured Anthropic request completed with a useful clarification and unchanged itinerary | `/tmp/detour-production-live-job.json`, `/tmp/detour-production-live-job.log` |
+| Native production verification | Single production origin, sealed runtime, worker health and disabled development surfaces passed | `/tmp/detour-production-native-verification.log` |
+| Production account/API regression | Authentication, ownership, revisions, Undo, recovery and weather passed | `/tmp/detour-production-api-tests.log` |
+| Artifact upgrade and restoration | Stable signing/session/account/trip data persisted across different artifact digests and restoration | `/tmp/detour-production-upgrade-verification.log`, `/tmp/detour-production-final-persistence.log` |
+| Public HTTPS verification | Home, studio and health returned 200; worker ready; unauthenticated trip list returned 401; OpenAPI returned 404; actual same-origin chat → queue → Anthropic → staging → useful rendered reply passed | `/tmp/detour-public-verification.json` and real-browser verification at the public URL above |
+
+The selected free deployment runs the complete app on the existing Mac behind official Cloudflare Quick Tunnel, version 2026.11.0 downloaded with its checksum verified. The tunnel runs under `caffeinate -i` to prevent idle sleep. The Mac, supervisor, tunnel and network must remain available, and recreating the tunnel changes its hostname. This is temporary public self-hosting, not permanent managed cloud hosting. Anthropic calls consume the host's configured credits. Production uses a fresh private store separate from existing development trips; development users/data were not copied into the public instance.
+
+JacHammer was investigated first, but permanent hosting requires a paid plan and this app's worker/storage topology was not verified on its free sandbox. No paid hosting was provisioned. The root Render auto-provision blueprint has been removed; retained Render examples are non-default historical or explicitly paid configurations and were not used. Docker packaging is present but a Docker image build/run remains unverified because no engine is available. See [the deployment guide](../deploy/README.md) for commands, private state, backup/upgrade behavior and hosting limits.
 
 ### Remaining limits
 
