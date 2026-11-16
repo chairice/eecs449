@@ -42,7 +42,7 @@ base_route_app = "app"
 
 # What a browser tab and a shared link show.
 [client.app_meta_data]
-title = "Detour · Your next journey"
+title = "Detour \u00B7 Your next journey"
 description = "Plan your kind of trip, together with Detour."
 
 # Paint the remembered light/dark theme before the bundle loads, so the first
