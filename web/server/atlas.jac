@@ -7,6 +7,8 @@ import from server.atlas_service {
     route_response as _route_response
 }
 
+import from server.atlas_flights { flights_response as _flights_response }
+
 def:pub atlas_status -> str { return _status_response(); }
 def:pub atlas_catalog -> str { return _catalog_response(); }
 def:pub atlas_interpret(text: str, current_json: str = "") -> str {
@@ -14,4 +16,8 @@ def:pub atlas_interpret(text: str, current_json: str = "") -> str {
 }
 def:pub atlas_route(start_id: str, end_id: str) -> str {
     return _route_response(start_id, end_id);
+}
+
+def:pub atlas_flights(request_json: str) -> str {
+    return _flights_response(request_json);
 }

@@ -20,12 +20,14 @@ def:pub RootLayout -> JsxLayout {
     appPage = path in ["/atlas", "/plan", "/plan/results", "/trips"] or isTripDetail;
     activePath = "/atlas" if path == "/atlas" else "/trips" if path == "/trips" or isTripDetail else "/plan";
 
-    can with entry { loadStylesheet(FONTS_URL); }
+    can with entry { loadStylesheet(FONTS_URL); doc: any = document; doc.title = "Detour · Your next journey"; }
     can with entry {
-        paintPage("var(--dt-bg)", False, not mediaMatches(REDUCED_MOTION_QUERY));
+        if path == "/studio" { paintPage("#121715", True, False); }
+        else { paintPage("var(--dt-bg)", False, not mediaMatches(REDUCED_MOTION_QUERY)); }
     }
 
-    return <AppShell publicPage={path == "/"} minimalHeader={path != "/" and not appPage}
+    if path == "/studio" { return <Outlet/>; }
+    return <AppShell publicPage={path in ["/", "/commuter"]} minimalHeader={path != "/" and not appPage}
         activePath={activePath} footer={<SiteFooter/>}>
         <Outlet/>
     </AppShell>;

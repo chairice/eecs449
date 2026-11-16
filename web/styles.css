@@ -298,3 +298,5 @@
 .dt-map .leaflet-tile { filter: grayscale(1) contrast(.85) brightness(1.08); }
 .dt-map .leaflet-control-attribution { font: 400 11px/16px var(--dt-font-body); background: rgb(255 255 255 / 80%); }
 .dt-map .leaflet-tooltip { font: var(--dt-body); color: var(--dt-text); border-radius: var(--dt-radius-control); }
+
+.dt-brand:hover{text-decoration:none}

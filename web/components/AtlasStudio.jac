@@ -8,6 +8,7 @@ import from react { useEffect, useRef }
 import from "@jac/runtime" { useNavigate }
 import from server.atlas { atlas_catalog, atlas_status, atlas_interpret, atlas_route }
 import from .AtlasMap { AtlasMap }
+import from ..client.atlas_flow { leg_title, leg_details, itinerary_signature, is_finalized }
 import from ..client.atlas_navigation { set_atlas_history_handler }
 import from ..client.atlas_state {
     new_journey, clone_value, search_places, load_atlas, write_atlas,
@@ -56,26 +57,30 @@ def:pub AtlasLegEditor(leg: any, index: int, routable: bool, onField: Callable[[
             <label className="atlas-field">Arrival time<input type="time" value={leg["arriveTime"]} onInput={lambda (e: any) { onField(index, "arriveTime", str(e.target.value)); }} onChange={lambda (e: ChangeEvent) { onField(index, "arriveTime", str(e.target.value)); }}/></label>
         </div>
         <label className="atlas-field">Timing note<input value={leg["timingNote"]} maxLength={2000} placeholder="Optional, e.g. Monday night" onChange={lambda (e: ChangeEvent) { onField(index, "timingNote", str(e.target.value)); }}/></label>
-        <p className="atlas-note">Dates and times are optional local intentions, not verified schedules.</p>
         {(<><span className="atlas-status">{("Calculated road route" if leg["route"]["status"] == "READY" else "Route not calculated")}</span>
             {(<p className="atlas-note">{leg["route"]["message"]}</p> if leg["route"]["message"] else None)}
             <button type="button" disabled={not routable} onClick={lambda { onRoute(index); }}>{"Recalculate road route" if leg["route"]["status"] == "READY" else "Calculate / retry road route"}</button>
-        </> if leg["mode"] == "DRIVE" else <p className="atlas-note">{"Illustrative arc only—not an aircraft track or ticket." if leg["mode"] == "FLIGHT" else "Choose a travel mode; it will not be guessed."}</p>)}
+        </> if leg["mode"] == "DRIVE" else None)}
     </div>;
 }
 
 def:pub AtlasStudio -> JsxElement {
     navigate = useNavigate();
     lifecycle = useRef({"active": True, "revision": 0});
+    chatLog = useRef(None);
     historyGuard = useRef({"restoring": False, "allow": False, "action": None});
     has catalog: any = [], states: any = None;
     has journeys: any = [], draft: any = None, baseline: any = None;
     has ready: bool = False, aiAvailable: bool = False, busy: bool = False;
     has error: str = "", notice: str = "", prompt: str = "";
-    has panel: str = "list", statusFilter: str = "ALL", modeFilter: str = "ALL";
+    has panel: str = "list";
     has selectedId: str = "", fitVersion: int = 0, resetVersion: int = 0;
+    has selectedLeg: int = -1, reviewing: bool = False;
     has presenting: bool = False, pending: any = None;
     dirty = draft is not None and JSON.stringify(draft) != JSON.stringify(baseline);
+    useEffect(lambda {
+        if chatLog.current { chatLog.current.scrollTop = chatLog.current.scrollHeight; }
+    }, [len(draft["conversation"]) if draft else 0, busy]);
 
     def showPending(action: any) {
         # Presentation hides the editor panel containing this confirmation.
@@ -90,10 +95,17 @@ def:pub AtlasStudio -> JsxElement {
     }
     def replaceDraft(value: any) {
         lifecycle.current["revision"] += 1;
+        if value and "finalizedSignature" in Object.keys(value) and not is_finalized(value) { value["finalizedSignature"] = ""; value["finalizedAt"] = ""; }
         draft = value;
         selectedId = str(value["id"]) if value else "";
         notice = "";
-        if ready { _ = remember(journeys, value); }
+        if ready {
+            if value is not None and len(validate_journey(value)) == 0 {
+                saved = clone_value(value);
+                updated = [saved] + [item for item in journeys if item["id"] != saved["id"]];
+                if remember(updated, value) { journeys = updated; baseline = clone_value(saved); }
+            } else { _ = remember(journeys, value); }
+        }
     }
     def editField(field: str, value: str) {
         updated = clone_value(draft); updated[field] = value; replaceDraft(updated);
@@ -120,16 +132,17 @@ def:pub AtlasStudio -> JsxElement {
         lifecycle.current["active"] = True;
         stored = load_atlas(); journeys = stored["journeys"]; draft = stored["draft"]; error = str(stored["error"]);
         if draft {
-            selectedId = str(draft["id"]); panel = "edit"; notice = "Recovered your unsaved draft.";
+            selectedId = str(draft["id"]); panel = "edit";
             prompt = str(draft["pendingPrompt"] or "");
             for item in journeys { if item["id"] == draft["id"] { baseline = clone_value(item); } }
-        }
+        } else { draft = new_journey(); selectedId = str(draft["id"]); panel = "edit"; }
         ready = True;
         loadData();
         return lambda { lifecycle.current["active"] = False; lifecycle.current["revision"] += 1; };
     }, []);
 
     def openNow(action: any) {
+        selectedLeg = -1; reviewing = False;
         pending = None; error = ""; notice = ""; prompt = "";
         lifecycle.current["revision"] += 1;
         if action["kind"] == "leave" { navigate(str(action["href"])); return; }
@@ -148,10 +161,33 @@ def:pub AtlasStudio -> JsxElement {
     }
     def requestOpen(action: any) {
         if busy { return; }
-        if dirty { showPending(action); return; }
+        if dirty and draft is not None and (len(draft["stops"]) > 0 or len(draft["conversation"]) > 0 or draft["pendingPrompt"]) {
+            if action["kind"] == "list" { panel = "list"; return; }
+            error = "Finish resolving this trajectory before opening another. Your draft is kept automatically.";
+            return;
+        }
         openNow(action);
     }
     def selectJourney(id: str) { if id != selectedId { requestOpen({"kind": "edit", "id": id}); } }
+    def selectLeg(id: str, index: int) {
+        if busy { return; }
+        if id != selectedId { requestOpen({"kind": "edit", "id": id}); }
+        if id == selectedId { selectedLeg = index; }
+    }
+    def reviewTrip {
+        if draft is None { return; }
+        problems = validate_journey(draft);
+        if len(problems) > 0 { error = " ".join(problems); return; }
+        reviewing = True; error = "";
+    }
+    def finalizeTrip {
+        if draft is None or len(validate_journey(draft)) > 0 { return; }
+        updated = clone_value(draft);
+        updated["finalizedSignature"] = itinerary_signature(updated);
+        updated["finalizedAt"] = str((new(Date)).toISOString());
+        replaceDraft(updated); reviewing = False;
+        notice = "Itinerary finalized. Flight and hotel search is the next step; nothing is booked.";
+    }
     def saveJourney -> bool {
         if draft is None { return False; }
         problems = validate_journey(draft);
@@ -184,14 +220,7 @@ def:pub AtlasStudio -> JsxElement {
         historyState: any = window.history.state;
         currentIndex = int(historyState["idx"]) if historyState and Number.isInteger(historyState["idx"]) else 0;
         leaving = lambda (event: any) {
-            if dirty { event.preventDefault(); event.returnValue = ""; }
-        };
-        clicking = lambda (event: any) {
-            target: any = event.target;
-            anchor: any = target.closest("a[href]") if target and target.closest else None;
-            if dirty and anchor and anchor.getAttribute("href").startsWith("/") and not anchor.getAttribute("href").startsWith("/atlas") {
-                event.preventDefault(); event.stopPropagation(); showPending({"kind": "leave", "href": anchor.getAttribute("href")});
-            }
+            if error and dirty { event.preventDefault(); event.returnValue = ""; }
         };
         keyboard = lambda (event: any) { if event.key == "Escape" { presenting = False; } };
         # Browser Back/Forward do not trigger anchor clicks or beforeunload.
@@ -205,7 +234,7 @@ def:pub AtlasStudio -> JsxElement {
             }
             if historyGuard.current["allow"] { historyGuard.current["allow"] = False; return; }
             targetState: any = event.state;
-            if dirty and targetState and Number.isInteger(targetState["idx"]) {
+            if error and dirty and targetState and Number.isInteger(targetState["idx"]) {
                 delta = int(targetState["idx"]) - currentIndex;
                 if delta != 0 {
                     event.stopImmediatePropagation();
@@ -216,13 +245,11 @@ def:pub AtlasStudio -> JsxElement {
             }
         };
         window.addEventListener("beforeunload", leaving);
-        set_atlas_history_handler(historyChanging);
-        document.addEventListener("click", clicking, True);
+        set_atlas_history_handler(None);
         document.addEventListener("keydown", keyboard);
         return lambda {
             window.removeEventListener("beforeunload", leaving);
             set_atlas_history_handler(None);
-            document.removeEventListener("click", clicking, True);
             document.removeEventListener("keydown", keyboard);
         };
     }, [dirty]);
@@ -232,22 +259,39 @@ def:pub AtlasStudio -> JsxElement {
         if draft["conversation"].length > 78 { error = "This journey has reached its conversation limit. Your history is preserved; continue with the manual editor."; return; }
         submitted = prompt.strip();
         current = clone_value(draft);
-        current["pendingPrompt"] = "";
+        current["pendingPrompt"] = submitted;
         current["conversation"].push({"role": "user", "content": submitted});
         replaceDraft(current); prompt = ""; busy = True; error = "";
         revision = lifecycle.current["revision"];
         try {
-            # Route geometry, notes and conversation history never leave the browser.
+            # Only this trip's bounded conversation and itinerary go to the model.
+            # Other journeys, personal notes and route geometry stay local.
             context = {"title": current["title"], "status": current["status"],
+                "unresolved": current["unresolved"],
+                "conversation": current["conversation"].slice(-12),
                 "stops": [{"query": stop["query"], "place": {"id": stop["place"]["id"]} if stop["place"] else None} for stop in current["stops"]],
                 "legs": [{"mode": leg["mode"], "departDate": leg["departDate"], "arriveDate": leg["arriveDate"], "departTime": leg["departTime"], "arriveTime": leg["arriveTime"], "timingNote": leg["timingNote"]} for leg in current["legs"]]};
-            result: any = JSON.parse(await atlas_interpret(submitted, JSON.stringify(context) if current["stops"].length > 0 else ""));
+            result: any = JSON.parse(await atlas_interpret(submitted, JSON.stringify(context)));
             if not lifecycle.current["active"] or lifecycle.current["revision"] != revision { return; }
             proposal = result["proposal"];
-            updated = apply_proposal(current, proposal, catalog) if proposal else current;
-            updated["conversation"].push({"role": "assistant", "content": ("AI proposal: " if result["source"] == "llm" else "Rules / manual fallback: ") + str(result["message"])});
+            updated = apply_proposal(current, proposal, catalog) if proposal and not (result["source"] == "rules" and len(current["stops"]) > 0) else current;
+            if result["source"] == "llm" { updated["pendingPrompt"] = ""; }
+            else { prompt = submitted; }
+            for (index, leg) in enumerate(updated["legs"]) {
+                if leg["mode"] == "DRIVE" and leg["route"]["status"] != "READY" and updated["stops"][index]["place"] and updated["stops"][index + 1]["place"] {
+                    try {
+                        road: any = JSON.parse(await atlas_route(str(updated["stops"][index]["place"]["id"]), str(updated["stops"][index + 1]["place"]["id"])));
+                        leg["route"] = road;
+                    } except Exception { }
+                }
+            }
+            if not lifecycle.current["active"] or lifecycle.current["revision"] != revision { return; }
+            questions = " ".join([str(detail) for detail in updated["unresolved"]]);
+            updated["conversation"].push({"role": "assistant", "content": str(result["message"]) if result["message"] else (questions if questions else "Your itinerary is updated.")});
             replaceDraft(updated);
-            notice = "Review every stop, mode and date before saving. Nothing has been booked.";
+            selectedLeg = -1; reviewing = False;
+            if len(current["stops"]) == 0 and len(updated["stops"]) > 1 { fitVersion += 1; }
+            notice = "";
         } except Exception {
             if lifecycle.current["active"] and lifecycle.current["revision"] == revision { error = "Interpretation failed. Your original request and draft are preserved; retry or edit manually."; prompt = submitted; }
         } finally { if lifecycle.current["active"] { busy = False; } }
@@ -282,19 +326,17 @@ def:pub AtlasStudio -> JsxElement {
     # One draft replaces its saved counterpart only in the preview, never storage.
     displayed = [item for item in journeys if not item["deletedAt"] and (draft is None or item["id"] != draft["id"])];
     if draft is not None { displayed = displayed + [draft]; }
-    displayed = [item for item in displayed if item["id"] == selectedId or statusFilter == "ALL" or item["status"] == statusFilter];
     active = [item for item in journeys if not item["deletedAt"]];
-    filtered = [item for item in active if (statusFilter == "ALL" or item["status"] == statusFilter) and (modeFilter == "ALL" or len([leg for leg in item["legs"] if leg["mode"] == modeFilter]) > 0)];
+    filtered = active;
     trashed = [item for item in journeys if item["deletedAt"]];
 
-    return <section className={"atlas-workspace" + (" is-presenting" if presenting else " rounded-2xl border-gray-200 shadow-sm")} aria-label="Travel atlas">
+    return <section className="atlas-workspace atlas-chat-first rounded-2xl border-gray-200 shadow-sm" aria-label="Travel atlas">
         <div className="atlas-toolbar">
             <div className="atlas-heading"><span className="atlas-kicker text-emerald-700">Your world, one journey at a time</span><h1 className="text-2xl font-semibold tracking-tight text-gray-900">Atlas</h1><span className="atlas-count">{str(len(active)) + " saved journeys · this browser"}</span></div>
             <div className="atlas-actions">
-                {(<><button type="button" className="border-0 bg-linear-to-r from-emerald-600 to-green-700 font-semibold text-white shadow-sm transition-transform duration-150 active:scale-98" disabled={busy or len(catalog) == 0} onClick={lambda { requestOpen({"kind": "new"}); }}>Add journey</button>
+                {(<><button type="button" className="border-0 bg-linear-to-r from-emerald-600 to-green-700 font-semibold text-white shadow-sm transition-transform duration-150 active:scale-98" disabled={busy or len(catalog) == 0} onClick={lambda { requestOpen({"kind": "new"}); }}>New trip</button>
                     <button type="button" disabled={not selectedId} onClick={lambda { fitVersion += 1; }}>Fit journey</button>
                     <button type="button" onClick={lambda { resetVersion += 1; }}>Reset view</button></> if not presenting else None)}
-                <button type="button" onClick={lambda { presenting = not presenting; }}>{"Exit presentation" if presenting else "Present"}</button>
             </div>
             {(<div className="atlas-legend"><span><i></i>Past</span><span><i className="is-planned"></i>Planned</span></div> if presenting else None)}
         </div>
@@ -303,26 +345,28 @@ def:pub AtlasStudio -> JsxElement {
                 {(<div className="atlas-error" role="alert">{error}<button type="button" onClick={lambda { error = ""; }}>Dismiss</button></div> if error else None)}
                 {(<p className="atlas-note" role="status">{notice}</p> if notice else None)}
                 {(<div className="atlas-loading" role="status">Loading the local US place catalog…<button type="button" onClick={loadData}>Retry catalog</button></div> if len(catalog) == 0 else None)}
-                {(<div className="atlas-confirm" role="dialog" aria-label="Unsaved journey"><h2>Keep your changes?</h2><p>Your recovery draft is separate from the saved journey.</p><div className="atlas-actions"><button type="button" onClick={confirmSave}>Save and continue</button><button type="button" onClick={confirmDiscard}>Discard changes</button><button type="button" onClick={lambda { pending = None; }}>Keep editing</button></div></div> if pending else None)}
-                <div className="atlas-tabs"><button type="button" aria-pressed={panel == "list"} disabled={busy} onClick={lambda { requestOpen({"kind": "list"}); }}>Journeys</button><button type="button" aria-pressed={panel == "trash"} disabled={busy} onClick={lambda { requestOpen({"kind": "trash"}); }}>{"Trash (" + str(len(trashed)) + ")"}</button></div>
-                {(<>
-                    <div className="atlas-grid"><label className="atlas-field">Show<select value={statusFilter} onChange={lambda (e: ChangeEvent) { statusFilter = str(e.target.value); }}><option value="ALL">All journeys</option><option value="PAST">Past</option><option value="PLANNED">Planned</option></select></label>
-                        <label className="atlas-field">Travel mode<select value={modeFilter} onChange={lambda (e: ChangeEvent) { modeFilter = str(e.target.value); }}><option value="ALL">All modes</option><option value="FLIGHT">Flights</option><option value="DRIVE">Driving</option></select></label></div>
+                <details className="atlas-saved"><summary>{"Saved trips (" + str(len(active)) + ")"}</summary>
                     {for item in filtered { <button type="button" className="atlas-card" key={item["id"]} disabled={busy} onClick={lambda { selectJourney(str(item["id"])); }}><strong>{item["title"]}</strong><span className="atlas-badge">{item["status"]}</span><p>{str(item["stops"].length) + " stops · " + str(item["legs"].length) + " legs"}</p></button> }}
-                    {(<p className="atlas-note">No journeys match these filters.</p> if len(active) > 0 and len(filtered) == 0 else None)}
-                    {(<div className="atlas-empty"><h2>A little room for everywhere.</h2><p>Record where you have been. Sketch where you will go next.</p><button type="button" disabled={len(catalog) == 0} onClick={lambda { requestOpen({"kind": "new"}); }}>Create your first journey</button><button type="button" disabled={len(catalog) == 0} onClick={example}>Load example</button></div> if len(active) == 0 else None)}
-                </> if panel == "list" else None)}
+                </details>
                 {(<><h2>Recoverable Trash</h2>{for item in trashed { <div className="atlas-card" key={item["id"]}><strong>{item["title"]}</strong><button type="button" onClick={lambda { trashJourney(str(item["id"]), True); }}>Restore journey</button></div> }}{(<p className="atlas-note">Nothing in Trash.</p> if len(trashed) == 0 else None)}</> if panel == "trash" else None)}
                 {(<div className="atlas-form">
-                    <div className="atlas-row"><h2>{"Edit journey" if baseline else "Create a journey"}</h2><span className="atlas-badge">{("Unsaved draft" if dirty else "Saved")}</span></div>
+                    <div className="atlas-row"><h2>Where are we going?</h2><span className="atlas-badge">{("Finalized" if is_finalized(draft) else "Draft kept" if dirty else "Saved automatically")}</span></div>
                     <div className="atlas-chat">
-                        <p className="atlas-note">{"Describe or refine your journey with AI. Review the proposal before saving." if aiAvailable else "AI creation is not configured. Use the limited rules parser or edit stops manually—no key required."}</p>
+                        {(<p className="atlas-note">AI is unavailable. Add stops manually or use an explicit route.</p> if not aiAvailable else None)}
+                        <div className="atlas-conversation" ref={chatLog} role="log" aria-label="Trip conversation" aria-live="polite">
+                        {(<div className="atlas-message">Tell me your route in your own words. Include cities or airports, flights or drives, and any dates you know. I’ll map it and ask about anything unclear.</div> if len(draft["conversation"]) == 0 else None)}
                         {for (i, message) in enumerate(draft["conversation"]) { <div key={str(i)} className={"atlas-message" + (" is-user" if message["role"] == "user" else "")}>{message["content"]}</div> }}
-                        <form className="atlas-chat-input" onSubmit={lambda (e: FormEvent) { e.preventDefault(); ask(); }}><label className="atlas-field" htmlFor="atlas-request">Describe or refine this journey</label><textarea id="atlas-request" value={prompt} maxLength={4000} placeholder="Fly from Detroit to New York, then drive to Boston…" disabled={busy} onChange={lambda (e: ChangeEvent) { editPrompt(str(e.target.value)); }}/><button type="submit" className="is-primary" disabled={busy or not prompt.strip() or len(catalog) == 0 or draft["conversation"].length > 78}>{"Working…" if busy else "Preview AI changes" if aiAvailable else "Preview with limited rules"}</button></form>
+                        {(<div className="atlas-message" role="status">Updating your itinerary and map…</div> if busy else None)}
+                        </div>
+                        <form className="atlas-chat-input" onSubmit={lambda (e: FormEvent) { e.preventDefault(); ask(); }}><label className="atlas-field" htmlFor="atlas-request">Describe your trip or reply</label><textarea id="atlas-request" value={prompt} maxLength={4000} placeholder="Fly from Detroit to SFO, then fly to IND and drive to DTW…" disabled={busy} onChange={lambda (e: ChangeEvent) { editPrompt(str(e.target.value)); }}/><button type="submit" className="is-primary" disabled={busy or not prompt.strip() or len(catalog) == 0 or draft["conversation"].length > 78}>{"Mapping…" if busy else "Send"}</button></form>
                         {(<p className="atlas-note">Conversation limit reached. Your history is preserved; continue editing manually.</p> if draft["conversation"].length > 78 else None)}
-                        <p className="atlas-note">An AI request sends this sentence and current itinerary fields to the configured model—not your other journeys or notes. Nothing is booked.</p>
                     </div>
-                    {(<div className="atlas-confirm"><h3>Review unresolved details</h3><ul>{for detail in draft["unresolved"] { <li key={str(detail)}>{detail}</li> }}</ul><p>Use the original request above and the fields below to correct the proposal.</p><button type="button" disabled={busy} onClick={lambda { updated = clone_value(draft); updated["unresolved"] = []; replaceDraft(updated); }}>I reviewed these details</button></div> if draft["unresolved"].length > 0 else None)}
+                    {(<div className="atlas-review"><h3>{"Your itinerary is finalized" if is_finalized(draft) else "Ready to make this your itinerary?"}</h3><p>{str(len(draft["legs"])) + " legs · " + str(len(draft["stops"])) + " stops"}</p>
+                        {(<><p>Review the route and dates on each leg. Unset dates stay open; travel search will need them.</p>{for (index, leg) in enumerate(draft["legs"]) { <p key={str(index)}>{leg_title(draft, index) + " · " + str(leg["departDate"] or "Date not set")}</p> }}<button type="button" className="is-primary" disabled={busy} onClick={finalizeTrip}>Confirm itinerary</button><button type="button" onClick={lambda { reviewing = False; }}>Keep planning</button></> if reviewing else <button type="button" disabled={busy or is_finalized(draft)} onClick={reviewTrip}>{"Finalized" if is_finalized(draft) else "Review & finalize"}</button>)}
+                        {(<p>Flight, hotel and ticket search is not connected yet. You can still edit this trip; route or date changes reopen it for review.</p> if is_finalized(draft) else None)}
+                    </div> if len(draft["legs"]) > 0 and len(draft["unresolved"]) == 0 else None)}
+                    <details className="atlas-manual"><summary>Edit itinerary details manually</summary>
+                    {(<div className="atlas-confirm"><h3>Open questions</h3><ul>{for detail in draft["unresolved"] { <li key={str(detail)}>{detail}</li> }}</ul><button type="button" disabled={busy} onClick={lambda { updated = clone_value(draft); updated["unresolved"] = []; replaceDraft(updated); }}>I resolved these in the fields below</button></div> if len(draft["unresolved"]) > 0 else None)}
                     <fieldset disabled={busy} className="atlas-form" style={{"border": "0", "padding": "0", "margin": "0", "minWidth": "0"}}>
                         <label className="atlas-field">Journey title<input value={draft["title"]} maxLength={200} placeholder="Give this journey a name" onChange={lambda (e: ChangeEvent) { editField("title", str(e.target.value)); }}/></label>
                         <div className="atlas-grid"><label className="atlas-field">Journey status<select value={draft["status"]} onChange={lambda (e: ChangeEvent) { editField("status", str(e.target.value)); }}><option value="PLANNED">Planned</option><option value="PAST">Past</option></select></label>
@@ -333,14 +377,15 @@ def:pub AtlasStudio -> JsxElement {
                         <button type="button" disabled={draft["stops"].length >= 24} onClick={lambda { replaceDraft(add_stop(draft)); }}>Add stop</button>
                         <label className="atlas-field">Journey note<textarea value={draft["note"]} maxLength={8000} placeholder="Optional memories, ideas, or details for future planning" onChange={lambda (e: ChangeEvent) { editField("note", str(e.target.value)); }}/></label>
                     </fieldset>
-                    <div className="atlas-actions"><button type="button" className="is-primary" disabled={busy} onClick={saveJourney}>Save journey</button><button type="button" disabled={busy} onClick={lambda { requestOpen({"kind": "list"}); }}>Back to journeys</button>
-                        {(<button type="button" className="is-danger" disabled={busy or dirty} onClick={lambda { trashJourney(str(draft["id"])); }}>Move to Trash</button> if baseline else None)}</div>
-                </div> if panel == "edit" and draft is not None else None)}
-                <div className="atlas-legend"><span><i></i>Past</span><span><i className="is-planned"></i>Planned</span></div>
-                <p className="atlas-note">Saved only in this browser. Flight arcs are illustrative; road lines are calculated approximations. US destinations only. Dates never mark a journey completed automatically.</p>
-                <details className="atlas-note"><summary>Data, privacy & limitations</summary><p>Local place search uses GeoNames (CC BY 4.0) and OurAirports (public domain). Boundaries: Natural Earth (public domain). Road calculations send selected endpoints to the public OSRM service, which logs requests. No payment or booking occurs.</p><a href="https://routing.openstreetmap.de/about.html" target="_blank" rel="noreferrer">Routing service policy</a>{" · "}<a href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noreferrer">Fix the map</a></details>
+                    </details>
+                </div> if draft is not None else None)}
+                <div className="atlas-legend"><span><i></i>Driving</span><span><i className="is-planned"></i>Flight</span></div>
+                <details className="atlas-note"><summary>Data, privacy & limitations</summary><p>Journeys are saved only in this browser. US destinations only. Dates and times are optional local intentions, not verified schedules. Flights are illustrative arcs, not aircraft tracks or tickets; roads are calculated approximations. Dates never mark a journey completed automatically.</p><p>AI receives the submitted sentence, current itinerary fields and clarification questions, not other journeys or personal notes. Local place search uses GeoNames (CC BY 4.0) and OurAirports (public domain). Boundaries: Natural Earth (public domain). Road calculations send selected endpoints to the public OSRM service, which logs requests. No payment or booking occurs.</p><a href="https://routing.openstreetmap.de/about.html" target="_blank" rel="noreferrer">Routing service policy</a>{" · "}<a href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noreferrer">Fix the map</a></details>
             </aside>
-            <div className="atlas-map-shell"><AtlasMap journeys={displayed} states={states} selectedId={selectedId} modeFilter={"ALL" if panel == "edit" else modeFilter} fitVersion={fitVersion} resetVersion={resetVersion} onSelect={selectJourney} presentation={presenting}/></div>
+            <div className="atlas-map-shell"><AtlasMap journeys={displayed} states={states} selectedId={selectedId} selectedLeg={selectedLeg} onLegSelect={selectLeg} modeFilter="ALL" fitVersion={fitVersion} resetVersion={resetVersion} onSelect={selectJourney} presentation={False}/>
+                {(<div className="atlas-itinerary" aria-label="Itinerary legs">{for (index, leg) in enumerate(draft["legs"]) { <button type="button" key={str(index)} className="atlas-leg-card" aria-pressed={selectedLeg == index} onClick={lambda { selectedLeg = index; }}><small>{str(index + 1) + " · " + ("Flight" if leg["mode"] == "FLIGHT" else "Drive" if leg["mode"] == "DRIVE" else "Choose mode")}</small><strong>{leg_title(draft, index)}</strong><span>{str(leg["departDate"] or "Date not set") + (" · " + str(leg["departTime"]) if leg["departTime"] else "")}</span></button> }}</div> if draft is not None and len(draft["legs"]) > 0 else None)}
+                {(<section className="atlas-leg-detail" aria-label="Selected leg details"><button type="button" aria-label="Close leg details" onClick={lambda { selectedLeg = -1; }}>×</button><h2>{leg_title(draft, selectedLeg)}</h2><p>{leg_details(draft, selectedLeg)}</p>{(<button type="button" disabled={busy} onClick={lambda { calculateRoute(selectedLeg); }}>Retry driving route</button> if draft["legs"][selectedLeg]["mode"] == "DRIVE" and draft["legs"][selectedLeg]["route"]["status"] != "READY" else None)}</section> if draft is not None and selectedLeg >= 0 and selectedLeg < len(draft["legs"]) else None)}
+            </div>
         </div>
     </section>;
 }

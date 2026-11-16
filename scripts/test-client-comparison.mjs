@@ -11,7 +11,7 @@ function preview() {
     as_of: '2026-10-23T18:00:00Z',
     request: {
       origin_text: 'Ann Arbor', destination_text: 'Chicago',
-      local_date: '2026-10-23', priority: 'BALANCED',
+      local_date: '2026-10-23', priority: 'BALANCED', time_kind: 'DEPART_AFTER', local_time: '12:00',
     },
     error: null,
     routes: [{

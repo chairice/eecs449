@@ -7,6 +7,7 @@ Driving paths are rendered only after the routing service supplies geometry.
 import "leaflet/dist/leaflet.css";
 import from "react" { useEffect }
 import from "leaflet" { map as leafletMap, circleMarker, polyline, layerGroup, geoJSON }
+import from ..client.atlas_flow { stop_label, leg_title }
 
 glob ATLAS_HOME: list[list[float]] = [[24.4, -125.2], [49.6, -66.5]];
 
@@ -43,7 +44,7 @@ def atlas_flight_points(start: any, end: any) -> list[list[float]] {
     return result;
 }
 
-def:pub AtlasMap(journeys: any, states: any, selectedId: str = "", modeFilter: str = "ALL", fitVersion: int = 0, resetVersion: int = 0, onSelect: Callable[[str], None] = lambda (_id: str) {}, presentation: bool = False) -> JsxElement {
+def:pub AtlasMap(journeys: any, states: any, selectedId: str = "", modeFilter: str = "ALL", fitVersion: int = 0, resetVersion: int = 0, onSelect: Callable[[str], None] = lambda (_id: str) {}, presentation: bool = False, selectedLeg: int = -1, onLegSelect: Callable[[str, int], None] = lambda (_id: str, _index: int) {}) -> JsxElement {
     has host: Ref[HTMLDivElement] = Ref();
     has view: Ref[any] = Ref(None);
     has boundaries: Ref[any] = Ref(None);
@@ -82,19 +83,65 @@ def:pub AtlasMap(journeys: any, states: any, selectedId: str = "", modeFilter: s
         if len(frame) > 0 { view.current.fitBounds(frame, {"padding": [65, 65], "maxZoom": 8, "animate": False}); }
     }
 
-    def add_path(points: list[list[float]], journey: any, flight: bool, active: bool) {
+    def add_path(points: list[list[float]], journey: any, index: int, flight: bool, active: bool) {
         group = routes.current;
-        planned = journey["status"] == "PLANNED";
-        opacity = 0.9 if active else 0.18;
+        selected = journey["id"] == selectedId and index == selectedLeg;
+        opacity = 1 if selected else (0.9 if active else 0.18);
         color = str(journey["color"] or "#b86645");
-        polyline(points, {"color": "#faf9f5", "weight": 6.5 if active else 4, "opacity": 0.75 if active else 0.15, "interactive": False, "lineCap": "round"}).addTo(group);
-        path = polyline(points, {"color": color, "weight": 2.4 if flight else 3.2, "opacity": opacity, "dashArray": "3 7" if planned else None, "lineCap": "round", "lineJoin": "round", "className": "atlas-flight-path" if flight else "atlas-drive-path"}).addTo(group);
+        polyline(points, {"color": "#faf9f5", "weight": 10 if selected else (6.5 if active else 4), "opacity": 1 if selected else (0.75 if active else 0.15), "interactive": False, "lineCap": "round"}).addTo(group);
+        polyline(points, {"color": color, "weight": (4 if flight else 6) if selected else (2.4 if flight else 4.2), "opacity": opacity, "dashArray": "6 8" if flight else None, "lineCap": "round", "lineJoin": "round", "interactive": False, "className": "atlas-flight-path" if flight else "atlas-drive-path"}).addTo(group);
+        # An invisible continuous stroke makes dashed flights easy to inspect.
+        path = polyline(points, {"color": color, "weight": 18, "opacity": 0, "bubblingMouseEvents": False, "lineCap": "round", "className": "atlas-leg-hit-target"}).addTo(group);
         # The compiler's DOM stub returns object; Leaflet accepts this live DOM node.
-        label: any = document.createElement("span");
-        label.textContent = str(journey["title"]) + (" · illustrative flight" if flight else " · road route");
+        label: any = document.createElement("div");
+        label.className = "atlas-tooltip-card";
+        header: any = document.createElement("div");
+        header.className = "atlas-tooltip-header";
+        badge: any = document.createElement("span");
+        badge.className = "atlas-tooltip-mode";
+        badge.textContent = "FLIGHT" if flight else "DRIVE";
+        number: any = document.createElement("span");
+        number.className = "atlas-tooltip-leg";
+        number.textContent = "Leg " + str(index + 1);
+        header.appendChild(badge); header.appendChild(number);
+        label.appendChild(header);
+        title: any = document.createElement("div");
+        title.className = "atlas-tooltip-route";
+        title.textContent = leg_title(journey, index);
+        label.appendChild(title);
+        timing: any = document.createElement("div");
+        timing.className = "atlas-tooltip-timing";
+        leg = journey["legs"][index];
+        for prefix in ["depart", "arrive"] {
+            endpoint: any = document.createElement("div");
+            endpoint.className = "atlas-tooltip-endpoint";
+            caption: any = document.createElement("span");
+            caption.className = "atlas-tooltip-caption";
+            caption.textContent = "Depart" if prefix == "depart" else "Arrive";
+            date: any = document.createElement("span");
+            date.className = "atlas-tooltip-date";
+            date.textContent = str(leg[prefix + "Date"] or "Not set");
+            time: any = document.createElement("span");
+            time.className = "atlas-tooltip-time";
+            time.textContent = str(leg[prefix + "Time"] or "Not set");
+            endpoint.appendChild(caption); endpoint.appendChild(date); endpoint.appendChild(time);
+            timing.appendChild(endpoint);
+        }
+        label.appendChild(timing);
+        if not presentation {
+            hint: any = document.createElement("div");
+            hint.className = "atlas-tooltip-hint";
+            hint.textContent = "Click for leg details";
+            label.appendChild(hint);
+        }
         path.bindTooltip(label, {"sticky": True, "className": "atlas-route-tooltip"});
         journey_id = str(journey["id"]);
-        path.on("click", lambda { if not presentation and journey_id != selectedId { onSelect(journey_id); } });
+        path.on("click", lambda {
+            if not presentation {
+                if journey_id != selectedId { onSelect(journey_id); }
+                onLegSelect(journey_id, index);
+            }
+        });
     }
 
     def draw_routes {
@@ -112,10 +159,10 @@ def:pub AtlasMap(journeys: any, states: any, selectedId: str = "", modeFilter: s
                 if not first or not last { continue; }
                 route = leg["route"];
                 if leg["mode"] == "FLIGHT" {
-                    add_path(atlas_flight_points(first, last), journey, True, active);
+                    add_path(atlas_flight_points(first, last), journey, index, True, active);
                 } elif leg["mode"] == "DRIVE" and route and route["status"] == "READY" {
                     points = route["points"] as list[list[float]];
-                    if len(points) > 1 { add_path(points, journey, False, active); }
+                    if len(points) > 1 { add_path(points, journey, index, False, active); }
                 }
             }
             for (index, stop) in enumerate(stops) {
@@ -128,7 +175,7 @@ def:pub AtlasMap(journeys: any, states: any, selectedId: str = "", modeFilter: s
                 }
                 pin = circleMarker([float(place["lat"]), float(place["lon"])], {"radius": 5 if active else 3, "color": "#faf9f5", "weight": 2, "fillColor": str(journey["color"] or "#b86645"), "fillOpacity": 1 if active else 0.25, "opacity": 1 if active else 0.3}).addTo(routes.current);
                 label: any = document.createElement("span");
-                label.textContent = str(index + 1) + "  " + str(place["name"]);
+                label.textContent = str(index + 1) + "  " + stop_label(stop);
                 pin.bindTooltip(label, {"permanent": bool(selectedId) and active, "direction": "top", "offset": [0, -8], "className": "atlas-stop-label"});
             }
         }
@@ -160,7 +207,7 @@ def:pub AtlasMap(journeys: any, states: any, selectedId: str = "", modeFilter: s
             }
         }
     }
-    can with [journeys, selectedId, modeFilter, presentation] entry { draw_routes(); }
+    can with [journeys, selectedId, selectedLeg, modeFilter, presentation] entry { draw_routes(); }
     can with [fitVersion] entry { if fitVersion > 0 { fit_journey(); } }
     can with [resetVersion] entry { if resetVersion > 0 { reset_view(); } }
     can with [presentation] entry { if view.current { view.current.invalidateSize({"pan": False}); } }

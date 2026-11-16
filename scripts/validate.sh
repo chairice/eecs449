@@ -16,4 +16,15 @@ fi
 "$jac_bin" check .
 "$jac_bin" test -d tests/ -v
 "$jac_bin" build main.jac
-node --test "$repo_dir/scripts/test-client-comparison.mjs" "$repo_dir/scripts/test-client-composer.mjs" "$repo_dir/scripts/test-client-atlas.mjs" "$repo_dir/scripts/test-client-atlas-navigation.mjs"
+python3 "$repo_dir/scripts/finalize-studio-build.py"
+python3 "$repo_dir/scripts/check-build-secrets.py" "$repo_dir/web/dist/everyday-agent-web.jab"
+node --test "$repo_dir/scripts/test-client-comparison.mjs" "$repo_dir/scripts/test-client-composer.mjs" "$repo_dir/scripts/test-client-atlas.mjs" "$repo_dir/scripts/test-client-atlas-navigation.mjs" "$repo_dir/scripts/test-client-atlas-flow.mjs" "$repo_dir/scripts/test-client-studio.mjs" "$repo_dir/scripts/test-studio-offline.mjs" "$repo_dir/scripts/test-chat-markdown.mjs"
+
+if [[ -x "$repo_dir/workers/.venv/bin/python" ]]; then
+    cd "$repo_dir"
+    workers/.venv/bin/python -m pytest -c workers/pyproject.toml workers/tests -q
+    workers/.venv/bin/python scripts/test-research-browser.py
+else
+    printf 'Worker tests require workers/.venv; see workers/README.md.\n' >&2
+    exit 1
+fi

@@ -15,6 +15,8 @@ react-hook-form = "^7.71.0"
 zod = "^4.3.6"
 "@hookform/resolvers" = "^5.2.2"
 leaflet = "^1.9.4"
+react-markdown = "10.1.0"
+remark-gfm = "4.0.1"
 
 [dependencies.npm.dev]
 vite = "^6.4.1"
@@ -32,12 +34,29 @@ watchdog = ">=3.0.0"
 host = "127.0.0.1"
 base_route_app = "app"
 
+[placement.pins]
+"client.atlas_flow" = "client"
+"client.planning_state" = "client"
+"components.StudioOffers" = "client"
+
 # What a browser tab and a shared link show.
 [client.app_meta_data]
-title = "Detour"
-description = "Plan a train or bus trip in one sentence. Detour compares the routes and spells out what's known, and what isn't."
+title = "Detour · Your next journey"
+description = "Plan your kind of trip, together with Detour."
 
 # Tailwind v4 utilities, layered above the hand-written styles (see tailwind.css).
 [client.vite]
 plugins = ["tailwindcss()"]
 lib_imports = ["import tailwindcss from '@tailwindcss/vite'"]
+
+[client.pwa]
+theme_color = "#121715"
+background_color = "#121715"
+cache_name = "atlas-studio-v1"
+install_banner = false
+
+[client.pwa.manifest]
+name = "Detour Travel Studio"
+short_name = "Detour"
+description = "Your next journey, thoughtfully planned."
+start_url = "/studio"

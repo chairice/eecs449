@@ -1,193 +1,65 @@
-# Detour: an AI copilot for ground commuting
+# Detour
 
-> **Working product name.** Detour is the current design direction for the
-> EECS 449 team project; the name can change without changing the product
-> contract below.
+A conversational U.S. trip planner built in Jac. Start at the familiar Detour landing page, then talk through a professional trip or multi-day vacation in the linked map, itinerary and chat workspace. Routine requested edits apply immediately with Undo; consequential changes proposed by the assistant are confirmed in plain chat.
 
-For a lot of cross-state commuters, there are a lot of tasks that go into making sure they reach their destinations: buying tickets, sorting through confirmation emails, scheduling around conflicts and delays, keeping track of tickets, checking the weather. None of them are hard. Together they take up a lot of time and attention.
+See [current implementation and verification](docs/trip-planner-implementation-status.md#current-detour-implementation) and [the Detour product contract](docs/DETOUR-AGENT-HANDOFF.md). Older Atlas, universal-approval, all-in-total-only and studio-as-home descriptions are historical where they conflict with the current contract.
 
-This project builds a conversational AI agent that takes over some of that
-work. A commuter describes the trip they need in plain language, compares a
-small set of feasible routes, sees weather and disruption risks, and confirms
-one plan. Detour keeps the confirmed plan in one place without booking or
-changing anything behind the user's back.
+## Run locally
 
-## Product design
+Use the pinned **Jac 0.37.14**, **Python 3.13** and **Node 22.11.0**. Install Jac following [the web setup](web/README.md#toolchain-and-first-setup), then from this directory:
 
-The first implementation target is one narrow, complete path:
-
-**Describe a trip -> compare options -> understand the recommendation ->
-confirm -> view the saved trip.**
-
-The complete behavior, component boundaries, data contracts, external API
-choices, ranking algorithm, failure states, and architectural decisions are in
-the [design plan](docs/design/README.md). The interactive reference can be
-opened locally from [`docs/design/prototype.html`](docs/design/prototype.html).
-
-### Screenshots
-
-The current app, captured from the running build at 1248px wide. The original
-design targets these were built from are in
-[`docs/design/screens/`](docs/design/screens/).
-
-#### 1. Home
-
-A carousel of destinations turning on a cylinder; the header's Plan a trip
-button leads into planning.
-
-![Detour home page with the destination carousel](docs/screenshots/01-home.jpg)
-
-#### 2. Plan a trip
-
-One search bar for where and when, over a map of the demo corridor.
-
-![Plan page with the Where and When search bar and map](docs/screenshots/02-plan.jpg)
-
-#### 3. Choose a destination
-
-Where suggests the places the demo can plan, and choosing one moves on to When.
-
-![Where menu suggesting Chicago](docs/screenshots/03-plan-where.jpg)
-
-#### 4. Pick dates
-
-When opens a two-month calendar; a second date adds a return trip.
-
-![When menu with a two-month calendar](docs/screenshots/04-plan-when.jpg)
-
-#### 5. Compare routes
-
-Each option shows its times, mode, travel time and fare; the map traces the
-selected route and the booking card saves it.
-
-![Route comparison with map and Save trip card](docs/screenshots/05-results.jpg)
-
-#### 6. Trips, before saving
-
-![Empty Trips page](docs/screenshots/06-trips-empty.jpg)
-
-#### 7. Saved trips
-
-![Trips page listing a saved trip](docs/screenshots/07-trips.jpg)
-
-#### 8. Trip detail
-
-The saved route, its map and a way to remove it.
-
-![Saved trip detail with route, map and Remove trip](docs/screenshots/08-trip-detail.jpg)
-
-#### 9. Not found
-
-![Detour 404 page](docs/screenshots/09-404.jpg)
-
-## Product principles
-
-1. **Conversation for intent, code for decisions.** The LLM converts plain
-   language into a typed trip request. Deterministic code validates, scores,
-   and ranks routes so recommendations are reproducible.
-2. **Make tradeoffs legible.** Every recommendation identifies the concrete
-   reasons it won: time, cost, transfers, reliability, and weather exposure.
-3. **Keep the user in control.** Nothing is booked, messaged, or added to an
-   external service without an explicit confirmation.
-4. **Design for incomplete data.** Missing real-time data means “unknown,” not
-   “on time.” The interface exposes freshness and confidence.
-5. **Ship a complete vertical slice first.** The MVP uses deterministic route
-   fixtures where necessary, then swaps in live providers behind stable
-   interfaces.
-
-## MVP use case
-
-A student asks: “Get me from Ann Arbor to Chicago Friday after 4 PM. Keep it
-under $50 and avoid tight transfers.” Detour returns up to three ground-transit
-options, incorporates forecast and disruption information, explains its
-recommendation, and saves the selected plan after confirmation.
-
-The MVP does **not** purchase tickets, connect email or calendars, continuously
-monitor trips, or promise nationwide coverage. Those are later capabilities
-once the planning loop is reliable.
-
-## Status
-
-### Atlas: travel history and future intentions
-
-Open **Atlas** (`/atlas`) for ordered, mixed flight/driving journeys on a minimal
-US map. Start with **Add journey** or the labeled example. Describe a journey,
-review proposed stops and modes, resolve ambiguous city/airport matches, add
-optional local dates/times, then **Save journey**. A no-key starting point is
-`DTW -> JFK -> BOS`; choose each leg's travel mode yourself. Complex language
-requires the optional server-side LLM or manual editing—the limited rules
-fallback keeps unsupported requests visible instead of claiming success.
-
-Past/Planned are explicit statuses. Flights are illustrative arcs; use
-**Calculate / retry road route** for free OSRM road geometry. Unavailable routes
-have no invented road line. Fit/Reset are explicit; editing does not move the
-camera. Filter journeys, explore Alaska/Hawaii, or **Present** (Escape exits).
-Saved journeys and recovery drafts, including unsent descriptions, stay in this
-browser. **Trash** is recoverable. This is not account sync, actual travel
-tracking, ticket search, hotel recommendations, or booking. **Plan** and
-**Trips** remain separate.
-
-See [Atlas architecture](docs/atlas-design.md),
-[data and storage contracts](docs/atlas-data.md), and
-[provider setup](web/README.md#atlas-configuration).
-
-Screenshots from the running app (the journeys shown are labeled QA examples):
-
-![Atlas desktop workspace with flight and road journeys](docs/screenshots/10-atlas.jpg)
-
-<details>
-<summary>Phone layout</summary>
-
-![Atlas phone map and bottom editor](docs/screenshots/11-atlas-mobile.jpg)
-
-</details>
-
-### Commuter planning preview
-
-The repository implements a read-only, fixture-backed planning preview:
-accessible structured input, a validated server endpoint, three synthetic
-Ann Arbor–Chicago routes, deterministic feasibility/scoring, and selectable
-route comparisons with explicit provenance and unknown conditions. See the
-[preview contract and limitations](docs/planning-preview.md),
-[domain contracts](docs/domain-model.md), [fixture adapter](docs/fixture-provider.md),
-and [scoring rules](docs/scoring.md).
-
-Plain-language requests ("Chicago Friday after 4, under $50") are read by
-Claude (one direct API call) when `ANTHROPIC_API_KEY` is set, and by a rule-based
-parser otherwise (`web/server/interpret.jac`); either way they only fill the
-search form, which the planner validates. Visitors can create an account and
-log in with an email and password from the home page (Jac's built-in user
-store; no confirmation email). Saved trips are kept in the browser's local
-storage, in a separate list for each signed-in account. Each route's weather
-risk comes from live National Weather Service forecasts and alerts at the
-points a traveler passes, at the hour they pass them; trips more than about six
-days out, or a failed lookup, show weather as unknown. Server-side saved trips
-and live transit data remain planned work. See the
-[architecture decisions](docs/design/ARCHITECTURE_DECISIONS.md) for the system
-boundaries, algorithms, API choices, data lifecycle, and design tradeoffs.
-
-## Development
-
-Use **Jac 0.37.14** (standalone compiler); the JavaScript tooling baseline is
-**Node 22.11.0** in `.nvmrc`. Follow [web setup](web/README.md) to install and
-run the application. From the repository root, run the same checks as CI:
-
-```bash
-bash scripts/validate.sh
+```sh
+cd web
+../scripts/jac install
+cd ..
+python3.13 -m venv workers/.venv
+workers/.venv/bin/python -m pip install -r workers/requirements.lock
+PLAYWRIGHT_BROWSERS_PATH="$PWD/workers/.browsers" workers/.venv/bin/python -m playwright install chromium
+cp workers/.env.example workers/.env
+# Configure ANTHROPIC_API_KEY in workers/.env, then:
+bash scripts/dev-studio.sh
 ```
 
-This checks every Jac source, runs all Jac regression suites, builds the full
-application from current sources, and tests the emitted comparison adapter.
+Open [Detour](http://localhost:8000/); Plan a trip opens [the studio](http://localhost:8000/studio). The supervisor starts Jac and its separate planning worker with the same private configuration. Keep credentials in `workers/.env`, outside Jac's packaged `web/` directory. See [runtime setup and deployment boundaries](workers/README.md).
 
-### Deploying
+## The experience
 
-[`render.yaml`](render.yaml) describes a Render web service:
-`scripts/render-build.sh` installs the pinned Jac compiler inside the checkout
-and builds the app, and `scripts/render-start.sh` serves it on Render's
-`$PORT`. Set `ANTHROPIC_API_KEY` in the service's environment to have Claude
-read requests; without it the built-in parser answers. The free plan sleeps
-after 15 idle minutes and takes about a minute to wake.
+- Start as a guest, then save to an account and resume across devices. The recognizable landing page is `/`; the conversational workspace is `/studio`.
+- Plan logistics-only business trips or detailed vacations with mixed flights and driving. Move through overview → day → item in a focused pane with Back, restored scroll/focus and phone Trip/Map/Chat navigation.
+- Discuss selected places and activities in the main chat. Routine edits apply with Undo; consequential assistant suggestions ask a plain-language question bound to the current trip. Booked/fixed commitments stay protected.
+- Paste a plan or upload text, PDFs and images. Review or forget learned preferences. Delete trips with Undo or restore them from Recently Deleted for 30 days; abandoned near-empty shells are cleaned after 24 hours while meaningful plans and retained drafts are protected.
+- See real researched flight, stay and car options as compact source cards in chat, with a larger comparison view. Prices retain their observed starting/unit/total basis; estimates remain separate from paid bookings. Provider results/property pages can be valid handoffs. Choosing an option does not book it.
+- Follow one persistent line showing actual current work. Independently refreshed NWS forecasts and official warnings cover ground locations along the trip, with source details on demand and quiet long-range availability states.
+- Read the last saved itinerary and booking details offline after loading the production app online. Maps and research need a connection.
 
-## Course
+![Detour landing page](docs/screenshots/17-detour-home.jpg)
 
-This project is being developed for EECS 449 (Conversational AI) at the University of Michigan.
+![Detour conversational workspace](docs/screenshots/19-detour-studio-desktop.jpg)
+
+## What is verified
+
+Current browser QA passed **28/28 checks with zero page errors**, including desktop/phone navigation, real Markdown rendering, trip lifecycle and source-card presentation. Live conversational checks exercised an actual rest-break edit and Undo while preserving fixed commitments and unrelated days; separate model-stage checks exercised consequential questions and bound confirmation. A real NWS adapter check returned a forecast and an official warning.
+
+The exact live research scenario produced **six real offers** across DTW → SFO on November 22, SFO → XNA on November 25, and a San Francisco hotel November 22–25, 2026 for one adult/one room. A fresh guest conversation then completed the actual app → queue → worker → staging → chat journey with **nine real cards**, three per component, unchanged itinerary and zero errors. Separate Airbnb research produced **three real dated home/room offers**. The actual car-chat pipeline also passed with **three genuine dated car cards**, using an observed provider-results URL as its research lead and preserving the itinerary. These are observed source results, not guaranteed future inventory or booked travel. See [evidence and material limits](docs/trip-planner-implementation-status.md#current-detour-implementation).
+
+Final validation passed **68 Jac source checks, 124 Jac tests, 59 Node tests and 152 Python tests**, plus the actual Chromium date-picker/stale-reference regression, complete release build, offline-worker finalization and bundle secret scan. Expanded native API verification also passed against the final restarted server; the site returned HTTP 200 and the worker is ready. The [status document](docs/trip-planner-implementation-status.md#current-detour-implementation) records the full app journeys and their limits.
+
+## Validate and preview
+
+```sh
+JAC_BIN="$PWD/scripts/jac" bash scripts/validate.sh
+workers/.venv/bin/python scripts/test-studio-api.py  # local Jac server running
+workers/.venv/bin/python scripts/preview-studio.py  # built production client on :8002
+```
+
+Validation checks every Jac source, runs Jac tests, builds the client and Jac artifact, installs the studio's offline service worker in both outputs, scans for packaged secrets, and runs client/worker regressions. The deterministic suites require no API key or public-site access. The local Chromium interaction regression uses the browser installed during setup above. [Live test commands](workers/README.md#live-verification) deliberately use model credits and public sites.
+
+The runtime requires one supervised Jac server/worker host, a persistent Jac PostgreSQL store and private worker volume. A static client host alone does not provide planning or account persistence. See [release and deployment status](docs/trip-planner-implementation-status.md#release-and-deployment-status) for the current publishing/hosting result and the [worker deployment boundary](workers/README.md#resource-and-deployment-boundary) for required resources.
+
+## Design and source
+
+The current [Detour handoff](docs/DETOUR-AGENT-HANDOFF.md) supersedes conflicting historical product rules. The earlier [adopted decisions](docs/trip-planner-decisions.md), [interaction blueprint](docs/trip-planner-ux-blueprint.md), [architecture](docs/trip-planner-design.md) and [implementation plan](docs/trip-planner-implementation-plan.md) describe the product. Core code lives in `web/components/TripStudio.jac`, `web/server/planning.jac`, `web/server/planning_core.py`, and `workers/atlas_runtime/`.
+
+The earlier commuter preview remains at `/commuter`, `/plan` and `/trips`; the earlier Atlas journal remains at `/atlas`. Their fixture and browser-local contracts are separate from the new studio. Historical documentation is retained in [the previous README](docs/commuter-readme-legacy.md) and [historical web reference](web/README-legacy.md).
+
+Developed for EECS 449 at the University of Michigan.

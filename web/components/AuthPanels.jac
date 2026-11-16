@@ -28,7 +28,7 @@ def:pub LoginPanel -> JsxElement {
             password = "";
             return;
         }
-        navigate("/plan");
+        navigate("/studio");
         scrollToTop();
     }
     return <section className={CARD} aria-labelledby="login-title">
@@ -64,7 +64,7 @@ def:pub SignupPanel -> JsxElement {
             problem = failure;
             return;
         }
-        navigate("/plan");
+        navigate("/studio");
         scrollToTop();
     }
     steps = [
@@ -114,7 +114,7 @@ def:pub AuthPanels -> JsxElement {
                 <div className="flex w-full gap-3 sm:w-auto">
                     <button type="button" onClick={lambda { log_out(); }}
                         className="inline-flex h-12 flex-1 cursor-pointer items-center justify-center rounded-xl border border-gray-300 bg-white px-5 text-base font-medium text-gray-900 transition-transform duration-150 hover:border-gray-900 active:scale-98 sm:flex-none">Log out</button>
-                    <Link to="/plan" className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-linear-to-r from-emerald-600 to-green-700 px-5 text-base font-semibold text-white no-underline shadow-sm transition-transform duration-150 hover:from-emerald-700 hover:to-green-800 active:scale-98 sm:flex-none">Plan a trip<Icon name="arrow.right"/></Link>
+                    <Link to="/studio" className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-linear-to-r from-emerald-600 to-green-700 px-5 text-base font-semibold text-white no-underline shadow-sm transition-transform duration-150 hover:from-emerald-700 hover:to-green-800 active:scale-98 sm:flex-none">Plan a trip<Icon name="arrow.right"/></Link>
                 </div>
             </div>
         ) if active else (

@@ -6,3 +6,12 @@ web/dist/
 
 # Jac compiler installed by scripts/render-build.sh
 .render/
+
+# Local service credentials and development settings.
+.env
+.env.*
+!.env.example
+!**/.env.example
+workers/.venv/
+workers/artifacts/
+workers/.browsers/

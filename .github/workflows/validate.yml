@@ -17,6 +17,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: workers/requirements.lock
+      - name: Install planning runtime test dependencies
+        run: |
+          python -m venv workers/.venv
+          workers/.venv/bin/python -m pip install -r workers/requirements.lock
+      - name: Install research browser for offline interaction regression
+        run: PLAYWRIGHT_BROWSERS_PATH="$PWD/workers/.browsers" workers/.venv/bin/python -m playwright install --with-deps chromium
       - name: Install pinned Jac toolchain
         shell: bash
         # The installer looks the release up through the GitHub API; the job's

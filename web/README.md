@@ -1,252 +1,79 @@
 # Detour web application
 
-The app has a landing page, Atlas, planning/results, browser-local saved trips,
-trip detail, and a not-found route. The commuter planner ranks synthetic
-Ann Arbor–Chicago routes. Atlas is a separate travel journal and future-intent
-canvas with local place lookup, optional LLM proposals, and optional OSRM road
-geometry. Neither flow purchases travel. See [planning preview](../docs/planning-preview.md)
-and [Atlas design](../docs/atlas-design.md) for their separate boundaries.
+Detour is a conversational U.S. trip planner in Jac. `/` is the familiar landing page; planning entry points open `/studio`, with linked chat, map and itinerary views. Routine requested changes apply immediately with Undo. Consequential assistant suggestions ask a plain-language question in chat, bound to the current trip and pending decision. Fixed bookings and their referenced locations remain protected.
+
+Start with the [repository README](../README.md), [worker guide](../workers/README.md) and [current implementation/evidence](../docs/trip-planner-implementation-status.md#current-detour-implementation). The [product contract](../docs/DETOUR-AGENT-HANDOFF.md) supersedes earlier Atlas branding, universal approval and all-in-price-only rules.
 
 ## Toolchain and first setup
 
-The supported compiler is **Jac 0.37.14**, pinned in `jac.toml`. Jac syntax is
-version-sensitive: this release infers client placement from JSX and imports,
-uses ordinary `.jac` filenames, and no longer accepts `cl { ... }` wrappers.
-Its standalone binary includes Python, Bun, and the client compiler; do not
-install the former `jaclang`/`jac-client` pip plugins into a separate virtualenv.
-The repository also pins **Node 22.11.0** in `.nvmrc` for JavaScript tooling and
-CI; Jac's own dependency installation and bundling use its bundled Bun runtime.
+Use **Jac 0.37.14**, pinned in `jac.toml`, **Python 3.13** for the worker, and **Node 22.11.0**, pinned in `../.nvmrc`, for JavaScript tooling. Jac's standalone compiler includes its Python/Bun/client runtime; do not install the retired `jaclang`/`jac-client` pip plugins into another environment.
 
 Install the pinned compiler with the official installer:
 
-```bash
+```sh
 curl -fsSL https://raw.githubusercontent.com/jaseci-labs/jaseci/main/scripts/install.sh | bash -s -- --version 0.37.14
 export PATH="$HOME/.local/bin:$PATH"
 jac --version
 ```
 
-From the repository root:
+Then follow the complete repository-root setup in [the README](../README.md#run-locally), including `jac install`, the locked worker dependencies, Chromium and private configuration. Initial dependency installation needs network access. Generated packages and bundles live in ignored `web/.jac/`; `jac.toml` is the npm dependency source of truth. Transitive npm dependencies are resolved on install and are not yet frozen in a tracked lockfile.
 
-```bash
-nvm install                 # optional when using nvm for Node tooling
-nvm use
-cd web
-jac install
-```
-
-Initial installation/build needs network access for dependencies. Jac stores
-generated packages, bundles, and local runtime data under ignored `web/.jac/`.
-`jac.toml` is the dependency source of truth; the generated client package
-manifest and Bun lockfile live under `.jac/client/`. Dependency ranges are
-resolved on a fresh install, so the compiler is pinned but transitive npm
-dependencies are not yet frozen in the repository.
-
-## Development server
-
-From `web/`:
-
-```bash
-jac run --dev main.jac
-```
-
-Open http://localhost:8000. Client edits hot-reload; restart for server changes.
-The development API uses port 8001. Stop with Ctrl+C. `jac run --show` prints
-the resolved entry point and serving mode. Run Jac commands from `web/` so
-they use this project's configuration.
-
-## Atlas configuration
-
-No key is needed for local place lookup, manual editing, illustrative flights,
-browser storage, or the limited explicit-route parser. Open `/atlas` after
-starting the app. A sample rules request is `DTW -> JFK -> BOS`; confirm modes
-and resolve all remaining details before saving.
-
-- `ANTHROPIC_API_KEY`: optional server-only credential for natural-language
-  creation/refinement. Never put it in client code or Git. Atlas sends only the
-  submitted sentence and selected itinerary fields, not other journeys or notes.
-- `ATLAS_MODEL`: optional model override; defaults to `DETOUR_MODEL` or
-  `claude-haiku-5-5`, matching the existing interpreter. Model access depends on
-  your provider account; failures visibly fall back to rules/manual editing.
-- `ATLAS_OSRM_BASE`: optional operator-controlled route endpoint. Default:
-  `https://routing.openstreetmap.de/routed-car/route/v1/driving/`.
-  The public service receives/logs the selected endpoints. No paid fallback.
-
-Road calls are gated at one/second per process, with a 64-entry one-hour cache
-(errors 15 seconds), 10-second timeout, and response/geometry bounds. AI calls
-have a 12-second timeout and a 30/hour per-process ceiling, at least two seconds
-apart. These are demo safeguards, not distributed production quotas. Proposals
-support up to 24 stops; all output needs review. Simplified US boundaries can
-reject valid coastal roads. Use a suitable self-hosted route backend before
-scaling. See [data documentation](../docs/atlas-data.md) for attribution and
-coverage. Atlas does not invoke the commuter planner or book anything.
-
-## Baseline validation
+## Run the complete application
 
 From the repository root:
 
-```bash
-bash scripts/validate.sh
+```sh
+bash scripts/dev-studio.sh
 ```
 
-The script rejects a different Jac version, checks all source files with
-`jac check .`, runs every suite with `jac test -d tests/ -v`, builds with
-`jac build main.jac`, then tests the emitted client helpers with Node. It exits
-on any failure. If Jac is not on PATH, use
-`JAC_BIN=/absolute/path/to/jac bash scripts/validate.sh`. The same script runs
-for pull requests and pushes to `main` in `.github/workflows/validate.yml`.
-The production client is emitted into `web/.jac/client/dist/`; it is not a
-deployed app or a bundled server. Browser smoke check: open every route below
-directly, follow internal links, use browser back/forward, and resize to mobile.
-Jac serves extensionless paths through its SPA fallback. Another production
-host must serve the app HTML for those same paths.
+Open [the landing page](http://localhost:8000/) or [the studio](http://localhost:8000/studio). The supervisor starts Jac and the isolated research worker with the same private environment; the development API is on port 8001. Client edits hot-reload; server/worker changes require a coordinated restart. Use Ctrl+C to stop the supervisor.
 
-Jac 0.37.14 currently reports these nonfatal diagnostics on this client.
-They remain visible; no diagnostic classes are globally suppressed:
+Running `../scripts/jac run --dev main.jac` from `web/` starts only the Jac application. It does not replace the worker supervisor. Run Jac commands from `web/` so they use the pinned app configuration. The `../scripts/jac` wrapper verifies the compiler version and can recover a broken native launcher from its installed runtime.
 
-- `W1037`: deliberate `any` values at browser and JSX children boundaries.
-- `W2001`: intrinsic HTML closing tags are reported as possibly undefined.
-- `W2003`: compiler-generated React state setters are reported as unused.
-- `W1051`: some built-in `@jac/runtime` routing exports lack resolved checker types.
+## Validate and build
 
-Missing-import warnings (`W1100`) before dependency installation should
-disappear after `jac install`; investigate new warnings rather than treating
-them as part of this baseline. A successful check/build does not replace
-interaction testing as new functionality is added.
+Stop the development supervisor before a release build: Jac shares prepared-module caches between development and sealing. From the repository root:
 
-## Source map
+```sh
+JAC_BIN="$PWD/scripts/jac" bash scripts/validate.sh
+# Restart the app before this local API integration test:
+workers/.venv/bin/python scripts/test-studio-api.py
+```
 
-| File | Responsibility |
-|---|---|
-| `main.jac` | Renders the generated file-based router's children. |
-| `pages/layout.jac` | Persistent shell, active navigation, and color-scheme subscription. |
-| `pages/` | Public `JsxPage` exports declare routes; `JsxLayout` declares the shared layout. |
-| `theme.jac` | Light/dark themes, fonts, and shared style helpers. |
-| `styles.css` | Shared semantic color, spacing, typography, radius, elevation, focus, and responsive tokens. |
-| `browser.jac` | Typed wrappers around media queries and DOM styling. |
-| `client/composer_model.jac` | Raw form input, exact local validation, and the typed client draft. |
-| `components/TripComposer.jac` | Accessible input form and honest validated-request summary. |
-| `tests/composer_tests.jac` | Calendar, time, currency, required-field, mode, and input-preservation tests. |
-| `server/models.jac` | Canonical domain objects, validation, and fixture JSON codecs. |
-| `tests/domain_tests.jac` | Domain boundary and serialization regression tests. |
-| `components/` | Shared `Brand`, `PublicHeader`, and `AppShell`, plus landing sections. |
-| `tailwind.css` | Tailwind v4 theme and utilities, layered above the hand-written styles. |
-| `client/account.jac` | Email/password sign-up, login, and logout over Jac's built-in user store. |
-| `components/AuthPanels.jac` | Home-page log-in and create-account panels. |
-| `components/AccountMenu.jac` | Header account control: Log in, or the signed-in email and Log out. The Trips tab shows the saved-trip count. |
-| `components/FloatingField.jac` | Input frame with a floating label, used by the account forms. |
-| `server/providers/weather.jac` | National Weather Service forecasts and alerts at hourly points along each route. |
-| `server/weather_rules.jac` | Pure rules turning weather evidence into Low, Moderate, High or Unknown. |
-| `fixtures/weather/` | Recorded NWS responses for `tests/weather_tests.jac`; tests never call the live API. |
+Validation checks Jac sources, runs Jac tests, creates the complete production client and sealed `web/dist/everyday-agent-web.jab`, finalizes the offline worker in both outputs, scans for packaged secrets, and runs emitted-client, Python and real local Chromium regressions. The deterministic tests require no model key or public-source access; the Chromium binary must already be installed. Live model/source checks are separate opt-in commands in [the worker guide](../workers/README.md#live-verification).
 
-## Styling and accounts
+The emitted client in `web/.jac/client/dist/` is only one part of the application. A static host alone cannot run accounts, graph persistence, planning jobs or browser research. For a direct build from `web/`, run `../scripts/jac build main.jac`, then `python3 ../scripts/finalize-studio-build.py` and the bundle secret scan before distributing the artifact. Restart development after building.
 
-Tailwind v4 is layered on top of the original CSS rather than replacing it.
-`tailwind.css` loads Tailwind's theme and utilities without its Preflight reset,
-and every hand-written stylesheet is wrapped in `@layer legacy`, declared below
-`utilities`, so a utility class always wins over a hand-written rule on the same
-element. Rules that override Leaflet's own (unlayered) stylesheet sit outside
-the layer at the end of `styles.css` and `atlas.css`; keep new Leaflet
-overrides there. Without Preflight, buttons and lists keep browser defaults, so
-add `border-0` or `list-none p-0` where a component needs them.
+For local production-client/offline QA, `workers/.venv/bin/python scripts/preview-studio.py` serves the built client on port 8002 and proxies the already-running local Jac API. It is a test preview, not a production server.
 
-Accounts use `jacSignup`/`jacLogin` from `@jac/runtime`: the server stores
-hashed passwords and issues the session token; no email is sent. The browser
-remembers the signed-in email so the header can show it, and saved trips are
-stored under `detour.savedTrips.v1:<email>` while signed in (the shared
-`detour.savedTrips.v1` list otherwise). Planning and Atlas never require an
-account. Locally the dev server creates its own JWT secret; deployments set
-`JAC_SERVE_AUTH_SECRET` (already in `render.yaml`).
+## Current source map
 
-## Weather
+Paths below are relative to `web/` unless shown otherwise.
 
-`plan_trip` asks `api.weather.gov` (free, no key) for the hourly forecast and
-active alerts at each vehicle's start and end and at a point on its path for
-every further hour aboard, at the time the traveler is there. Responses are
-cached (grid lookups a day, forecasts 15 minutes, alerts 5 minutes) and fetched
-in parallel within an 8-second budget. `server/weather_rules.jac` then sets
-each route's level:
+| Path | Responsibility |
+| --- | --- |
+| `main.jac`, `pages/` | File-based routes, explicit endpoint imports and landing/studio shell selection |
+| `components/TripStudio.jac`, `studio.css` | Conversation, progress/composer, focused workspace and responsive navigation |
+| `components/StudioDetails.jac`, `StudioOffers.jac`, `StudioWeather.jac` | Compact type-specific details, real option cards and auxiliary weather |
+| `components/ChatMarkdown.jac` | CommonMark/GFM with inert raw HTML, unsafe links and arbitrary images |
+| `components/PlannerMap.jac` | Linked places and sourced road geometry; provisional connections remain distinct |
+| `client/planning_state.jac`, `client/planning_rpc.jac` | Device cache, current DTO helpers and authenticated protected-endpoint bridge |
+| `client/account.jac`, `components/AuthPanels.jac` | Existing Jac identity system and guest/account handoff |
+| `server/planning.jac` | Account-owned trip/profile/revision graph, atomic writes and protected endpoints |
+| `server/planning_core.py`, `server/planning_api.py` | Structural validation, source/selection/budget checks and worker-result staging |
+| `server/planning_jobs.py`, `server/planning_lifecycle.py` | Private SQLite work queue, leases, recoverable deletion and draft lifecycle |
+| `server/planning_weather.py` | Independent real NWS refresh/cache, stale-input binding and retained official alerts |
+| `../workers/atlas_runtime/` | Anthropic interpretation, isolated public research browser and geographic tools |
+| `offline-worker.js`, `../scripts/finalize-studio-build.py` | Saved-itinerary offline policy and sealed-artifact service-worker replacement |
 
-- **High**: a warning, or a severe or extreme alert, in force at any point.
-- **Moderate**: a watch, advisory or moderate alert; an hour at least 50% likely
-  to bring snow, sleet, freezing rain, ice or thunderstorms; or wind of 35 mph
-  or more.
-- **Low**: every point's forecast and alerts were read and none of the above.
-- **Unknown**: any point couldn't be read. Unknown is never treated as safe.
-- **Not yet forecast**: the trip ends past the ~6-day forecast. The route
-  carries `weather_from` (when forecasts will cover it), its weather stays
-  unknown without counting as missing data, and the risk badge is set by delay
-  and connection risk; the card says "Forecast from Sat, Nov 14". A Moderate
-  or High reading on the part already forecast still counts.
+## Storage and production boundary
 
-Saved trips keep each leg's route, its delay and connection levels, and its
-risk as of saving. Opening a trip asks `trip_weather` for that route's weather
-now, using the same rules as search, and shows "Risks now"; trips saved before
-routes were kept, or a failed check, fall back to "Risks when saved".
-`trip_weather` takes at most six legs, each under a day long, and stores nothing.
+Accounts and accepted trips live in Jac PostgreSQL. Guest work and the last loaded itinerary are cached on the device; an authenticated account provides server save/resume. Internal `Atlas` module/cache names are retained for compatibility and are not a second product. Signing out clears that account's device trip/preferences cache.
 
-Results cards show the forecast's words under the risk badge, and the booking
-card says what set the level. The ranker stays pure; the API passes it the
-evidence. Set `DETOUR_WEATHER=off` to skip live lookups, and
-`DETOUR_NWS_CONTACT` to a contact address on deployed servers (NWS asks
-callers to identify themselves). The thresholds are the place to apply a
-fitted delay model later.
+The worker queue, captures and uploads are private data under `web/.jac/data/planner` by default, or `PLANNER_DATA_DIR`. They must share persistent storage with the one worker using that queue. Keep secrets in ignored `workers/.env` for local development or the deployment platform's private secret store, outside Jac's packaged `web/` directory. Never commit runtime graph data, captures, uploads or credentials.
 
-`AppShell` receives `dark`, `publicPage`, `minimalHeader`, `activePath`, and
-`navigationEnabled` from its caller and accepts page content through
-`children`, plus an optional `footer` rendered outside the main landmark.
-The landing uses its public variant, application routes share primary
-navigation, and unknown public URLs use the minimal brand-only header. The guest profile is now
-replaced by the account control (Log in, or the signed-in email and Log out). Mobile navigation stays visible,
-and controls use at least 44px targets. Shell theme colors are centralized
-in `styles.css`; the legacy `Theme` helpers reference those same variables.
+A production deployment needs the Jac server, a supervised Chromium-capable worker, private persistent worker storage, PostgreSQL and stable authentication configuration. Current deployment status is recorded in [implementation status](../docs/trip-planner-implementation-status.md#release-and-deployment-status); local test results alone do not establish public hosting.
 
-| Route | Current behavior |
-|---|---|
-| `/` | Detour overview, destination carousel, and log-in / create-account panels. |
-| `/plan` | Local validation, pending/retry states, and read-only synthetic fixture search; no LLM calls. |
-| `/plan/results` | Ranked fixture routes, each dated, or explicit errors; arrive-by searches cover every day from now to the deadline. Travelers can sort by Recommended, price, or soonest/latest departure (departure sorts group by day; the top choice stays marked Recommended); risk isn't a sort while it is only a level. Round trips are two numbered steps (a return may be the same day, for day trips), and returns are limited to those leaving after the chosen outbound arrives; the default outbound is the best one some return can follow; missing-request recovery on direct links. |
-| `/trips` | Saved-trip cards (this browser, per account when signed in) with remove, or an empty state. |
-| `/trips/:id` | One saved trip with its route, map, and Remove trip; unavailable state for unknown ids. |
-| Any other path | 404 and link back to planning; no app navigation. |
+## Retained compatibility routes
 
-Use `Link` from `@jac/runtime` for internal navigation. Keep route components
-in `pages/`; do not add a second manual router. Loading and provider-error
-states reflect the actual fixture planning request; no fixed loading timer is used.
-
-## Composer contract
-
-`TripComposer` accepts an optional initial `ComposerInput`, an optional
-`earliestDate`, `busy`, `submitLabel`, and an async
-`onValidDraft: Callable[[ComposerDraft], None]` (awaited by the form; Jac types
-async functions by their resolved return value). Input is
-copied on changes and is never cleared after a failed submission. The callback
-fires only for a complete, locally valid structured request. Natural-language
-text is optional while using the structured fallback and cannot overwrite
-explicit fields. It is retained in `request_text` for a future parser.
-
-The draft uses the server contract's field names and string enum values;
-currency is exact integer USD cents, an absent budget is `None`, and zero is
-a valid budget. Validation rejects impossible Gregorian dates, malformed
-24-hour times, identical locations, invalid decimal budgets, fractional or
-negative transfer buffers, and an empty mode selection. Date/time remain local
-intent. The caller can inject an earliest date resolved in the departure or
-arrival location's time zone; the current page does not guess that boundary
-from the device's time zone. No current-date restriction is applied yet.
-
-Without a callback, the built-in summary demonstrates the payload without
-claiming that a search ran or a plan was saved. The planning page instead calls
-`server.api.plan_trip` with the nine explicit canonical fields; optional prose
-is never sent to this endpoint. Controls are disabled during the request, a
-synchronous guard rejects duplicates, and responses after unmount are ignored.
-Transport failures retain the form and allow another submission. Browser Back
-and Edit restore the submitted request and description through history state;
-this is not durable storage. The mapper rejects malformed history state.
-
-Run pure validation with `jac test tests/composer_tests.jac -v` from `web/`.
-After a full `jac build main.jac`, run
-`node --test ../scripts/test-client-composer.mjs` for the emitted browser
-payload/restoration boundary. It deliberately checks plain JavaScript records:
-Jac 0.37.14's `isinstance(value, dict)` does not recognize history-state objects.
-Browser checks should cover
-blank submission, summary focus, field error links, successful validation,
-retained structured fields after editing the description, and mobile layout.
+The earlier commuter planner remains at `/commuter`, `/plan` and `/trips`; the earlier Atlas journal remains at `/atlas`. Their fixture inventory, browser-local trip keys and legacy weather DTOs are separate from Detour's current studio. The [historical web reference](README-legacy.md) preserves their implementation details and the [legacy repository README](../docs/commuter-readme-legacy.md) preserves the earlier project description.

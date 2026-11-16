@@ -23,7 +23,6 @@ obj:pub DestinationPhoto {
 glob:pub DESTINATIONS: list[DestinationPhoto] = [
     DestinationPhoto(city="Chicago", region="Illinois", photo="photo-1531001142232-7d7aac16a63e", photographer="Muzammil Soorma", page="people-gathering-on-cloud-gate-chicago-illinois-near-buildings-ayV1mD3HGyg", alt="Visitors at Cloud Gate in Millennium Park, Chicago"),
     DestinationPhoto(city="Ann Arbor", region="Michigan", photo="photo-1780104966799-c6d946ad5791", photographer="Peggy Paulson", page="historic-stone-building-and-tower-against-a-clear-blue-sky-1ZpjYnLymEE", alt="A historic stone tower against a clear blue sky in Ann Arbor"),
-    DestinationPhoto(city="Toronto", region="Ontario", photo="photo-1517935706615-2717063c2225", photographer="mwangi gatheca", page="cn-tower-skyline-in-toronto-qlKaN7eqay8", alt="The CN Tower and downtown Toronto at golden hour"),
     DestinationPhoto(city="Milwaukee", region="Wisconsin", photo="photo-1658605567772-6d51f2bc0807", photographer="Karson", page="a-river-with-tall-buildings-along-it-za0oC4r-_C4", alt="Tall buildings along the Milwaukee Riverwalk"),
     DestinationPhoto(city="New York", region="New York", photo="photo-1541336032412-2048a678540d", photographer="Timo Wagner", page="empire-state-building-new-york-at-night-fT6-YkB0nfg", alt="The Empire State Building at night, seen from Top of the Rock"),
     DestinationPhoto(city="Grand Rapids", region="Michigan", photo="photo-1584553505423-123599ea2472", photographer="Kari Shea", page="blue-bridge-over-river-near-city-buildings-during-daytime-koxByITzIUg", alt="A blue bridge over the Grand River beside downtown Grand Rapids"),
@@ -35,13 +34,7 @@ glob:pub DESTINATIONS: list[DestinationPhoto] = [
     DestinationPhoto(city="St. Louis", region="Missouri", photo="photo-1675906798406-f609bc8a0168", photographer="Kenny Nguyễn", page="the-st-louis-arch-is-lit-up-at-night-Xuu-R6v8HCA", alt="The Gateway Arch lit up at night in St. Louis")
 ];
 
-# Cards the demo planner can reach, with the trip each one starts. Clicking one
-# at the front opens planning with it filled in; the rest say "Coming soon".
-glob PLANNABLE: dict[str, dict[str, str]] = {
-    "Chicago": {"origin": "Ann Arbor, MI", "destination": "Chicago, IL"},
-    "Ann Arbor": {"origin": "Chicago, IL", "destination": "Ann Arbor, MI"}
-};
-
+# Every displayed destination is in the U.S. and can start a conversation.
 # Milliseconds each destination holds the front before the ring turns.
 glob ADVANCE_MS: int = 2500;
 # Cards within this many steps of the front are in the tab order.
@@ -73,7 +66,7 @@ def:pub DestinationCarousel -> JsxElement {
     def show(index: int) { turns = turns + ring_offset(index, active, count); }
     def choose(index: int) {
         city = DESTINATIONS[index].city;
-        if index == active and city in PLANNABLE { navigate("/plan", {"state": {"place": PLANNABLE[city]}}); }
+        if index == active { navigate("/studio", {"state": {"destination": city + ", " + DESTINATIONS[index].region}}); }
         else { show(index); }
     }
 
@@ -99,10 +92,10 @@ def:pub DestinationCarousel -> JsxElement {
                             "opacity": FADE[abs(ring_offset(index, active, count))] if abs(ring_offset(index, active, count)) < len(FADE) else "0"}}
                         tabIndex={0 if abs(ring_offset(index, active, count)) <= VISIBLE_REACH else -1}
                         aria-current={"true" if index == active else None}
-                        aria-label={place.city + ", " + place.region + (", plan a trip" if place.city in PLANNABLE else ", coming soon")}
+                        aria-label={place.city + ", " + place.region + ", plan a trip"}
                         onClick={lambda { choose(index); }}>
                         <img src={photo_url(place.photo, 600)} srcSet={photo_url(place.photo, 600) + " 600w, " + photo_url(place.photo, 900) + " 900w"} sizes="300px" alt={place.alt} loading="eager" draggable={False}/>
-                        <span className="dt-card-caption" aria-hidden="true"><span className="dt-card-city">{place.city}</span><span>{place.region + ("" if place.city in PLANNABLE else " · Coming soon")}</span></span>
+                        <span className="dt-card-caption" aria-hidden="true"><span className="dt-card-city">{place.city}</span><span>{place.region}</span></span>
                     </button>
                 }}
             </div>

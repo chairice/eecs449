@@ -14,7 +14,7 @@ def:pub PublicHeader -> JsxElement {
             <Brand/>
             <div className="flex flex-wrap items-center gap-3">
                 <AccountMenu/>
-                <Link className="dt-primary bg-linear-to-r from-emerald-600 to-green-700 font-semibold shadow-sm active:scale-98" to="/plan">Plan a trip<Icon name="arrow.up.right"/></Link>
+                <Link className="dt-primary bg-linear-to-r from-emerald-600 to-green-700 font-semibold shadow-sm active:scale-98" to="/studio">Plan a trip<Icon name="arrow.up.right"/></Link>
             </div>
         </div>
     </header>;

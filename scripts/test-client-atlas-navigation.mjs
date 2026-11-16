@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
+import * as atlasFlow from '../web/.jac/client/compiled/client/atlas_flow.js';
 import * as atlasState from '../web/.jac/client/compiled/client/atlas_state.js';
 import { initialize_atlas_history, set_atlas_history_handler }
   from '../web/.jac/client/compiled/client/atlas_navigation.js';
@@ -101,7 +102,7 @@ function studioFixture() {
   const source = readFileSync(new URL('../web/.jac/client/compiled/components/AtlasStudio.js', import.meta.url), 'utf8')
     .replace(/^import .*;\n/gm, '').replace(/^export /gm, '');
   const component = runInNewContext(`${source}\nAtlasStudio;`, {
-    ...atlasState,
+    ...atlasState, ...atlasFlow,
     __jacJsx: (type, props, children) => ({ type, props, children }),
     useNavigate: () => () => {},
     useJacState(initial) {
@@ -123,7 +124,7 @@ function studioFixture() {
   const render = () => { cellIndex = 0; refIndex = 0; effects.length = 0; return component(); };
   render(); effects.slice().forEach(effect => effect()); // Recover a dirty draft.
   render(); effects.at(-1)(); // Subscribe with the recovered draft's dirty state.
-  return { render, historyMoves, documentEvents, history: event => historyHandler(event) };
+  return { render, historyMoves, documentEvents, historyHandler: () => historyHandler };
 }
 
 function findElement(tree, predicate) {
@@ -136,24 +137,17 @@ function findElement(tree, predicate) {
   return null;
 }
 
-test('browser Back reveals the unsaved dialog when a dirty journey is presenting', () => {
+test('the legacy autosaved editor leaves browser history with the router', () => {
   const fixture = studioFixture();
-  findElement(fixture.render(), element => element.type === 'button' && element.children.includes('Present')).props.onClick();
-  assert.match(fixture.render().props.className, /is-presenting/);
-  fixture.history({ state: { idx: 0 }, stopImmediatePropagation() {} });
-  assert.deepEqual(fixture.historyMoves, [1]);
-  fixture.history({ state: { idx: 1 }, stopImmediatePropagation() {} });
-  const tree = fixture.render();
-  assert.doesNotMatch(tree.props.className, /is-presenting/);
-  assert.ok(findElement(tree, element => element.props?.role === 'dialog' && element.props['aria-label'] === 'Unsaved journey'));
+  assert.equal(fixture.historyHandler(), null);
+  assert.deepEqual(fixture.historyMoves, []);
+  assert.equal(findElement(fixture.render(), element => element.props?.role === 'dialog'), null);
 });
 
-test('internal navigation also exits presentation before showing the dirty-draft guard', () => {
+test('the legacy autosaved editor does not intercept internal navigation', () => {
   const fixture = studioFixture();
-  findElement(fixture.render(), element => element.type === 'button' && element.children.includes('Present')).props.onClick();
-  const anchor = { getAttribute: () => '/plan' };
-  fixture.documentEvents.click({ target: { closest: () => anchor }, preventDefault() {}, stopPropagation() {} });
-  const tree = fixture.render();
-  assert.doesNotMatch(tree.props.className, /is-presenting/);
-  assert.ok(findElement(tree, element => element.props?.role === 'dialog'));
+  assert.equal(fixture.documentEvents.click, undefined);
+  assert.equal(typeof fixture.documentEvents.keydown, 'function');
+  fixture.documentEvents.keydown({key:'Escape'});
+  assert.equal(findElement(fixture.render(), element => element.props?.role === 'dialog'), null);
 });

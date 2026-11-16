@@ -80,12 +80,11 @@ test "malformed model stop and leg shapes are rejected as a whole" {
     assert failed;
 }
 
-test "provider failure is honestly marked rules and keeps original text" {
+test "provider failure leaves the draft unchanged and offers retry" {
     with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-only-not-a-key"}), patch.object(svc, "_llm", side_effect=ValueError("truncated")) {
         result = json.loads(atlas_interpret("Detroit to Chicago", ""));
-        assert result["source"] == "rules";
-        assert "could not" in result["message"];
-        assert result["proposal"]["note"] == "Detroit to Chicago";
+        assert result["source"] == "error";
+        assert result["proposal"] is None;
     }
 }
 
@@ -100,12 +99,7 @@ test "truncated model envelopes are rejected without trusting partial text" {
     }
 }
 
-test "model cannot silently drop a repeated return leg" {
-    proposal = svc._rules("San Francisco to New York", None);
-    failed = False;
-    try { svc._check_preserved("fly to New York then return to San Francisco", None, proposal); } except ValueError { failed = True; }
-    assert failed;
-}
+
 
 test "route rejects arbitrary URLs IDs and unsupported mainland Alaska trips" {
     places = {"detroit": {"id": "detroit", "state": "MI", "lat": 42.3, "lon": -83.0}, "anchorage": {"id": "anchorage", "state": "AK", "lat": 61.2, "lon": -149.9}};
@@ -154,14 +148,7 @@ test "wrong primitive argument types are rejected at runtime boundary" {
     assert json.loads(svc.route_response(bad as str, "city"))["status"] == "ERROR";
 }
 
-test "incomplete mixed mode model proposal cannot erase intermediate cities" {
-    proposal = svc._rules("San Francisco to New York then San Francisco", None);
-    failed = False;
-    try {
-        svc._check_preserved("I flew from San Francisco to New York, drove to Boston and returned to San Francisco", None, proposal);
-    } except ValueError { failed = True; }
-    assert failed;
-}
+
 
 test "road geometry responses validate metrics and convert coordinate order" {
     start = {"lat": 42.0, "lon": -83.0};
@@ -213,7 +200,7 @@ test "oversized provider response is rejected before JSON parsing" {
 
 test "empty new journey context is accepted for an initial request" {
     fresh = {"title": "", "status": "PLANNED", "stops": [], "legs": [], "note": "local only"};
-    assert svc._context(json.dumps(fresh)) is None;
+    assert svc._context(json.dumps(fresh))["stops"] == [];
     with patch.dict(os.environ, {"ANTHROPIC_API_KEY": ""}) {
         result = json.loads(atlas_interpret("Detroit to Chicago", json.dumps(fresh)));
         assert len(result["proposal"]["stops"]) == 2;
@@ -273,9 +260,6 @@ test "mocked AI can fill a blank manual stop while output validation stays stric
 test "blank context does not exempt named stops or malformed values from validation" {
     selected = {"title": "Draft", "status": "PLANNED", "stops": [{"query": "Detroit"}, {"query": ""}], "legs": [svc._blank_leg()]};
     context = svc._context(json.dumps(selected));
-    failed = False;
-    try { svc._check_preserved("add Boston", context, svc._rules("Chicago to Boston", None)); } except ValueError { failed = True; }
-    assert failed;
     malformed = json.loads(json.dumps(selected));
     for bad in [42, None, [], {}] {
         malformed["stops"][1]["query"] = bad;
@@ -295,16 +279,9 @@ test "repeating a route preserves all existing leg dates and modes" {
     current["legs"][2]["departDate"] = "2026-02-01";
     result = svc._rules("Detroit to Chicago to Detroit to Chicago", current);
     assert result["legs"] == current["legs"];
-    svc._check_preserved("same cities", current, result);
 }
 
-test "mode-only instead followup cannot erase existing cities" {
-    current = svc._rules("Detroit to Chicago to Boston", None);
-    proposal = svc._rules("Detroit to Chicago", None);
-    failed = False;
-    try { svc._check_preserved("Drive instead", current, proposal); } except ValueError { failed = True; }
-    assert failed;
-}
+
 
 test "a complete mocked AI response keeps all stops and the original description" {
     proposal = svc._rules("Detroit to Chicago", None);

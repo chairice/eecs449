@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Prefer the installed compiler; recover a broken launcher through its cached
+# runtime without hardcoding a user, cache fingerprint, or Python installation.
+set -euo pipefail
+
+repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+expected="$(sed -n 's/^jac-version = "==\([^"]*\)"$/\1/p' "$repo_dir/web/jac.toml")"
+native="${JAC_NATIVE_BIN:-$(command -v jac || true)}"
+if [[ -z "$native" && -x "$HOME/.local/bin/jac" ]]; then
+    native="$HOME/.local/bin/jac"
+fi
+if [[ -n "$native" && "$native" != "$repo_dir/scripts/jac" ]]; then
+    version="$("$native" --version 2>/dev/null || true)"
+    if [[ "$version" == "jac $expected "* ]]; then
+        exec "$native" "$@"
+    fi
+fi
+
+python_bin="${JAC_PYTHON:-$repo_dir/web/.jac/venv/bin/python}"
+if [[ -x "$python_bin" ]]; then
+    shopt -s nullglob
+    candidates=()
+    if [[ -n "${JAC_RUNTIME_SITE:-}" ]]; then candidates+=("$JAC_RUNTIME_SITE"); fi
+    candidates+=("$HOME"/.cache/jac/rt/*/site)
+    for runtime_site in "${candidates[@]}"; do
+        [[ -f "$runtime_site/jaclang/__main__.py" ]] || continue
+        version="$(PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$runtime_site" "$python_bin" -m jaclang --version 2>/dev/null || true)"
+        if [[ "$version" == "jac $expected "* ]]; then
+            export PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$runtime_site"
+            exec "$python_bin" -m jaclang "$@"
+        fi
+    done
+fi
+
+printf 'Jac %s is unavailable. Install the pinned compiler following web/README.md, or set JAC_NATIVE_BIN.\n' "$expected" >&2
+exit 1

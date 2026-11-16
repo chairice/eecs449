@@ -69,7 +69,7 @@ async def:pub log_in(email: str, password: str) -> str {
     try {
         ok = await jacLogin(address, password);
     } except Exception {
-        return "Detour couldn't reach the server. Try again in a moment.";
+        return "The account service couldn't be reached. Try again in a moment.";
     }
     if not ok { return "That email and password don't match an account."; }
     remember(address);
@@ -88,7 +88,7 @@ async def:pub create_account(email: str, password: str) -> str {
     try {
         created = await jacSignup(address, password);
     } except Exception {
-        return "Detour couldn't reach the server. Try again in a moment.";
+        return "The account service couldn't be reached. Try again in a moment.";
     }
     if created is None or not created.success {
         return "An account with that email may already exist. Try logging in instead.";
