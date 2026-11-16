@@ -15,6 +15,14 @@ import from ...components.RiskBadge { RiskBadge, risk_summary, risk_words }
 import from ...components.comparison_view { day_label, risk_label, weather_words }
 import from ...components.comparison_view { ComparisonStop, ComparisonSegment }
 import from ...client.saved_trips { find_trip, remove_trip, trip_countdown }
+import from ...components.FareSource { FareSource }
+
+"""Who sold a saved leg's fare; trips saved before this was kept show none."""
+def leg_operators(leg: any) -> list[str] {
+    raw: any = leg["operators"];
+    if not Array.isArray(raw) { return []; }
+    return [str(name) for name in raw if isinstance(name, str) and name != ""];
+}
 
 """Stops saved with a leg; anything without numeric coordinates is skipped."""
 def leg_stops(leg: any) -> list[ComparisonStop] {
@@ -44,6 +52,51 @@ def leg_segments(leg: any) -> list[ComparisonSegment] {
         segments.append(ComparisonSegment(mode=segment["mode"], points=points));
     }
     return segments;
+}
+
+"""Each vehicle leg's fare saved with a direction; trips saved before fares were
+broken down have none, and any malformed row drops them all rather than show a
+breakdown that doesn't add up."""
+def fare_rows(leg: any) -> list[any] {
+    raw: any = leg["fares"];
+    if not Array.isArray(raw) { return []; }
+    for row in raw {
+        if not row { return []; }
+        for key in ["mode", "service", "origin", "destination", "price"] {
+            if not isinstance(row[key], str) or not row[key] { return []; }
+        }
+    }
+    return raw;
+}
+
+def saved_text(leg: any, key: str) -> str {
+    return leg[key] if isinstance(leg[key], str) else "";
+}
+
+"""What each leg of one direction costs and whether it's one ticket or several."""
+def FareBreakdown(leg: any, index: int) -> JsxElement {
+    rows = fare_rows(leg);
+    ticketing = saved_text(leg, "ticketing");
+    if len(rows) == 0 and not ticketing { return <></>; }
+    return <div className="mt-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5" aria-labelledby={"fares-" + str(index)}>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 id={"fares-" + str(index)} className="m-0 text-sm font-semibold text-gray-900">Fare breakdown</h3>
+            {(<span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">{ticketing}</span> if ticketing else None)}
+        </div>
+        {(<p className="mt-1 text-xs text-gray-500">{saved_text(leg, "ticketing_note")}</p> if saved_text(leg, "ticketing_note") else None)}
+        {(<dl className="mt-3 grid gap-2 text-sm">
+            {for (position, row) in enumerate(rows) {
+                <div key={"fare-" + str(position)} className="flex items-baseline justify-between gap-4">
+                    <dt className="text-gray-900">{row["mode"]} · {row["service"]}<span className="block text-xs text-gray-500">{row["origin"]} → {row["destination"]}</span></dt>
+                    <dd className="m-0 font-medium text-gray-900">{row["price"].replace(" USD", "")}</dd>
+                </div>
+            }}
+            <div className="flex items-baseline justify-between gap-4 border-t border-gray-100 pt-2">
+                <dt className="font-semibold text-gray-900">Total</dt>
+                <dd className="m-0 font-semibold text-gray-900">{leg["price"].replace(" USD", "")}</dd>
+            </div>
+        </dl> if len(rows) > 0 else None)}
+    </div>;
 }
 
 """A saved leg's risk with today's weather, or None when it can't be checked."""
@@ -107,11 +160,12 @@ def:pub TripDetailPage -> JsxPage {
                             <span className="grid gap-0.5"><span className="text-xs font-medium text-gray-500">Mode</span><span className="text-gray-900">{leg["modes"]}</span>{(<span className="text-xs text-gray-500">{leg["connections"]}</span> if isinstance(leg["connections"], str) and leg["connections"] else None)}</span>
                             {(<span className="grid justify-items-start gap-1"><span className="text-xs font-medium text-gray-500">Risks now</span><RiskBadge label={fresh[index]["risk"]} detail={fresh[index]["detail"]}/><span className="text-xs text-gray-500">{fresh[index]["note"]}</span></span> if index < len(fresh) and fresh[index] else
                               <span className="grid justify-items-start gap-1"><span className="text-xs font-medium text-gray-500">Risks when saved</span><RiskBadge label={leg["risk"]} detail={leg["risk_detail"] if isinstance(leg["risk_detail"], str) else ""}/>{(<span className="text-xs text-gray-500">{leg["weather"]}</span> if isinstance(leg["weather"], str) and leg["weather"] else None)}</span> if isinstance(leg["risk"], str) and leg["risk"] else None)}
-                            <span className="grid justify-items-end gap-0.5"><span className="text-xs font-medium text-gray-500">Fare</span><strong className="text-lg font-semibold tracking-tight text-gray-900">{leg["price"].replace(" USD", "")}</strong></span>
+                            <span className="grid justify-items-end gap-0.5"><span className="text-xs font-medium text-gray-500">Fare</span><strong className="text-lg font-semibold tracking-tight text-gray-900">{leg["price"].replace(" USD", "")}</strong><FareSource operators={leg_operators(leg)}/></span>
                         </div>
+                        <FareBreakdown leg={leg} index={index}/>
                     </section>
                 }}
-                <RouteMap stops={stops} segments={leg_segments(trip["legs"][0])} label={"Map of " + " to ".join([stop.name for stop in stops]) if len(stops) > 0 else "Map of the Ann Arbor to Chicago demo corridor"}/>
+                <RouteMap stops={stops} segments={leg_segments(trip["legs"][0])} label={"Map of " + " to ".join([stop.name for stop in stops]) if len(stops) > 0 else "Map of the Detour demo region around Ann Arbor"}/>
             </div>
             <aside className="dt-booking rounded-2xl border-gray-200 shadow-md" aria-labelledby="trip-total">
                 <h2 id="trip-total" className="dt-booking-price font-semibold tracking-tight">{trip["total"]}</h2>
