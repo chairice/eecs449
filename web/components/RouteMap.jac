@@ -1,7 +1,7 @@
 """Light basemap showing a trip's stops and, once there is a route, the path
 each leg runs: trains as solid lines, buses dashed, over a white casing so
 they read against the grey tiles. Without segments it pins the stops only;
-with fewer than two stops it frames the Ann Arbor to Chicago demo corridor.
+with fewer than two stops it frames the whole demo region, Chicago to Cleveland.
 """
 
 import "leaflet/dist/leaflet.css";
@@ -9,7 +9,8 @@ import from "react" { useEffect }
 import from "leaflet" { map as leafletMap, tileLayer, circleMarker, polyline, layerGroup }
 import from .comparison_view { ComparisonStop, ComparisonSegment }
 
-glob CORRIDOR: list[list[float]] = [[42.2877, -83.743], [41.8786, -87.6405]];
+# Southwest and northeast corners around every demo city (Chicago, Grand Rapids, Cleveland).
+glob DEMO_REGION: list[list[float]] = [[41.5061, -87.6405], [42.9569, -81.6995]];
 # Matches --dt-accent; Leaflet paints SVG attributes, which cannot read CSS variables.
 glob ROUTE_GREEN: str = "#1f7a3d";
 
@@ -37,8 +38,8 @@ def:pub RouteMap(stops: list[ComparisonStop], label: str, segments: list[Compari
             circleMarker([stop.latitude, stop.longitude], {"radius": 8 if endpoint else 6, "color": "#ffffff", "weight": 3, "fillColor": ROUTE_GREEN, "fillOpacity": 1}).bindTooltip(stop.name).addTo(group);
             frame.append([stop.latitude, stop.longitude]);
         }
-        # A lone stop sits inside the corridor's frame rather than filling the map.
-        m.fitBounds(frame if len(frame) > 1 else CORRIDOR, {"padding": [56, 56]});
+        # A lone stop sits inside the demo region's frame rather than filling the map.
+        m.fitBounds(frame if len(frame) > 1 else DEMO_REGION, {"padding": [56, 56]});
     }
 
     useEffect(lambda {
