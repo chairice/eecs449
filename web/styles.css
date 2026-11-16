@@ -1,7 +1,8 @@
 /* Hand-written styles sit in the legacy layer, below Tailwind utilities. */
 @layer legacy {
 /* Shared Detour tokens; page and component styles consume these variables.
-   Light mode only: white and green, laid on the v3 portfolio grid, with two
+   Light by default, white and green; a dark palette below swaps the colour
+   tokens when <html data-theme="dark">. Laid on the v3 portfolio grid, with two
    type styles:
      title    24/32 medium, black
      body     14/20 regular, grey
@@ -37,6 +38,24 @@
   --grid-content: calc(var(--grid-cols) * var(--grid-col) + (var(--grid-cols) - 1) * var(--grid-gutter));
   --dt-content-width: min(var(--grid-content), 100% - 2 * var(--grid-margin));
   color-scheme: light;
+}
+/* Dark palette: the same roles, deep green-grey surfaces and a lighter green
+   accent. Text pairs keep at least 4.5:1 (muted on bg is about 8:1, accent on
+   bg about 7:1, accent-text on accent about 8:1). client/theme_mode.jac and the
+   head script in jac.toml set data-theme from the stored choice or the OS. */
+:root[data-theme="dark"] {
+  --dt-bg: #111714; --dt-surface: #1a221e; --dt-surface-muted: #222b26;
+  --dt-text: #eef3f0; --dt-muted: #a7b1ab; --dt-border: #33403a; --dt-surface-sunken: #29332d;
+  --dt-accent: #4fbf7a; --dt-accent-text: #06150c; --dt-accent-soft: #183223;
+  --dt-highlight: #4fbf7a;
+  --dt-warning-bg: #3a2e10; --dt-warning-text: #f3d27a;
+  --dt-danger-bg: #3b1a17; --dt-danger-text: #ff9b8f;
+  --dt-shadow: 0 8px 24px rgb(0 0 0 / 45%), 0 2px 6px rgb(0 0 0 / 30%);
+  color-scheme: dark;
+}
+/* Before any script has run (or with scripts off), follow the OS. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) { background: #111714; color-scheme: dark; }
 }
 @media (max-width: 463px) { :root { --grid-margin: 16px; --grid-content: 100vw; } }
 @media (min-width: 464px) { :root { --grid-cols: 6; } }
@@ -273,6 +292,7 @@
 .dt-describe { margin-bottom: var(--dt-space-12); }
 .dt-describe-bar { display: flex; align-items: center; gap: var(--dt-space-4); min-height: 64px; padding: var(--dt-space-2) var(--dt-space-2) var(--dt-space-2) var(--dt-space-6); border: 1px solid var(--dt-border); border-radius: var(--dt-radius-pill); background: var(--dt-surface); box-shadow: var(--dt-shadow); transition: box-shadow var(--dt-duration), border-color var(--dt-duration); }
 .dt-describe-bar.is-active { border-color: transparent; box-shadow: 0 6px 20px rgb(0 0 0 / 14%); }
+:root[data-theme="dark"] .dt-describe-bar.is-active { border-color: var(--dt-border); box-shadow: 0 6px 20px rgb(0 0 0 / 50%); }
 .dt-describe-mark { display: inline-grid; color: var(--dt-accent); }
 .dt-describe-bar.is-busy .dt-describe-mark { animation: dt-sparkle 1.2s ease-in-out infinite; }
 @keyframes dt-sparkle { 50% { opacity: .35; scale: .85; } }
@@ -296,5 +316,17 @@
 .dt-map { height: 440px; border-radius: var(--dt-radius-panel); border: 1px solid var(--dt-border); background: var(--dt-surface-muted); overflow: hidden; z-index: 0; }
 @media (max-width: 983px) { .dt-map { height: 320px; } }
 .dt-map .leaflet-tile { filter: grayscale(1) contrast(.85) brightness(1.08); }
-.dt-map .leaflet-control-attribution { font: 400 11px/16px var(--dt-font-body); background: rgb(255 255 255 / 80%); }
-.dt-map .leaflet-tooltip { font: var(--dt-body); color: var(--dt-text); border-radius: var(--dt-radius-control); }
+.dt-map .leaflet-control-attribution { font: 400 11px/16px var(--dt-font-body); background: color-mix(in srgb, var(--dt-surface) 80%, transparent); color: var(--dt-muted); }
+.dt-map .leaflet-control-attribution a { color: var(--dt-accent); }
+.dt-map .leaflet-tooltip { font: var(--dt-body); color: var(--dt-text); background: var(--dt-surface); border-color: var(--dt-border); border-radius: var(--dt-radius-control); }
+/* Route paths carry classes (RouteMap.jac) so CSS, which outranks the SVG
+   attributes Leaflet writes, can colour them from the tokens in both themes. */
+.dt-map .dt-route-casing, .dt-map .dt-route-stop { stroke: var(--dt-bg); }
+.dt-map .dt-route-line { stroke: var(--dt-accent); }
+.dt-map .dt-route-stop { fill: var(--dt-accent); }
+/* Dark: the same grey OSM tiles, inverted so streets read light on dark. */
+:root[data-theme="dark"] .dt-map .leaflet-tile { filter: grayscale(1) invert(1) contrast(.8) brightness(.95); }
+:root[data-theme="dark"] .dt-map .leaflet-tooltip-top::before { border-top-color: var(--dt-surface); }
+:root[data-theme="dark"] .dt-map .leaflet-tooltip-bottom::before { border-bottom-color: var(--dt-surface); }
+:root[data-theme="dark"] .dt-map .leaflet-tooltip-left::before { border-left-color: var(--dt-surface); }
+:root[data-theme="dark"] .dt-map .leaflet-tooltip-right::before { border-right-color: var(--dt-surface); }

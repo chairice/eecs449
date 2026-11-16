@@ -12,3 +12,49 @@
 @theme {
   --font-sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
+
+/* Dark theme for the utility classes. <html data-theme="dark"> (see
+   client/theme_mode.jac) remaps the palette the Jac components use:
+   - gray is inverted, so text-gray-900 reads light and gray-200 borders dark;
+     500 and below lift a step so muted text keeps about 6:1 on dark surfaces;
+   - the pale tints (50-200) of each hue become deep tints, for tinted
+     backdrops, header and footer gradients, pills and rings;
+   - the mid and deep shades (500-800) stay, since they sit behind white text
+     on buttons and badges. Where a deep shade is used as text, or a pale one
+     as text on a deep fill, the rules in the utilities layer below fix it. */
+:root[data-theme="dark"] {
+  --color-gray-50: oklch(21% 0.02 260); --color-gray-100: oklch(27.8% 0.025 257);
+  --color-gray-200: oklch(34% 0.025 258); --color-gray-300: oklch(42% 0.025 258);
+  --color-gray-400: oklch(60% 0.022 261); --color-gray-500: oklch(73% 0.018 264);
+  --color-gray-600: oklch(80% 0.014 257); --color-gray-700: oklch(87.2% 0.01 258);
+  --color-gray-800: oklch(92.8% 0.006 264); --color-gray-900: oklch(96.7% 0.003 264);
+  --color-gray-950: oklch(98.5% 0.002 248);
+  --color-stone-50: oklch(24% 0.006 100);
+  --color-emerald-50: oklch(19% 0.025 166); --color-emerald-100: oklch(21.5% 0.035 165);
+  --color-emerald-200: oklch(32% 0.06 165);
+  --color-green-50: oklch(19% 0.022 155); --color-green-100: oklch(22% 0.035 156);
+  --color-green-200: oklch(32% 0.06 156);
+  --color-sky-50: oklch(20% 0.02 237); --color-sky-100: oklch(23% 0.03 236);
+  --color-sky-200: oklch(33% 0.045 232);
+  --color-cyan-50: oklch(20% 0.02 205); --color-cyan-100: oklch(23% 0.03 205);
+  --color-cyan-200: oklch(33% 0.045 205);
+  --color-red-50: oklch(25% 0.05 20); --color-red-100: oklch(28% 0.07 20);
+  --color-red-200: oklch(38% 0.1 20);
+  --color-amber-50: oklch(26% 0.045 75); --color-amber-100: oklch(30% 0.06 75);
+  --color-amber-200: oklch(40% 0.08 75);
+}
+
+/* Same specificity as the utilities they follow, so state variants such as
+   disabled: and hover: still win over them. */
+@layer utilities {
+  :where(:root[data-theme="dark"]) .bg-white { background-color: var(--dt-surface); }
+  :where(:root[data-theme="dark"]) :is(.text-emerald-700, .text-emerald-800) { color: oklch(84.5% 0.143 164.978); }
+  :where(:root[data-theme="dark"]) .text-red-700 { color: oklch(80.8% 0.114 19.571); }
+  :where(:root[data-theme="dark"]) .text-amber-800 { color: oklch(87.9% 0.169 91.605); }
+  :where(:root[data-theme="dark"]) .text-emerald-50 { color: oklch(97.9% 0.021 166.113); }
+  :where(:root[data-theme="dark"]) .text-sky-50 { color: oklch(97.7% 0.013 236.62); }
+  @media (hover: hover) {
+    :where(:root[data-theme="dark"]) .hover\:text-red-600:hover { color: oklch(80.8% 0.114 19.571); }
+  }
+  :where(:root[data-theme="dark"]) .backdrop\:bg-gray-900\/40::backdrop { background-color: rgb(0 0 0 / 60%); }
+}
