@@ -43,7 +43,7 @@ base_route_app = "app"
 # What a browser tab and a shared link show.
 [client.app_meta_data]
 title = "Detour \u00B7 Your next journey"
-description = """Plan your kind of trip, together with Detour."""
+description = "Plan your kind of trip, together with Detour."
 
 # Paint the remembered light/dark theme before the bundle loads, so the first
 # frame has the right palette. Mirrors client/theme_mode.jac (same key and rule).
