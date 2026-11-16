@@ -2,7 +2,7 @@
 // No running server, browser, credentials, or network access required.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { comparison_view } from '../web/.jac/client/compiled/components/comparison_view.js';
+import { comparison_view, fare_source, operator_initials } from '../web/.jac/client/compiled/components/comparison_view.js';
 
 function preview() {
   return {
@@ -73,6 +73,42 @@ test('missing fare remains distinct from free', () => {
   assert.equal(comparison_view(data).routes[0].price, '$0.00 USD');
 });
 
+test('hybrid plans show each leg fare and whether it is one ticket or several', () => {
+  const data = preview();
+  const option = data.routes[0].option;
+  option.price_cents = 4200;
+  option.ticketing = 'SEPARATE';
+  option.legs = [
+    { id: 'train-leg', mode: 'TRAIN', service: 'Example train', fare_cents: 2400,
+      origin: { name: 'Ann Arbor', timezone: 'America/Detroit' },
+      destination: { name: 'Kalamazoo', timezone: 'America/Detroit' },
+      departure_at: '2026-10-23T16:00:00-04:00', arrival_at: '2026-10-23T18:00:00-04:00' },
+    { id: 'bus-leg', mode: 'BUS', service: 'Example bus', fare_cents: 1800,
+      origin: { name: 'Kalamazoo', timezone: 'America/Detroit' },
+      destination: { name: 'Chicago', timezone: 'America/Chicago' },
+      departure_at: '2026-10-23T18:30:00-04:00', arrival_at: '2026-10-23T19:30:00-05:00' },
+  ];
+  let route = comparison_view(data).routes[0];
+  assert.deepEqual(route.legs.map(leg => [leg.mode, leg.fare]), [['Train', '$24.00 USD'], ['Bus', '$18.00 USD']]);
+  assert.equal(route.price, '$42.00 USD');
+  assert.equal(route.ticketing, 'Separate tickets');
+  assert.match(route.ticketing_note, /aren’t sold as a bundle/);
+  option.ticketing = 'THROUGH';
+  route = comparison_view(data).routes[0];
+  assert.equal(route.ticketing, 'One ticket');
+  assert.match(route.ticketing_note, /bundle/);
+  delete option.ticketing;
+  delete option.legs[1].fare_cents;
+  route = comparison_view(data).routes[0];
+  assert.equal(route.ticketing, '');
+  assert.equal(route.legs[1].fare, '');
+  option.ticketing = 'MAYBE';
+  assert.equal(comparison_view(data).error_code, 'INVALID_PREVIEW');
+  option.ticketing = 'SEPARATE';
+  option.legs[0].fare_cents = -5;
+  assert.equal(comparison_view(data).error_code, 'INVALID_PREVIEW');
+});
+
 test('missing timestamps and freshness never claim live data is current', () => {
   const data = preview();
   const source = data.routes[0].option.source;
@@ -129,4 +165,73 @@ test('time zones are explicit and daylight saving offsets do not change duration
   leg.departure_at = '2026-11-01T01:30:00-04:00';
   leg.arrival_at = '2026-11-01T01:30:00-06:00';
   assert.equal(comparison_view(data).routes[0].duration, '2h 0m');
+});
+
+test('hybrid train and bus route duration includes the connection wait and names it', () => {
+  const data = preview();
+  data.routes[0].option.legs = [
+    {
+      id: 'hybrid-train', mode: 'TRAIN', service: 'Example train',
+      origin: { name: 'Ann Arbor', timezone: 'America/Detroit' },
+      destination: { name: 'Kalamazoo', timezone: 'America/Detroit' },
+      departure_at: '2026-10-23T16:30:00-04:00',
+      arrival_at: '2026-10-23T18:40:00-04:00',
+    },
+    {
+      id: 'hybrid-walk', mode: 'WALK', service: '',
+      origin: { name: 'Kalamazoo', timezone: 'America/Detroit' },
+      destination: { name: 'Kalamazoo', timezone: 'America/Detroit' },
+      departure_at: '2026-10-23T18:45:00-04:00',
+      arrival_at: '2026-10-23T18:55:00-04:00',
+    },
+    {
+      id: 'hybrid-bus', mode: 'BUS', service: 'Example bus',
+      origin: { name: 'Kalamazoo', timezone: 'America/Detroit' },
+      destination: { name: 'Chicago', timezone: 'America/Chicago' },
+      departure_at: '2026-10-23T19:30:00-04:00',
+      arrival_at: '2026-10-23T21:30:00-05:00',
+    },
+  ];
+  const route = comparison_view(data).routes[0];
+  // 130 min train + 10 min walk + 180 min bus aboard; 40 min standing between legs.
+  assert.equal(route.duration, '6h 0m');
+  assert.equal(route.transfers, '1 transfer');
+  assert.equal(route.connections, '50 min connection at Kalamazoo');
+  assert.deepEqual(route.legs.map(leg => leg.layover_minutes), [0, 5, 35]);
+});
+
+test('direct routes have no connection text and long connections read in hours', () => {
+  assert.equal(comparison_view(preview()).routes[0].connections, '');
+  const data = preview();
+  const base = data.routes[0].option.legs[0];
+  data.routes[0].option.legs = [
+    { ...base, id: 'first', destination: { name: 'Kalamazoo', timezone: 'America/Detroit' }, arrival_at: '2026-10-23T17:00:00-04:00' },
+    { ...base, id: 'second', origin: { name: 'Kalamazoo', timezone: 'America/Detroit' }, departure_at: '2026-10-23T18:05:00-04:00', arrival_at: '2026-10-23T19:00:00-05:00' },
+  ];
+  const route = comparison_view(data).routes[0];
+  assert.equal(route.duration, '4h 0m');
+  assert.equal(route.connections, '1 hr 5 min connection at Kalamazoo');
+});
+
+test('each fare names the companies selling it, once each in travel order', () => {
+  const data = preview();
+  assert.deepEqual(comparison_view(data).routes[0].operators, []);
+  const legs = data.routes[0].option.legs;
+  legs[0].operator = 'Amtrak';
+  legs.push({ ...structuredClone(legs[0]), id: 'second-leg', operator: ' Greyhound ' });
+  legs.push({ ...structuredClone(legs[0]), id: 'third-leg', operator: 'Amtrak' });
+  const route = comparison_view(data).routes[0];
+  assert.equal(route.legs.length, 3);
+  assert.deepEqual(route.operators, ['Amtrak', 'Greyhound']);
+  assert.deepEqual(route.legs.map(leg => leg.operator), ['Amtrak', 'Greyhound', 'Amtrak']);
+  legs[1].operator = '   ';
+  assert.deepEqual(comparison_view(data).routes[0].operators, ['Amtrak']);
+});
+
+test('fare source reads as words and initials badges, never an empty claim', () => {
+  assert.equal(fare_source(['Amtrak', 'Greyhound']), 'Sold by Amtrak + Greyhound');
+  assert.equal(fare_source([]), '');
+  assert.equal(operator_initials('Demo Rail'), 'DR');
+  assert.equal(operator_initials('Amtrak'), 'AM');
+  assert.equal(operator_initials('  '), '');
 });

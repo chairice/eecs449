@@ -5,7 +5,8 @@ import from "@jac/runtime" { Link, useNavigate }
 import from react { useRef }
 import from .PageHeading { PageHeading }
 import from .EmptyState { EmptyState }
-import from .comparison_view { ComparisonRoute, comparison_view, provider_label }
+import from .comparison_view { ComparisonRoute, comparison_view, fare_source, provider_label }
+import from .FareSource { FareSource }
 import from .RouteMap { RouteMap }
 import from .SourceStatus { SourceStatus }
 import from ..client.saved_trips { save_trip }
@@ -64,6 +65,7 @@ def:pub RouteCard(route: ComparisonRoute, index: int, selected: bool, onSelect: 
             <span className={CELL_LABEL}>Mode</span>
             <span className="text-gray-900">{route.modes}</span>
             <span className="text-sm text-gray-500">{route.transfers}</span>
+            {(<span className="text-xs text-gray-500">{route.connections}</span> if route.connections else None)}
         </span>
         <span className="grid justify-items-start gap-1">
             <span className={CELL_LABEL}>Risks</span>
@@ -72,10 +74,13 @@ def:pub RouteCard(route: ComparisonRoute, index: int, selected: bool, onSelect: 
         </span>
         <span className="col-span-2 flex items-baseline justify-between gap-2 border-t border-gray-100 pt-3 sm:col-span-1 sm:grid sm:justify-items-end sm:border-0 sm:pt-0">
             <span className={CELL_LABEL}>Fare</span>
-            <strong className="text-lg font-semibold tracking-tight text-gray-900">{route.price.replace(" USD", "")}</strong>
+            <span className="grid justify-items-end gap-1">
+                <strong className="text-lg font-semibold tracking-tight text-gray-900">{route.price.replace(" USD", "")}</strong>
+                <FareSource operators={route.operators}/>
+            </span>
             {(<span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">Out of date</span> if "stale" in route.freshness else None)}
         </span>
-        <span id={key + "-summary"} className="dt-sr-only">{route.day} {route.departure} to {route.arrival}, {route.modes}, {route.price}, {risk_line(route)}. {route.weather_note} {source_line(route)}.</span>
+        <span id={key + "-summary"} className="dt-sr-only">{route.day} {route.departure} to {route.arrival}, {travel_time(route.duration)}{(" including " + route.connections) if route.connections else ""}, {route.modes}, {route.price}{(", " + fare_source(route.operators)) if len(route.operators) > 0 else ""}, {risk_line(route)}. {route.weather_note} {source_line(route)}.</span>
     </label>;
 }
 
@@ -142,14 +147,36 @@ def booking_total(route: ComparisonRoute, returnRoute: ComparisonRoute | None) -
     return money(route.price_cents + returnRoute.price_cents);
 }
 
+"""Every company the booking total is bought from, each once, outbound first."""
+def booking_operators(route: ComparisonRoute, returnRoute: ComparisonRoute | None) -> list[str] {
+    names = list(route.operators);
+    if returnRoute is not None {
+        for name in returnRoute.operators { if name not in names { names.append(name); } }
+    }
+    return names;
+}
+
 """What Trips shows for one direction, in the same words as the results rows."""
 def saved_leg(label: str, route: ComparisonRoute) -> dict[str, any] {
     return {"label": label, "modes": route.modes, "departure": clock(route.departure), "arrival": clock(route.arrival),
-        "duration": travel_time(route.duration), "price": route.price,
+        "duration": travel_time(route.duration), "connections": route.connections, "price": route.price, "operators": route.operators,
         "risk": risk_badge(route), "risk_detail": risk_line(route), "weather": route.weather_note,
         "levels": {"delay": route.delay, "transfer": route.transfer_risk}, "route": route.weather_legs,
         "stops": [{"name": stop.name, "latitude": stop.latitude, "longitude": stop.longitude} for stop in route.stops],
-        "segments": [{"mode": segment.mode, "points": segment.points} for segment in route.segments]};
+        "segments": [{"mode": segment.mode, "points": segment.points} for segment in route.segments],
+        "fares": fare_breakdown(route), "ticketing": route.ticketing, "ticketing_note": route.ticketing_note};
+}
+
+"""Each vehicle leg's own fare for the trip page; empty unless every one has a fare,
+so the rows always add up to the total."""
+def fare_breakdown(route: ComparisonRoute) -> list[dict[str, str]] {
+    rows: list[dict[str, str]] = [];
+    for leg in route.legs {
+        if leg.mode == "Walk" { continue; }
+        if not leg.fare { return []; }
+        rows.append({"mode": leg.mode, "service": leg.service, "origin": leg.origin, "destination": leg.destination, "price": leg.fare});
+    }
+    return rows;
 }
 
 def risk_line(route: ComparisonRoute) -> str {
@@ -161,6 +188,7 @@ def:pub RecommendationPanel(route: ComparisonRoute, recommended: bool, returnRou
     return <aside className="dt-booking rounded-2xl border-gray-200 shadow-md" aria-labelledby="selection-heading">
         <h2 id="selection-heading" className="dt-booking-price font-semibold tracking-tight">{booking_total(route, returnRoute)}</h2>
         <p className="dt-muted">{"Round trip" if roundTrip else "Outbound only · no return fits it yet" if returnMissing else "One way"}</p>
+        {(<p className="dt-muted">{fare_source(booking_operators(route, returnRoute))}</p> if len(booking_operators(route, returnRoute)) > 0 else None)}
         <dl className="dt-booking-box rounded-xl border-gray-300">
             <div><dt>Depart</dt><dd>{route.day}<br/>{route.departure}</dd></div>
             {(<div><dt>Return</dt><dd>{returnRoute.day}<br/>{returnRoute.departure}</dd></div> if returnRoute is not None else <div><dt>Arrive</dt><dd>{route.day}<br/>{route.arrival}</dd></div>)}
@@ -173,7 +201,7 @@ def:pub RecommendationPanel(route: ComparisonRoute, recommended: bool, returnRou
             <p className="text-xs text-gray-500">{source_line(route)}</p>
             {for warning in route.source_warnings { <p key={warning} className="text-xs text-gray-500">{warning}</p> }}
         </div>
-        <button type="button" className="dt-primary dt-booking-action h-12 rounded-xl border-0 bg-linear-to-r from-emerald-600 to-green-700 text-base font-semibold shadow-sm hover:scale-100 active:scale-98" disabled={onSave is None or saving} onClick={lambda { if onSave is not None { onSave(); } }}>{"Saving…" if saving else "Try saving again" if saveFailed else "Save trip"}</button>
+        <button type="button" className="dt-primary dt-booking-action h-12 rounded-xl border-0 bg-linear-to-r from-emerald-600 to-green-700 text-base font-semibold text-white shadow-sm hover:scale-100 active:scale-98" disabled={onSave is None or saving} onClick={lambda { if onSave is not None { onSave(); } }}>{"Saving…" if saving else "Try saving again" if saveFailed else "Save trip"}</button>
         {(<p className="dt-booking-note dt-field-error" role="alert">This browser wouldn't keep the trip. Your selection is still here; check that site data is allowed, then try again.</p> if saveFailed else None)}
     </aside>;
 }
@@ -318,7 +346,7 @@ def:pub RouteComparison(preview: any = None, requestText: str = "", submittedReq
                 {(<p className="m-0 -mt-2 text-sm text-gray-500" role="status">{str(hidden) + (" return leaves" if hidden == 1 else " returns leave") + " before your outbound arrives (" + selected.arrives + ") and " + ("is" if hidden == 1 else "are") + " hidden."}</p> if returnRequested and returnSelected is not None and hidden > 0 else None)}
                 {(<section className="dt-leg" role="status"><h2 className="dt-leg-title">2. Choose your return</h2><p className="dt-muted">Return routes couldn't be checked, so this is not a no-routes result. The outbound options above are still usable.</p><button type="button" className="mt-2 inline-flex h-11 cursor-pointer items-center rounded-full border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700 hover:border-gray-500" onClick={lambda { retrySearch(); }}>Check again</button></section> if returnUnchecked and editRequest else None)}
                 {(<section className="dt-leg" role="status"><h2 className="dt-leg-title">2. Choose your return</h2><p className="dt-muted">{"No return routes for this day. Try another return date." if len(returnRoutes) == 0 else "No return leaves after this outbound arrives (" + selected.arrives + "). Pick an earlier outbound, or search another return date."}</p></section> if incomplete and returnDate and not returnUnchecked else None)}
-                <RouteMap stops={mapped.stops} segments={mapped.segments} label={"Map of the selected route: " + " to ".join([stop.name for stop in mapped.stops]) if len(mapped.stops) > 0 else "Map of the Ann Arbor to Chicago demo corridor"}/>
+                <RouteMap stops={mapped.stops} segments={mapped.segments} label={"Map of the selected route: " + " to ".join([stop.name for stop in mapped.stops]) if len(mapped.stops) > 0 else "Map of the Detour demo region around Ann Arbor"}/>
             </div>
             <RecommendationPanel route={selected} recommended={selected.id == best.id} returnRoute={returnSelected if returnRequested else None} onSave={None if incomplete else saveTrip} saveFailed={saveFailed} returnMissing={incomplete} saving={saving}/>
         </div>

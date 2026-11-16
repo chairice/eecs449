@@ -1,7 +1,7 @@
 """Light basemap showing a trip's stops and, once there is a route, the path
 each leg runs: trains as solid lines, buses dashed, over a white casing so
 they read against the grey tiles. Without segments it pins the stops only;
-with fewer than two stops it frames the Ann Arbor to Chicago demo corridor.
+with fewer than two stops it frames the whole demo region, Chicago to Cleveland.
 """
 
 import "leaflet/dist/leaflet.css";
@@ -9,8 +9,10 @@ import from "react" { useEffect }
 import from "leaflet" { map as leafletMap, tileLayer, circleMarker, polyline, layerGroup }
 import from .comparison_view { ComparisonStop, ComparisonSegment }
 
-glob CORRIDOR: list[list[float]] = [[42.2877, -83.743], [41.8786, -87.6405]];
-# Matches --dt-accent; Leaflet paints SVG attributes, which cannot read CSS variables.
+# Southwest and northeast corners around every demo city (Chicago, Grand Rapids, Cleveland).
+glob DEMO_REGION: list[list[float]] = [[41.5061, -87.6405], [42.9569, -81.6995]];
+# Light --dt-accent, for Leaflet's SVG attributes. The dt-route-* classes let
+# styles.css repaint the paths from the theme tokens, which outrank attributes.
 glob ROUTE_GREEN: str = "#1f7a3d";
 
 def:pub RouteMap(stops: list[ComparisonStop], label: str, segments: list[ComparisonSegment] = []) -> JsxElement {
@@ -28,17 +30,17 @@ def:pub RouteMap(stops: list[ComparisonStop], label: str, segments: list[Compari
         frame: list[list[float]] = [];
         for segment in segments {
             dashed = segment.mode == "Bus";
-            polyline(segment.points, {"color": "#ffffff", "weight": 8, "opacity": 0.9, "lineCap": "round", "lineJoin": "round"}).addTo(group);
-            polyline(segment.points, {"color": ROUTE_GREEN, "weight": 4, "opacity": 0.95, "lineCap": "round", "lineJoin": "round", "dashArray": "2 8" if dashed else None}).addTo(group);
+            polyline(segment.points, {"color": "#ffffff", "weight": 8, "opacity": 0.9, "lineCap": "round", "lineJoin": "round", "className": "dt-route-casing"}).addTo(group);
+            polyline(segment.points, {"color": ROUTE_GREEN, "weight": 4, "opacity": 0.95, "lineCap": "round", "lineJoin": "round", "dashArray": "2 8" if dashed else None, "className": "dt-route-line"}).addTo(group);
             frame = frame + segment.points;
         }
         for (index, stop) in enumerate(stops) {
             endpoint = index == 0 or index == len(stops) - 1;
-            circleMarker([stop.latitude, stop.longitude], {"radius": 8 if endpoint else 6, "color": "#ffffff", "weight": 3, "fillColor": ROUTE_GREEN, "fillOpacity": 1}).bindTooltip(stop.name).addTo(group);
+            circleMarker([stop.latitude, stop.longitude], {"radius": 8 if endpoint else 6, "color": "#ffffff", "weight": 3, "fillColor": ROUTE_GREEN, "fillOpacity": 1, "className": "dt-route-stop"}).bindTooltip(stop.name).addTo(group);
             frame.append([stop.latitude, stop.longitude]);
         }
-        # A lone stop sits inside the corridor's frame rather than filling the map.
-        m.fitBounds(frame if len(frame) > 1 else CORRIDOR, {"padding": [56, 56]});
+        # A lone stop sits inside the demo region's frame rather than filling the map.
+        m.fitBounds(frame if len(frame) > 1 else DEMO_REGION, {"padding": [56, 56]});
     }
 
     useEffect(lambda {

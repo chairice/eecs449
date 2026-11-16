@@ -22,7 +22,12 @@ glob WEEKDAYS: list[str] = ["monday", "tuesday", "wednesday", "thursday", "frida
 glob MONTHS: list[str] = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 glob PLACES: dict[str, str] = {
     "ann arbor": "Ann Arbor, MI", "a2": "Ann Arbor, MI", "umich": "Ann Arbor, MI",
-    "chicago": "Chicago, IL", "chi": "Chicago, IL", "windy city": "Chicago, IL"
+    "chicago": "Chicago, IL", "chi": "Chicago, IL", "windy city": "Chicago, IL",
+    "detroit": "Detroit, MI", "motor city": "Detroit, MI",
+    "lansing": "Lansing, MI", "east lansing": "Lansing, MI",
+    "grand rapids": "Grand Rapids, MI",
+    "toledo": "Toledo, OH",
+    "cleveland": "Cleveland, OH"
 };
 
 obj:pub TripIntent {
