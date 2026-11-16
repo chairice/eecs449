@@ -2,6 +2,8 @@
 
 obj:pub ComparisonLeg {
     has id: str, mode: str, service: str, origin: str, destination: str, departure: str, arrival: str;
+    # Whole minutes between the previous leg's arrival and this leg's departure; 0 for the first leg.
+    has layover_minutes: int = 0;
     # This leg's own fare ("$24.00 USD"), or "" when only the route's total is known.
     has fare: str = "";
     # Who runs and sells the leg ("Amtrak"), or "" when the provider doesn't say.
@@ -34,6 +36,8 @@ obj:pub ComparisonRoute {
     has arrival_ms: float = 0.0;
     # "Wed, Nov 4, 10:30 PM CST": the arrival with its day, in the destination's zone.
     has arrives: str = "";
+    # Time spent between vehicles, already inside `duration`: "50 min connection at Kalamazoo".
+    has connections: str = "";
     # The legs as the planner sent them, minus status fields, so a saved trip can re-check its weather.
     has weather_legs: list[any] = [];
     # How the fare is bought: "One ticket" or "Separate tickets", and a sentence saying what that means.
@@ -84,6 +88,30 @@ def duration_label(departure: str, arrival: str) -> str {
     if minutes <= 0 { raise ValueError("Invalid route duration"); }
     return str(minutes // 60) + "h " + str(minutes % 60) + "m";
 }
+"""Elapsed minutes as people say them: 50 as "50 min", 65 as "1 hr 5 min", 120 as "2 hr"."""
+def minutes_words(minutes: int) -> str {
+    if minutes < 60 { return str(minutes) + " min"; }
+    rest = minutes % 60;
+    return str(minutes // 60) + " hr" + ("" if rest == 0 else " " + str(rest) + " min");
+}
+
+"""Each change between vehicles and how long it takes, from the previous vehicle's
+arrival to the next one's departure (any walk between them included). Total travel
+time already spans these, since it runs from first departure to final arrival."""
+def connection_label(raw_legs: list[any]) -> str {
+    parts: list[str] = [];
+    previous: any = None;
+    for leg in raw_legs {
+        if mode_label(leg["mode"]) == "Walk" { continue; }
+        if previous is not None {
+            minutes = int((instant_millis(required_text(leg["departure_at"])) - instant_millis(required_text(previous["arrival_at"]))) / 60000.0);
+            parts.append(minutes_words(minutes) + " connection at " + required_text(previous["destination"]["name"]));
+        }
+        previous = leg;
+    }
+    return ", ".join(parts);
+}
+
 def price_label(value: any, currency: str) -> str {
     if value is None { return "Fare unavailable"; }
     cents = required_number(value);
@@ -261,9 +289,15 @@ def route_view(raw: any, as_of: str) -> ComparisonRoute {
     operators: list[str] = [];
     services: list[str] = [];
     transit_count = 0;
+    previous_arrival = "";
     currency = required_text(option["currency"]);
     for leg in required_list(option["legs"]) {
         mode = mode_label(leg["mode"]);
+        layover = 0;
+        if previous_arrival {
+            layover = int((instant_millis(required_text(leg["departure_at"])) - instant_millis(previous_arrival)) / 60000.0);
+        }
+        previous_arrival = required_text(leg["arrival_at"]);
         service = required_text(leg["service"]) if leg["service"] else mode;
         if mode != "Walk" { transit_count += 1; }
         if mode not in modes { modes.append(mode); }
@@ -274,7 +308,7 @@ def route_view(raw: any, as_of: str) -> ComparisonRoute {
             origin=required_text(leg["origin"]["name"]), destination=required_text(leg["destination"]["name"]),
             departure=local_clock(required_text(leg["departure_at"]), required_text(leg["origin"]["timezone"])),
             arrival=local_clock(required_text(leg["arrival_at"]), required_text(leg["destination"]["timezone"])),
-            fare=leg_fare(leg["fare_cents"], currency)));
+            fare=leg_fare(leg["fare_cents"], currency), layover_minutes=layover));
     }
     if len(legs) == 0 { raise ValueError("Route has no legs"); }
     raw_legs = required_list(option["legs"]);
@@ -307,6 +341,7 @@ def route_view(raw: any, as_of: str) -> ComparisonRoute {
         arrival_ms=instant_millis(required_text(last["arrival_at"])),
         weather_legs=[{"id": leg["id"], "mode": leg["mode"], "origin": leg["origin"], "destination": leg["destination"],
             "departure_at": leg["departure_at"], "arrival_at": leg["arrival_at"], "path": leg["path"] if leg["path"] else []} for leg in raw_legs],
+        connections=connection_label(raw_legs),
         arrives=day_label(required_text(last["arrival_at"]), required_text(last["destination"]["timezone"])) + ", " + legs[len(legs) - 1].arrival,
         transfer_risk=risk_label(raw["risk"]["transfer"]), source=source_mode, provider=required_text(source["provider"]),
         freshness=freshness, source_time=utc_label(required_text(source["fetched_at"])) if source["fetched_at"] else "Timestamp unavailable", source_warnings=warnings,
