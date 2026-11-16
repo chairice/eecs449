@@ -8,7 +8,7 @@ import from ..browser { mediaMatches }
 import from ..theme { REDUCED_MOTION_QUERY }
 import from .Icon { Icon }
 
-glob SUGGESTIONS: list[str] = ["Chicago this Friday after 4pm", "Chicago tomorrow, under $40", "Ann Arbor on Nov 3, back Nov 5"];
+glob SUGGESTIONS: list[str] = ["Chicago this Friday after 4pm", "Detroit tomorrow morning, under $20", "Cleveland on Saturday, back Sunday"];
 # Example requests the placeholder cycles through before anyone types.
 glob EXAMPLES: list[str] = ["Chicago Friday after 4pm", "cheapest to Chicago tomorrow", "Ann Arbor Nov 3, back Nov 5"];
 glob EXAMPLE_MS: int = 3500;
@@ -62,7 +62,7 @@ def:pub DescribeBar(onSearch: Callable[[str], None], busy: bool = False, initial
                     <span className="dt-place-text"><span className="dt-place-name">{suggestion}</span></span>
                 </button>
             }}
-            <p className="dt-panel-note">Demo trips run between Ann Arbor and Chicago.</p>
+            <p className="dt-panel-note">Demo trips run from Ann Arbor to Chicago, Detroit, Grand Rapids, Lansing, Toledo and Cleveland.</p>
         </div>
     </div>;
 }
