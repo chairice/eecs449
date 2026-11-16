@@ -111,7 +111,7 @@ def:pub TripDetailPage -> JsxPage {
                         </div>
                     </section>
                 }}
-                <RouteMap stops={stops} segments={leg_segments(trip["legs"][0])} label={"Map of " + " to ".join([stop.name for stop in stops]) if len(stops) > 0 else "Map of the Ann Arbor to Chicago demo corridor"}/>
+                <RouteMap stops={stops} segments={leg_segments(trip["legs"][0])} label={"Map of " + " to ".join([stop.name for stop in stops]) if len(stops) > 0 else "Map of the Detour demo region around Ann Arbor"}/>
             </div>
             <aside className="dt-booking rounded-2xl border-gray-200 shadow-md" aria-labelledby="trip-total">
                 <h2 id="trip-total" className="dt-booking-price font-semibold tracking-tight">{trip["total"]}</h2>

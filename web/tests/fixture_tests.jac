@@ -189,3 +189,47 @@ test "a fixture path that is malformed or joins unknown places fails the fixture
         }
     }
 }
+
+glob DEMO_CITIES: list[str] = ["Chicago, IL", "Detroit, MI", "Lansing, MI", "Grand Rapids, MI", "Toledo, OH", "Cleveland, OH"];
+
+test "every demo city has routes both ways with drawn paths on every leg" {
+    provider = FixtureRouteProvider();
+    for city in DEMO_CITIES {
+        for (origin, destination) in [("Ann Arbor, MI", city), (city, "Ann Arbor, MI")] {
+            routes = available_routes(provider.search(TripRequest(origin_text=origin, destination_text=destination, local_date="2026-11-12", local_time="00:00", time_kind=TimeKind.DEPART_AFTER)));
+            assert len(routes) >= 1, origin + " to " + destination;
+            for option in routes {
+                for leg in option.legs {
+                    assert len(leg.path) >= 2;
+                    assert leg.path[0] == [leg.origin.latitude, leg.origin.longitude];
+                    assert leg.path[-1] == [leg.destination.latitude, leg.destination.longitude];
+                }
+            }
+        }
+    }
+}
+
+test "new corridors read times in their own zones and offer hybrid connections" {
+    provider = FixtureRouteProvider();
+    cleveland = available_routes(provider.search(TripRequest(origin_text="ann arbor", destination_text="Cleveland Ohio", local_date="2026-11-12", local_time="00:00", time_kind=TimeKind.DEPART_AFTER)));
+    hybrid = [option for option in cleveland if option.transfers() == 1][0];
+    assert [leg.mode for leg in hybrid.legs] == [TravelMode.BUS, TravelMode.TRAIN];
+    assert hybrid.legs[-1].arrival_at.endswith("-05:00");
+    detroit = available_routes(provider.search(TripRequest(origin_text="Ann Arbor", destination_text="Detroit", local_date="2026-11-12", local_time="00:00", time_kind=TimeKind.DEPART_AFTER)));
+    assert TravelMode.TRAIN in [option.legs[0].mode for option in detroit];
+}
+
+test "cities without a corridor between them return a successful empty result" {
+    result = FixtureRouteProvider().search(TripRequest(origin_text="Detroit, MI", destination_text="Cleveland, OH", local_date="2026-11-12", local_time="00:00", time_kind=TimeKind.DEPART_AFTER));
+    assert available_routes(result) == [];
+}
+
+test "fixture files that disagree about a shared place fail the fixture" {
+    original = Path(DEFAULT_FIXTURE_PATH).read_text(encoding="utf-8");
+    with TemporaryDirectory() as temporary {
+        path = Path(temporary) / "moved.json";
+        _ = path.write_text(original.replace('"latitude": 42.2877', '"latitude": 42.3', 1), encoding="utf-8");
+        result = FixtureRouteProvider(fixture_path=str(path)).search(fixture_request());
+        assert result.error is not None and result.error.code == ErrorCode.PROVIDER_UNAVAILABLE;
+    }
+}
