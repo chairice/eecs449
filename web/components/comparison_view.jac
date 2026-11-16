@@ -2,6 +2,12 @@
 
 obj:pub ComparisonLeg {
     has id: str, mode: str, service: str, origin: str, destination: str, departure: str, arrival: str;
+    # Whole minutes between the previous leg's arrival and this leg's departure; 0 for the first leg.
+    has layover_minutes: int = 0;
+    # This leg's own fare ("$24.00 USD"), or "" when only the route's total is known.
+    has fare: str = "";
+    # Who runs and sells the leg ("Amtrak"), or "" when the provider doesn't say.
+    has operator: str = "";
 }
 """A stop the map can pin; only places that arrive with coordinates become one."""
 obj:pub ComparisonStop {
@@ -30,13 +36,28 @@ obj:pub ComparisonRoute {
     has arrival_ms: float = 0.0;
     # "Wed, Nov 4, 10:30 PM CST": the arrival with its day, in the destination's zone.
     has arrives: str = "";
+    # Time spent between vehicles, already inside `duration`: "50 min connection at Kalamazoo".
+    has connections: str = "";
     # The legs as the planner sent them, minus status fields, so a saved trip can re-check its weather.
     has weather_legs: list[any] = [];
+    # How the fare is bought: "One ticket" or "Separate tickets", and a sentence saying what that means.
+    has ticketing: str = "", ticketing_note: str = "";
+    # The companies selling this fare, each once in travel order, so travelers know who they buy from.
+    has operators: list[str] = [];
+}
+"""Where one kind of data came from and how fresh it is, as the page states it."""
+obj:pub SourceLine {
+    has kind: str, provider: str, status: str, fetched: str, stale: bool = False;
 }
 obj:pub ComparisonView {
     has valid: bool = False, error: str = "", error_code: str = "";
     has title: str = "", date: str = "", preference: str = "", routes: list[ComparisonRoute] = [];
     has time_kind: str = "", local_time: str = "";
+    # Why candidates were removed when none fit, and the one constraint to relax first.
+    has rejections: list[str] = [], suggestion: str = "";
+    has sources: list[SourceLine] = [];
+    # Weather is "unchecked" when no weather provider ran and "unavailable" when it failed.
+    has weather_checked: bool = False, weather_unavailable: bool = False, stale: bool = False;
 }
 
 def required_text(value: any) -> str {
@@ -76,6 +97,30 @@ def duration_label(departure: str, arrival: str) -> str {
     if minutes <= 0 { raise ValueError("Invalid route duration"); }
     return str(minutes // 60) + "h " + str(minutes % 60) + "m";
 }
+"""Elapsed minutes as people say them: 50 as "50 min", 65 as "1 hr 5 min", 120 as "2 hr"."""
+def minutes_words(minutes: int) -> str {
+    if minutes < 60 { return str(minutes) + " min"; }
+    rest = minutes % 60;
+    return str(minutes // 60) + " hr" + ("" if rest == 0 else " " + str(rest) + " min");
+}
+
+"""Each change between vehicles and how long it takes, from the previous vehicle's
+arrival to the next one's departure (any walk between them included). Total travel
+time already spans these, since it runs from first departure to final arrival."""
+def connection_label(raw_legs: list[any]) -> str {
+    parts: list[str] = [];
+    previous: any = None;
+    for leg in raw_legs {
+        if mode_label(leg["mode"]) == "Walk" { continue; }
+        if previous is not None {
+            minutes = int((instant_millis(required_text(leg["departure_at"])) - instant_millis(required_text(previous["arrival_at"]))) / 60000.0);
+            parts.append(minutes_words(minutes) + " connection at " + required_text(previous["destination"]["name"]));
+        }
+        previous = leg;
+    }
+    return ", ".join(parts);
+}
+
 def price_label(value: any, currency: str) -> str {
     if value is None { return "Fare unavailable"; }
     cents = required_number(value);
@@ -84,6 +129,25 @@ def price_label(value: any, currency: str) -> str {
     amount: any = cents / 100.0;
     return "$" + str(amount.toFixed(2)) + " USD";
 }
+"""A leg's own fare, or "" when the provider priced only the whole route."""
+def leg_fare(value: any, currency: str) -> str {
+    if value is None { return ""; }
+    return price_label(value, currency);
+}
+
+"""Whether a plan is one booking or several, as (label, sentence); "" when not stated."""
+def:pub ticketing_words(value: any, transit_legs: int) -> tuple[str, str] {
+    if value == "SEPARATE" {
+        return ("Separate tickets", "Each leg is its own ticket from its operator. They aren’t sold as a bundle, so each is booked on its own.");
+    }
+    if value == "THROUGH" {
+        if transit_legs > 1 { return ("One ticket", "One through fare covers every leg, booked together as a bundle."); }
+        return ("One ticket", "A single ticket covers this trip.");
+    }
+    if value is None { return ("", ""); }
+    raise ValueError("Invalid ticketing");
+}
+
 def:pub risk_label(value: any) -> str {
     level = required_text(value);
     if level == "LOW" { return "Low"; }
@@ -209,22 +273,51 @@ def route_segments(raw_legs: list[any]) -> list[ComparisonSegment] {
     return segments;
 }
 
+"""A leg's operator name, or "" when it is missing or blank."""
+def operator_name(value: any) -> str {
+    return str(value).strip() if isinstance(value, str) else "";
+}
+
+"""Who a fare is bought from, in a few words: "Sold by Amtrak + Greyhound", or "" when unknown."""
+def:pub fare_source(operators: list[str]) -> str {
+    return "Sold by " + " + ".join(operators) if len(operators) > 0 else "";
+}
+
+"""A text badge standing in for a company's logo: "Demo Rail" as "DR", "Amtrak" as "AM"."""
+def:pub operator_initials(name: str) -> str {
+    words = [word for word in name.split(" ") if word];
+    if len(words) == 0 { return ""; }
+    if len(words) == 1 { return words[0][:2].upper(); }
+    return (words[0][:1] + words[1][:1]).upper();
+}
+
 def route_view(raw: any, as_of: str) -> ComparisonRoute {
     option = raw["option"];
     legs: list[ComparisonLeg] = [];
     modes: list[str] = [];
+    operators: list[str] = [];
     services: list[str] = [];
     transit_count = 0;
+    previous_arrival = "";
+    currency = required_text(option["currency"]);
     for leg in required_list(option["legs"]) {
         mode = mode_label(leg["mode"]);
+        layover = 0;
+        if previous_arrival {
+            layover = int((instant_millis(required_text(leg["departure_at"])) - instant_millis(previous_arrival)) / 60000.0);
+        }
+        previous_arrival = required_text(leg["arrival_at"]);
         service = required_text(leg["service"]) if leg["service"] else mode;
         if mode != "Walk" { transit_count += 1; }
         if mode not in modes { modes.append(mode); }
         services.append(service);
-        legs.append(ComparisonLeg(id=required_text(leg["id"]), mode=mode, service=service,
+        operator = operator_name(leg["operator"]);
+        if operator and operator not in operators { operators.append(operator); }
+        legs.append(ComparisonLeg(id=required_text(leg["id"]), mode=mode, service=service, operator=operator,
             origin=required_text(leg["origin"]["name"]), destination=required_text(leg["destination"]["name"]),
             departure=local_clock(required_text(leg["departure_at"]), required_text(leg["origin"]["timezone"])),
-            arrival=local_clock(required_text(leg["arrival_at"]), required_text(leg["destination"]["timezone"]))));
+            arrival=local_clock(required_text(leg["arrival_at"]), required_text(leg["destination"]["timezone"])),
+            fare=leg_fare(leg["fare_cents"], currency), layover_minutes=layover));
     }
     if len(legs) == 0 { raise ValueError("Route has no legs"); }
     raw_legs = required_list(option["legs"]);
@@ -244,6 +337,7 @@ def route_view(raw: any, as_of: str) -> ComparisonRoute {
     opens = day_label(required_text(raw["weather_from"]), required_text(last["destination"]["timezone"])) if raw["weather_from"] else "";
     if opens { weather = "Not yet forecast"; }
     words = weather_words(required_list(raw["weather"]) if raw["weather"] else [], weather, opens);
+    tickets = ticketing_words(option["ticketing"], transit_count);
     return ComparisonRoute(id=required_text(option["id"]), name=" + ".join(services), modes=" + ".join(modes),
         departure=legs[0].departure, arrival=legs[len(legs) - 1].arrival,
         duration=duration_label(required_text(first["departure_at"]), required_text(last["arrival_at"])),
@@ -256,31 +350,106 @@ def route_view(raw: any, as_of: str) -> ComparisonRoute {
         arrival_ms=instant_millis(required_text(last["arrival_at"])),
         weather_legs=[{"id": leg["id"], "mode": leg["mode"], "origin": leg["origin"], "destination": leg["destination"],
             "departure_at": leg["departure_at"], "arrival_at": leg["arrival_at"], "path": leg["path"] if leg["path"] else []} for leg in raw_legs],
+        connections=connection_label(raw_legs),
         arrives=day_label(required_text(last["arrival_at"]), required_text(last["destination"]["timezone"])) + ", " + legs[len(legs) - 1].arrival,
         transfer_risk=risk_label(raw["risk"]["transfer"]), source=source_mode, provider=required_text(source["provider"]),
         freshness=freshness, source_time=utc_label(required_text(source["fetched_at"])) if source["fetched_at"] else "Timestamp unavailable", source_warnings=warnings,
-        reasons=reasons, legs=legs, stops=route_stops(raw_legs), segments=route_segments(raw_legs),
-        price_cents=-1 if option["price_cents"] is None else int(required_number(option["price_cents"])));
+        reasons=reasons, legs=legs, stops=route_stops(raw_legs), segments=route_segments(raw_legs), operators=operators,
+        price_cents=-1 if option["price_cents"] is None else int(required_number(option["price_cents"])),
+        ticketing=tickets[0], ticketing_note=tickets[1]);
+}
+
+def:pub provider_label(provider: str) -> str {
+    if provider == "detour-synthetic-corridor-v1" { return "Detour synthetic schedules"; }
+    if provider == "nws" { return "National Weather Service"; }
+    return provider;
+}
+
+"""Each source the server consulted; a malformed entry is left out rather than guessed."""
+def source_lines(raw: any, as_of: str) -> list[SourceLine] {
+    lines: list[SourceLine] = [];
+    if not isinstance(raw, list) { return lines; }
+    for (index, source) in enumerate(raw) {
+        if not source or not isinstance(source["provider"], str) or not isinstance(source["status"], str) { continue; }
+        status = str(source["status"]);
+        if status not in ["FIXTURE", "LIVE", "CACHED", "UNAVAILABLE"] { continue; }
+        fetched: any = source["fetched_at"];
+        expires: any = source["expires_at"];
+        stale = False;
+        if isinstance(expires, str) and Number.isFinite(Date.parse(expires)) and Number.isFinite(Date.parse(as_of)) {
+            stale = float(Date.parse(expires)) <= float(Date.parse(as_of));
+        }
+        words = {"FIXTURE": "Synthetic demo data", "LIVE": "Live", "CACHED": "Cached", "UNAVAILABLE": "Unavailable"}[status];
+        if stale { words += " · out of date"; }
+        when = utc_label(str(fetched)) if isinstance(fetched, str) and Number.isFinite(Date.parse(fetched)) else "Not fetched";
+        lines.append(SourceLine(kind="routes" if index == 0 else "weather", provider=provider_label(str(source["provider"])), status=words, fetched=when, stale=stale));
+    }
+    return lines;
+}
+
+"""Which constraints removed candidates, most common first, and one to relax."""
+def rejection_lines(raw: any, request: any) -> tuple[list[str], str] {
+    if not isinstance(raw, list) { return ([], ""); }
+    counts: dict[str, int] = {};
+    order: list[str] = [];
+    for item in raw {
+        if not item or not isinstance(item["reasons"], list) { continue; }
+        for code in item["reasons"] {
+            if not isinstance(code, str) { continue; }
+            if code not in counts { counts[code] = 0; order.append(code); }
+            counts[code] = counts[code] + 1;
+        }
+    }
+    buffer: any = request["min_transfer_minutes"] if request else None;
+    buffer_words = str(buffer) + "-minute" if isinstance(buffer, (int, float)) and not isinstance(buffer, bool) else "minimum";
+    what = {"OUTSIDE_WINDOW": "Outside your travel time", "OVER_BUDGET": "Over your maximum price",
+        "FARE_UNKNOWN": "No published fare to check against your maximum price",
+        "TRANSFER_TOO_SHORT": "A connection shorter than your " + buffer_words + " buffer",
+        "MODE_EXCLUDED": "Uses a mode you turned off", "CANCELED": "Canceled"};
+    relax = {"OUTSIDE_WINDOW": "Try another time or day.", "OVER_BUDGET": "Raise or remove the maximum price.",
+        "FARE_UNKNOWN": "Remove the maximum price to include routes without a published fare.",
+        "TRANSFER_TOO_SHORT": "Lower the connection buffer.", "MODE_EXCLUDED": "Allow both train and bus."};
+    ranked = sorted(order, key=lambda (code: str) -> int { return -counts[code]; });
+    lines: list[str] = [];
+    suggestion = "";
+    for code in ranked {
+        if code not in what { continue; }
+        lines.append(what[code] + ": " + str(counts[code]) + (" route" if counts[code] == 1 else " routes"));
+        if not suggestion and code in relax { suggestion = relax[code]; }
+    }
+    return (lines, suggestion);
 }
 
 def:pub comparison_view(preview: any) -> ComparisonView {
     if not preview { return ComparisonView(); }
     try {
         if preview["schema_version"] != 1 or preview["mode"] != "FIXTURE" { raise ValueError("Unsupported planning result"); }
-        if preview["error"] {
-            return ComparisonView(valid=True, error=required_text(preview["error"]["message"]), error_code=required_text(preview["error"]["code"]));
-        }
+        as_of = str(preview["as_of"]) if isinstance(preview["as_of"], str) else "";
+        sources = source_lines(preview["sources"], as_of);
         request = preview["request"];
+        if preview["error"] {
+            code = required_text(preview["error"]["code"]);
+            why = rejection_lines(preview["rejected"], request) if code == "NO_ROUTES" else ([], "");
+            return ComparisonView(valid=True, error=required_text(preview["error"]["message"]), error_code=code,
+                rejections=why[0], suggestion=why[1], sources=sources);
+        }
         routes = [route_view(raw, required_text(preview["as_of"])) for raw in required_list(preview["routes"])];
         ids: list[str] = [];
         for route in routes {
             if route.id in ids { raise ValueError("Duplicate route option"); }
             ids.append(route.id);
         }
-        if not routes { return ComparisonView(valid=True, error="No routes match your trip details. Try another time, budget, or transfer buffer.", error_code="NO_ROUTES"); }
+        if not routes {
+            why = rejection_lines(preview["rejected"], request);
+            return ComparisonView(valid=True, error="No routes match your trip details. Try another time, budget, or transfer buffer.", error_code="NO_ROUTES",
+                rejections=why[0], suggestion=why[1], sources=sources);
+        }
+        weather = [line for line in sources if line.kind == "weather"];
+        stale = `any([line.stale for line in sources]) or `any(["stale" in route.freshness for route in routes]);
         return ComparisonView(valid=True, title=required_text(request["origin_text"]) + " → " + required_text(request["destination_text"]),
             date=required_text(request["local_date"]), preference=preference_label(required_text(request["priority"])), routes=routes,
-            time_kind=required_text(request["time_kind"]), local_time=required_text(request["local_time"]));
+            time_kind=required_text(request["time_kind"]), local_time=required_text(request["local_time"]),
+            sources=sources, weather_checked=len(weather) > 0, weather_unavailable=`any([line.status == "Unavailable" for line in weather]), stale=stale);
     } except Exception {
         return ComparisonView(error="This comparison could not be read. Return to planning and search again.", error_code="INVALID_PREVIEW");
     }

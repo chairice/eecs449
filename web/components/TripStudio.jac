@@ -149,7 +149,7 @@ def:pub TripStudio -> JsxElement {
     }
     useEffect(lambda {
         alive.current = True;
-        paintPage("#121715", True, False);
+        paintPage("#121715", False);
         browser: any = window;
         online = bool(browser.navigator.onLine);
         def statusChange { online = bool(browser.navigator.onLine); }

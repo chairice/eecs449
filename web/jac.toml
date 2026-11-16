@@ -37,12 +37,30 @@ base_route_app = "app"
 [placement.pins]
 "client.atlas_flow" = "client"
 "client.planning_state" = "client"
+"client.theme_mode" = "client"
 "components.StudioOffers" = "client"
 
 # What a browser tab and a shared link show.
 [client.app_meta_data]
 title = "Detour · Your next journey"
 description = "Plan your kind of trip, together with Detour."
+
+# Paint the remembered light/dark theme before the bundle loads, so the first
+# frame has the right palette. Mirrors client/theme_mode.jac (same key and rule).
+[[client.app_meta_data.scripts]]
+content = """
+(function () {
+  var root = document.documentElement, pref = null, dark = false;
+  try { pref = window.localStorage.getItem("detour.theme.v1"); } catch (e) {}
+  try { dark = pref === "dark" || (pref !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches); } catch (e) {}
+  var path = window.location.pathname.toLowerCase();
+  while (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
+  if (path === "/") dark = false;
+  else if (path === "/studio") dark = true;
+  root.setAttribute("data-theme", dark ? "dark" : "light");
+  root.style.colorScheme = dark ? "dark" : "light";
+})();
+"""
 
 # Tailwind v4 utilities, layered above the hand-written styles (see tailwind.css).
 [client.vite]

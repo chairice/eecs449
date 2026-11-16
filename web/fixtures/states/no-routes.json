@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "mode": "FIXTURE",
+  "as_of": "2026-10-23T18:00:00Z",
+  "request": {
+    "origin_text": "Ann Arbor", "destination_text": "Chicago", "local_date": "2026-10-23",
+    "local_time": "16:00", "time_kind": "DEPART_AFTER", "max_price_cents": 1500,
+    "min_transfer_minutes": 45, "allowed_modes": ["TRAIN", "BUS"], "priority": "BALANCED"
+  },
+  "error": {"code": "NO_ROUTES", "message": "No routes satisfy all requested constraints.", "retryable": false},
+  "rejected": [
+    {"route_id": "a", "reasons": ["OVER_BUDGET"]},
+    {"route_id": "b", "reasons": ["OVER_BUDGET", "TRANSFER_TOO_SHORT"]},
+    {"route_id": "c", "reasons": ["OUTSIDE_WINDOW"]}
+  ],
+  "sources": [
+    {"provider": "detour-synthetic-corridor-v1", "status": "FIXTURE", "fetched_at": "2026-10-17T00:00:00Z", "expires_at": null, "warnings": []}
+  ],
+  "routes": [],
+  "weights": null
+}

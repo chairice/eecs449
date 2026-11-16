@@ -11,8 +11,10 @@ import from server.planning {
     planner_approve, planner_reject, planner_cancel, planner_upload, planner_preferences, planner_forget_preference,
     planner_undo, planner_guest_undo, planner_delete, planner_restore, planner_deleted, planner_weather, planner_guest_weather
 }
+import from client.theme_mode { initialize_theme }
 
 def:pub app(children: any = None) -> JsxElement {
     initialize_atlas_history();
+    initialize_theme();
     return <>{children}</>;
 }

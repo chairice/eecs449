@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "mode": "FIXTURE",
+  "as_of": "2026-10-23T18:00:00Z",
+  "request": {
+    "origin_text": "Ann Arbor", "destination_text": "Chicago", "local_date": "2026-10-23",
+    "local_time": "16:00", "time_kind": "DEPART_AFTER", "max_price_cents": null,
+    "min_transfer_minutes": 30, "allowed_modes": ["TRAIN", "BUS"], "priority": "BALANCED"
+  },
+  "error": null,
+  "rejected": [],
+  "sources": [
+    {"provider": "detour-synthetic-corridor-v1", "status": "CACHED", "fetched_at": "2026-10-23T12:00:00Z", "expires_at": "2026-10-23T13:00:00Z", "warnings": []},
+    {"provider": "nws", "status": "LIVE", "fetched_at": "2026-10-23T18:00:00Z", "expires_at": "2026-10-23T19:00:00Z", "warnings": []}
+  ],
+  "routes": [{
+    "score": 70,
+    "reason_codes": ["STALE_DATA"],
+    "risk": {"delay": "LOW", "weather": "LOW", "transfer": "LOW"},
+    "weather": [],
+    "weather_from": null,
+    "option": {
+      "id": "cached-bus", "price_cents": 3850, "currency": "USD",
+      "source": {
+        "provider": "detour-synthetic-corridor-v1", "status": "CACHED",
+        "fetched_at": "2026-10-23T12:00:00Z", "expires_at": "2026-10-23T13:00:00Z",
+        "warnings": [{"code": "STALE_DATA", "message": "Schedules were fetched six hours ago."}]
+      },
+      "legs": [{
+        "id": "cached-bus-1", "mode": "BUS", "service": "Example bus",
+        "origin": {"name": "Ann Arbor", "timezone": "America/Detroit"},
+        "destination": {"name": "Chicago", "timezone": "America/Chicago"},
+        "departure_at": "2026-10-23T16:30:00-04:00",
+        "arrival_at": "2026-10-23T18:30:00-05:00"
+      }]
+    }
+  }]
+}

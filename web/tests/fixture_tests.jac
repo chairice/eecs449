@@ -2,7 +2,7 @@ import os;
 import from pathlib { Path }
 import from tempfile { TemporaryDirectory }
 import from server.models {
-    ErrorCode, ProviderResult, RouteOption, SourceStatus, TimeKind, TravelMode,
+    ErrorCode, ProviderResult, RouteOption, SourceStatus, Ticketing, TimeKind, TravelMode,
     TripRequest, parse_timestamp, provider_result_to_json
 }
 import from server.providers.fixtures { DEFAULT_FIXTURE_PATH, FixtureRouteProvider, local_instant }
@@ -36,6 +36,33 @@ test "normal fixture provides direct train bus and transfer with visible synthet
     assert "SYNTHETIC_DATA" in [warning.code for warning in result.metadata.warnings];
     assert "NO_REALTIME_DATA" in [warning.code for warning in result.metadata.warnings];
     assert '"FIXTURE"' in provider_result_to_json(result);
+}
+
+test "demo train and bus transfer counts its Kalamazoo wait in total travel time" {
+    routes = available_routes(FixtureRouteProvider().search(fixture_request()));
+    hybrid = [option for option in routes if option.id == "demo-train-bus-transfer"][0];
+    train = hybrid.legs[0]; bus = hybrid.legs[1];
+    assert train.mode == TravelMode.TRAIN and bus.mode == TravelMode.BUS;
+    aboard = (parse_timestamp(train.arrival_at) - parse_timestamp(train.departure_at)) + (parse_timestamp(bus.arrival_at) - parse_timestamp(bus.departure_at));
+    layover = parse_timestamp(bus.departure_at) - parse_timestamp(train.arrival_at);
+    assert aboard.total_seconds() / 60.0 == 310.0;
+    assert layover.total_seconds() / 60.0 == 50.0;
+    assert hybrid.duration_minutes() == 360.0;
+}
+
+test "every fixture leg carries its own fare and transfer plans are separate tickets" {
+    request = fixture_request();
+    outbound = available_routes(FixtureRouteProvider().search(request));
+    request.origin_text = "Chicago";
+    request.destination_text = "Ann Arbor";
+    for option in outbound + available_routes(FixtureRouteProvider().search(request)) {
+        assert all(leg.fare_cents is not None for leg in option.legs);
+        assert sum([leg.fare_cents for leg in option.legs]) == option.price_cents;
+        assert option.ticketing == (Ticketing.SEPARATE if option.transfers() > 0 else Ticketing.THROUGH);
+    }
+    hybrid = outbound[2];
+    assert [(leg.mode, leg.fare_cents) for leg in hybrid.legs] == [(TravelMode.TRAIN, 2400), (TravelMode.BUS, 1800)];
+    assert '"ticketing": "SEPARATE"' in provider_result_to_json(FixtureRouteProvider().search(fixture_request()));
 }
 
 test "repeated requests are deterministic and result mutation does not contaminate next search" {
@@ -187,5 +214,49 @@ test "a fixture path that is malformed or joins unknown places fails the fixture
             result = FixtureRouteProvider(fixture_path=str(path)).search(fixture_request());
             assert result.data is None and result.error is not None;
         }
+    }
+}
+
+glob DEMO_CITIES: list[str] = ["Chicago, IL", "Detroit, MI", "Lansing, MI", "Grand Rapids, MI", "Toledo, OH", "Cleveland, OH"];
+
+test "every demo city has routes both ways with drawn paths on every leg" {
+    provider = FixtureRouteProvider();
+    for city in DEMO_CITIES {
+        for (origin, destination) in [("Ann Arbor, MI", city), (city, "Ann Arbor, MI")] {
+            routes = available_routes(provider.search(TripRequest(origin_text=origin, destination_text=destination, local_date="2026-11-12", local_time="00:00", time_kind=TimeKind.DEPART_AFTER)));
+            assert len(routes) >= 1, origin + " to " + destination;
+            for option in routes {
+                for leg in option.legs {
+                    assert len(leg.path) >= 2;
+                    assert leg.path[0] == [leg.origin.latitude, leg.origin.longitude];
+                    assert leg.path[-1] == [leg.destination.latitude, leg.destination.longitude];
+                }
+            }
+        }
+    }
+}
+
+test "new corridors read times in their own zones and offer hybrid connections" {
+    provider = FixtureRouteProvider();
+    cleveland = available_routes(provider.search(TripRequest(origin_text="ann arbor", destination_text="Cleveland Ohio", local_date="2026-11-12", local_time="00:00", time_kind=TimeKind.DEPART_AFTER)));
+    hybrid = [option for option in cleveland if option.transfers() == 1][0];
+    assert [leg.mode for leg in hybrid.legs] == [TravelMode.BUS, TravelMode.TRAIN];
+    assert hybrid.legs[-1].arrival_at.endswith("-05:00");
+    detroit = available_routes(provider.search(TripRequest(origin_text="Ann Arbor", destination_text="Detroit", local_date="2026-11-12", local_time="00:00", time_kind=TimeKind.DEPART_AFTER)));
+    assert TravelMode.TRAIN in [option.legs[0].mode for option in detroit];
+}
+
+test "cities without a corridor between them return a successful empty result" {
+    result = FixtureRouteProvider().search(TripRequest(origin_text="Detroit, MI", destination_text="Cleveland, OH", local_date="2026-11-12", local_time="00:00", time_kind=TimeKind.DEPART_AFTER));
+    assert available_routes(result) == [];
+}
+
+test "fixture files that disagree about a shared place fail the fixture" {
+    original = Path(DEFAULT_FIXTURE_PATH).read_text(encoding="utf-8");
+    with TemporaryDirectory() as temporary {
+        path = Path(temporary) / "moved.json";
+        _ = path.write_text(original.replace('"latitude": 42.2877', '"latitude": 42.3', 1), encoding="utf-8");
+        result = FixtureRouteProvider(fixture_path=str(path)).search(fixture_request());
+        assert result.error is not None and result.error.code == ErrorCode.PROVIDER_UNAVAILABLE;
     }
 }

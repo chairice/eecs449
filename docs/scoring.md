@@ -32,6 +32,13 @@ duration of intervening walking legs**. Walking neither adds a vehicle transfer
 nor violates a train/bus mode selection. A 50-minute connection containing a
 20-minute walk therefore provides 30 minutes of slack.
 
+Route duration is the final leg's arrival minus the first leg's departure, so
+the time spent waiting between legs (for example, 50 minutes in Kalamazoo
+between a train and a bus) counts toward duration, duration ranking, the
+arrive-by deadline, and the travel time shown. The results cards and saved trips
+also name each connection ("50 min connection at Kalamazoo"), measured from one
+vehicle's arrival to the next vehicle's departure, including any walk.
+
 Only feasible candidates contribute duration and fare normalization. An
 impossible cheap or fast route cannot change the scores of feasible routes.
 An empty candidate set or an entirely rejected set returns `NO_ROUTES`.

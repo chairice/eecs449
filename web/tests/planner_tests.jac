@@ -1,7 +1,7 @@
 import from server.models {
     ErrorCode, Place, PriorityPreset, ProviderMetadata, ReasonCode, RiskAssessment,
     RiskLevel, RouteLeg, RouteOption, ServiceStatus, SourceStatus, TimeKind,
-    TravelMode, TripRequest, model_to_json
+    TravelMode, TripRequest, model_to_json, parse_timestamp
 }
 import from server.planner {
     ConstraintCode, preset_weights, rank_routes, transfer_slack
@@ -119,6 +119,42 @@ test "departure and arrival windows use terminal timezone and include exact boun
     result = rank_routes(request, [late, exact], AS_OF);
     assert [route.option.id for route in result.routes] == ["exact"];
     assert result.routes[0].option.duration_minutes() == 180.0;
+}
+
+def ride_minutes(route: RouteOption) -> float {
+    return sum([(parse_timestamp(leg.arrival_at) - parse_timestamp(leg.departure_at)).total_seconds() / 60.0 for leg in route.legs]);
+}
+
+test "hybrid route duration includes the wait between its train and bus legs" {
+    # Train 16:00-17:00 EDT, 50 minutes at the interchange, bus 17:50 EDT-19:00 CDT.
+    route = transfer_route("hybrid", with_walk=False);
+    assert ride_minutes(route) == 190.0;
+    assert route.duration_minutes() == 240.0;
+    assert transfer_slack(route) == [50.0];
+    # Waiting at a walk transfer is counted too: 60 + 20 + 130 aboard or walking, 30 standing.
+    walked = transfer_route("walked");
+    assert ride_minutes(walked) == 210.0;
+    assert walked.duration_minutes() == 240.0;
+}
+
+test "a longer layover makes an otherwise identical hybrid route slower and can miss arrive-by" {
+    # Both bus legs ride 130 minutes; only the wait at the interchange differs (50 vs 120).
+    short_wait = transfer_route("short-wait", with_walk=False);
+    long_wait = transfer_route("long-wait", second_departure="2026-10-23T19:00:00-04:00", with_walk=False, arrival="2026-10-23T20:10:00-05:00");
+    assert ride_minutes(short_wait) == ride_minutes(long_wait);
+    assert long_wait.duration_minutes() - short_wait.duration_minutes() == 70.0;
+    request = planning_request(); request.priority = PriorityPreset.FASTEST;
+    result = rank_routes(request, [long_wait, short_wait], AS_OF, {"short-wait": known_risk(), "long-wait": known_risk()});
+    assert [route.option.id for route in result.routes] == ["short-wait", "long-wait"];
+    assert result.routes[0].features.duration == 1.0 and result.routes[1].features.duration == 0.0;
+    assert ReasonCode.FASTEST in result.routes[0].reason_codes;
+    assert ReasonCode.FASTEST not in result.routes[1].reason_codes;
+    # The deadline is checked against the final leg's arrival, after the wait.
+    request.time_kind = TimeKind.ARRIVE_BY; request.local_time = "19:30";
+    windowed = rank_routes(request, [long_wait, short_wait], AS_OF);
+    assert [route.option.id for route in windowed.routes] == ["short-wait"];
+    assert windowed.rejected[0].route_id == "long-wait";
+    assert windowed.rejected[0].reasons == [ConstraintCode.OUTSIDE_WINDOW];
 }
 
 test "DST gap fold and maximum date overflow are typed invalid requests" {

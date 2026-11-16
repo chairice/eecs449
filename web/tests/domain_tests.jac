@@ -2,7 +2,7 @@ import json;
 import from server.models {
     DomainError, ErrorCode, Place, PriorityPreset, ProviderMetadata, ProviderResult,
     RiskAssessment, RiskLevel, RouteLeg, RouteOption, ScoreDimensions, ScoredRoute,
-    ServiceStatus, SourceStatus, TimeKind, TravelMode, TripPlan, TripPlanDraft,
+    ServiceStatus, SourceStatus, Ticketing, TimeKind, TravelMode, TripPlan, TripPlanDraft,
     TripIntent, TripRequest, UserPreferences, WeatherEvidence, model_to_json, parse_timestamp,
     provider_result_to_json, route_option_from_json, trip_request_from_json
 }
@@ -111,6 +111,27 @@ test "walking connectors do not count as additional vehicle transfers" {
     option = RouteOption(id="connection", legs=[first, walk, bus], source=source_fixture());
     assert option.transfers() == 1;
     assert option.duration_minutes() == 300.0;
+}
+
+test "hybrid fares break down per leg, add up, and say how they are ticketed" {
+    middle = Place(id="kzo", name="Kalamazoo", latitude=42.2952, longitude=-85.5841, timezone="America/Detroit");
+    train = RouteLeg(id="train", mode=TravelMode.TRAIN, origin=origin_fixture(), destination=middle, departure_at="2026-10-23T16:00:00-04:00", arrival_at="2026-10-23T18:00:00-04:00", operator="Demo Rail", fare_cents=2400);
+    bus = RouteLeg(id="bus", mode=TravelMode.BUS, origin=middle, destination=destination_fixture(), departure_at="2026-10-23T18:30:00-04:00", arrival_at="2026-10-23T19:30:00-05:00", operator="Demo Coach", fare_cents=1800);
+    hybrid = RouteOption(id="hybrid", legs=[train, bus], source=source_fixture(), price_cents=4200);
+    assert hybrid.ticketing == Ticketing.SEPARATE;
+    restored = route_option_from_json(model_to_json(hybrid));
+    assert [leg.fare_cents for leg in restored.legs] == [2400, 1800];
+    assert restored.ticketing == Ticketing.SEPARATE;
+    assert model_to_json(restored) == model_to_json(hybrid);
+    assert route_fixture().ticketing == Ticketing.THROUGH;
+    bundled = RouteOption(id="bundle", legs=[train, bus], source=source_fixture(), price_cents=4200, ticketing=Ticketing.THROUGH);
+    assert route_option_from_json(model_to_json(bundled)).ticketing == Ticketing.THROUGH;
+    with testraises(ValueError) { _ = RouteOption(id="mismatch", legs=[train, bus], source=source_fixture(), price_cents=4000); }
+    with testraises(ValueError) {
+        _ = RouteLeg(id="negative", mode=TravelMode.BUS, origin=middle, destination=destination_fixture(), departure_at="2026-10-23T18:30:00-04:00", arrival_at="2026-10-23T19:30:00-05:00", fare_cents=-1);
+    }
+    bus.fare_cents = None;
+    assert RouteOption(id="partial", legs=[train, bus], source=source_fixture(), price_cents=4000).price_cents == 4000;
 }
 
 test "provider envelopes distinguish successful empty search from outage" {

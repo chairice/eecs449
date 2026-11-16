@@ -1,9 +1,10 @@
-"""One layout for the file-based router; Detour is light mode only."""
+"""One layout for the file-based router; the theme lives on <html> (client/theme_mode.jac)."""
 
 import from "@jac/runtime" { Outlet, useLocation }
 import from ..components.AppShell { AppShell }
 import from ..components.SiteFooter { SiteFooter }
 import from ..browser { mediaMatches, loadStylesheet, paintPage }
+import from ..client.theme_mode { refresh_theme }
 import from ..theme { FONTS_URL, REDUCED_MOTION_QUERY }
 
 def:pub RootLayout -> JsxLayout {
@@ -22,8 +23,9 @@ def:pub RootLayout -> JsxLayout {
 
     can with entry { loadStylesheet(FONTS_URL); doc: any = document; doc.title = "Detour · Your next journey"; }
     can with entry {
-        if path == "/studio" { paintPage("#121715", True, False); }
-        else { paintPage("var(--dt-bg)", False, not mediaMatches(REDUCED_MOTION_QUERY)); }
+        if path == "/studio" { paintPage("#121715", False); }
+        else { paintPage("var(--dt-bg)", not mediaMatches(REDUCED_MOTION_QUERY)); }
+        refresh_theme();
     }
 
     if path == "/studio" { return <Outlet/>; }

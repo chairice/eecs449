@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "mode": "FIXTURE",
+  "as_of": "2026-10-23T18:00:00Z",
+  "request": {
+    "origin_text": "Ann Arbor", "destination_text": "Chicago", "local_date": "2026-10-23",
+    "local_time": "16:00", "time_kind": "DEPART_AFTER", "max_price_cents": null,
+    "min_transfer_minutes": 30, "allowed_modes": ["TRAIN", "BUS"], "priority": "BALANCED"
+  },
+  "error": {"code": "PROVIDER_UNAVAILABLE", "message": "The synthetic route fixture could not be loaded or validated.", "retryable": true},
+  "rejected": [],
+  "sources": [
+    {"provider": "detour-synthetic-corridor-v1", "status": "UNAVAILABLE", "fetched_at": null, "expires_at": null, "warnings": []}
+  ],
+  "routes": [],
+  "weights": null
+}
