@@ -2,7 +2,7 @@ import os;
 import from pathlib { Path }
 import from tempfile { TemporaryDirectory }
 import from server.models {
-    ErrorCode, ProviderResult, RouteOption, SourceStatus, TimeKind, TravelMode,
+    ErrorCode, ProviderResult, RouteOption, SourceStatus, Ticketing, TimeKind, TravelMode,
     TripRequest, parse_timestamp, provider_result_to_json
 }
 import from server.providers.fixtures { DEFAULT_FIXTURE_PATH, FixtureRouteProvider, local_instant }
@@ -36,6 +36,21 @@ test "normal fixture provides direct train bus and transfer with visible synthet
     assert "SYNTHETIC_DATA" in [warning.code for warning in result.metadata.warnings];
     assert "NO_REALTIME_DATA" in [warning.code for warning in result.metadata.warnings];
     assert '"FIXTURE"' in provider_result_to_json(result);
+}
+
+test "every fixture leg carries its own fare and transfer plans are separate tickets" {
+    request = fixture_request();
+    outbound = available_routes(FixtureRouteProvider().search(request));
+    request.origin_text = "Chicago";
+    request.destination_text = "Ann Arbor";
+    for option in outbound + available_routes(FixtureRouteProvider().search(request)) {
+        assert all(leg.fare_cents is not None for leg in option.legs);
+        assert sum([leg.fare_cents for leg in option.legs]) == option.price_cents;
+        assert option.ticketing == (Ticketing.SEPARATE if option.transfers() > 0 else Ticketing.THROUGH);
+    }
+    hybrid = outbound[2];
+    assert [(leg.mode, leg.fare_cents) for leg in hybrid.legs] == [(TravelMode.TRAIN, 2400), (TravelMode.BUS, 1800)];
+    assert '"ticketing": "SEPARATE"' in provider_result_to_json(FixtureRouteProvider().search(fixture_request()));
 }
 
 test "repeated requests are deterministic and result mutation does not contaminate next search" {
