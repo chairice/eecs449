@@ -31,7 +31,6 @@ tailwindcss = "^4.3.3"
 watchdog = ">=3.0.0"
 
 [serve]
-host = "127.0.0.1"
 base_route_app = "app"
 
 [placement.pins]
