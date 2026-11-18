@@ -41,11 +41,47 @@ def ensure_started() -> None:
         _thread.start()
 
 
+def env_files() -> list[Path]:
+    root = Path(__file__).resolve().parents[1]
+    return [root / ".env", root.parent / ".env"]
+
+
+def load_project_env() -> None:
+    """Fill unset variables from a project .env file.
+
+    Jac's deploy tooling keeps secrets in the project's .env, but `jac run --serve`
+    does not load it into the server, so a host that stores the key there would
+    otherwise leave the process without it. Variables already set always win.
+    """
+    for path in env_files():
+        try:
+            lines = path.read_text().splitlines()
+        except OSError:
+            continue
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            name, value = line.removeprefix("export ").split("=", 1)
+            name, value = name.strip(), value.strip().strip("'\"")
+            if name and value and not os.environ.get(name, "").strip():
+                os.environ[name] = value
+
+
+def _missing_key_message() -> str:
+    # Names only, never values, so the message is safe to show in the chat.
+    similar = sorted(name for name in os.environ if "ANTHROPIC" in name.upper() or "API_KEY" in name.upper())
+    files = [path.name + " in " + path.parent.name for path in env_files() if path.is_file()]
+    return ("ANTHROPIC_API_KEY is not set on this server (similar variables: " + (", ".join(similar) or "none")
+            + "; .env files: " + (", ".join(files) or "none") + "). Set it in the host's environment and restart.")
+
+
 def _load_runner():
+    load_project_env()
     # Hosting dashboards make it easy to paste a key with quotes or a trailing newline.
     key = os.getenv("ANTHROPIC_API_KEY", "").strip().strip("'\"").strip()
     if not key:
-        raise RuntimeError("ANTHROPIC_API_KEY is not set on this server.")
+        raise RuntimeError(_missing_key_message())
     os.environ["ANTHROPIC_API_KEY"] = key
     # The Jac server resolves only modules its .jac files import; put the project root
     # (which holds atlas_runtime/) on the plain Python path for the worker package.
@@ -132,6 +168,6 @@ def _fail_queued(jobs, worker_id: str, stopped: threading.Event, message: str) -
     while not stopped.is_set():
         job = jobs.claim(worker_id)
         if job:
-            jobs.finish(job["id"], job["lease_token"], error=message[:300])
+            jobs.finish(job["id"], job["lease_token"], error=message[:600])
         else:
             stopped.wait(.6)
