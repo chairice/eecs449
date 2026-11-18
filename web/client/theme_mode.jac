@@ -30,8 +30,8 @@ def:pub resolve_theme(preference: str, system_dark: bool) -> str {
 def:pub theme_for_path(path: str, preference: str, system_dark: bool) -> str {
     normalized = path.lower();
     while len(normalized) > 1 and normalized[len(normalized) - 1] == "/" { normalized = normalized[:len(normalized) - 1]; }
-    if normalized == "/" { return "light"; }
-    if normalized == "/studio" { return "dark"; }
+    # Studio shares the landing page's light palette.
+    if normalized == "/" or normalized == "/studio" { return "light"; }
     return resolve_theme(preference, system_dark);
 }
 

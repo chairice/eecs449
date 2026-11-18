@@ -77,6 +77,30 @@ def remember_undo(state, label="Trip updated"):
     state["undo"] = {"revision": state["revision"] + 1, "label": label}
 
 
+def rename_json(state_json: str, title: str, revision: int, command_id: str) -> str:
+    """Rename the trip as an ordinary revision, undoable like any other update."""
+    state = loads(state_json)
+    command = identifier(command_id, "rename ID")
+    clean = " ".join(str(title or "").split())
+    signature = fingerprint({"renameRevision": revision, "title": clean})
+    commands = state.setdefault("commands", {})
+    if command in commands:
+        if commands[command] != signature: raise PlanningError("This rename request was already used for a different title.")
+        return dumps(state)
+    if not clean: raise PlanningError("Give the trip a name.")
+    if len(clean) > 160: raise PlanningError("Trip names can be up to 160 characters.")
+    if state.get("activeJob"): raise PlanningError("Stop the current planning task before renaming the trip.")
+    if state["revision"] != revision: raise PlanningError("This trip changed in another window. Reload before renaming it.")
+    if clean == state["snapshot"].get("title"): return dumps(state)
+    remember_undo(state, "Trip renamed")
+    snapshot = copy.deepcopy(state["snapshot"]); snapshot["title"] = clean
+    state["snapshot"] = validate_trip(snapshot)
+    state["revision"] += 1
+    state["updatedAt"] = now()
+    commands[command] = signature
+    return dumps(bound_undo(state))
+
+
 def undo_json(state_json: str, revision: int, command_id: str) -> str:
     state = loads(state_json)
     command = identifier(command_id, "undo ID")

@@ -1,7 +1,11 @@
 """Conversational trip studio: viewing and selection in the workspace, edits in chat."""
+import "../tailwind.css";
+import "../styles.css";
 import "../studio.css";
 import from react { useEffect, useRef, useMemo }
 import from "@jac/runtime" { useLocation }
+import from .Brand { Brand }
+import from .PublicHeader { HEADER }
 import from .PlannerMap { PlannerMap }
 import from .ChatMarkdown { ChatMarkdown }
 import from .StudioOffers { StudioOffer, conversation_offers }
@@ -16,11 +20,11 @@ import from ..client.planning_state {
 import from ..browser { paintPage }
 import from server.planning {
     planner_status, planner_blank, planner_guest_start, planner_guest_poll, planner_guest_stage,
-    planner_guest_cancel, planner_guest_upload, planner_guest_undo, planner_guest_weather
+    planner_guest_cancel, planner_guest_upload, planner_guest_undo, planner_guest_weather, planner_guest_rename
 }
 import from ..client.planning_rpc {
     planner_list, planner_import, planner_get, planner_start, planner_poll, planner_stage,
-    planner_undo, planner_delete, planner_restore, planner_deleted, planner_weather,
+    planner_undo, planner_rename, planner_delete, planner_restore, planner_deleted, planner_weather,
     planner_cancel, planner_upload, planner_preferences, planner_forget_preference
 }
 
@@ -94,6 +98,7 @@ def:pub TripStudio -> JsxElement {
     has uploading: bool = False;
     has deletedTrips: any = [], showDeleted: bool = False, deletedUndo: str = "";
     has undoDismissed: int = -1, deletedCurrent: bool = False;
+    has renaming: bool = False, titleDraft: str = "";
     has email: str = "", password: str = "", authProblem: str = "", authBusy: bool = False;
 
     def cacheKey -> str { return account_email() if signed_in() else "guest"; }
@@ -149,7 +154,7 @@ def:pub TripStudio -> JsxElement {
     }
     useEffect(lambda {
         alive.current = True;
-        paintPage("#121715", False);
+        paintPage("var(--dt-bg)", False);
         browser: any = window;
         online = bool(browser.navigator.onLine);
         def statusChange { online = bool(browser.navigator.onLine); }
@@ -300,6 +305,25 @@ def:pub TripStudio -> JsxElement {
             value = parse_response(await planner_undo(str(state["id"]), int(state["revision"]), command) if signed_in() else await planner_guest_undo(JSON.stringify(state), int(state["revision"]), command));
             commit(value); inspected = None; selectedId = ""; notice = "Last trip update undone.";
         } except Exception { error = "Couldn't undo that update. Reopen the trip and try again."; }
+        busy = False;
+    }
+    def startRename {
+        if not state or busy { return; }
+        titleDraft = str(state["snapshot"]["title"]); renaming = True;
+    }
+    async def renameTrip {
+        if not renaming { return; }
+        renaming = False;
+        title = " ".join(titleDraft.split());
+        if not state or not title or title == str(state["snapshot"]["title"]) { return; }
+        busy = True;
+        try {
+            command = planner_id("rename");
+            value = parse_response(await planner_rename(str(state["id"]), title, int(state["revision"]), command) if signed_in() else await planner_guest_rename(JSON.stringify(state), title, int(state["revision"]), command));
+            commit(value);
+            savedTrips = [({**trip, "title": value["snapshot"]["title"]} if trip["id"] == value["id"] else trip) for trip in savedTrips];
+            notice = "Trip renamed.";
+        } except Exception as exc { error = str(exc) or "Couldn't rename the trip. Please try again."; }
         busy = False;
     }
     def rememberView {
@@ -457,8 +481,25 @@ def:pub TripStudio -> JsxElement {
         for (index, turn) in enumerate(state["conversation"]) { if turn["role"] != "user" { lastAssistant = index; } }
     }
     empty = snapshot and len(snapshot["places"]) == 0 and len(snapshot["days"]) == 0;
-    return <div className={"trip-studio " + ("chat-collapsed " if not chatOpen else "") + "phone-" + phoneTab}>
-        <header className="studio-header"><a className="studio-wordmark" href="/" aria-label="Detour home"><span>◈</span> detour<span className="studio-wordmark-caption">a little further</span></a><div className="studio-trip-title">{str(state["snapshot"]["title"]) if state else "Your next journey"}<span>{"Saved to account" if authenticated else "Saved on this device"}</span></div><nav aria-label="Workspace"><button ref={libraryButton} type="button" className={"is-open" if libraryOpen else ""} aria-expanded={libraryOpen} aria-controls="studio-trip-library" onClick={showLibrary} disabled={busy}>Your trips</button><button type="button" className="studio-preferences-button" onClick={lambda { preferencesOpen = True; }}>Preferences</button>{if authenticated { <button type="button" onClick={signOut} disabled={busy}>Sign out</button> } else { <button type="button" className="studio-account-button" disabled={busy or uploading} onClick={lambda { accountOpen = True; }}>Save & resume anywhere ↗</button> }}</nav></header>
+    return <div className={"trip-studio bg-linear-to-br from-emerald-100/80 via-green-50 to-emerald-50 " + ("chat-collapsed " if not chatOpen else "") + "phone-" + phoneTab}>
+        <header className={HEADER + " studio-header static"}><Brand/>
+            <div className="studio-trip-title min-w-0">
+                {if renaming {
+                    <form className="flex items-center" onSubmit={lambda (e: FormEvent) { e.preventDefault(); renameTrip(); }}>
+                        <label htmlFor="studio-trip-name" className="studio-sr-only">Trip name</label>
+                        <input id="studio-trip-name" autoFocus={True} value={titleDraft} maxLength={160} onChange={lambda (e: ChangeEvent) { titleDraft = str(e.target.value); }} onFocus={lambda (e: any) { e.target.select(); }} onBlur={lambda { renameTrip(); }}
+                            onKeyDown={lambda (e: any) { if e.key == "Escape" { renaming = False; } elif e.key == "Enter" and not e.nativeEvent.isComposing { e.preventDefault(); renameTrip(); } }}
+                            className="w-full max-w-sm rounded-lg border border-emerald-400 bg-white px-2 py-1 text-sm font-semibold text-gray-900 shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/40"/>
+                    </form>
+                } else {
+                    <button type="button" onClick={startRename} disabled={not state or busy} title="Rename this trip"
+                        className="group inline-flex max-w-full items-center gap-1.5 rounded-lg px-2 py-1 text-left text-sm font-semibold text-gray-900 transition-colors hover:bg-white/70">
+                        <span className="truncate">{str(state["snapshot"]["title"]) if state else "Your next journey"}</span>
+                        {if state { <span aria-hidden="true" className="text-xs text-gray-400 group-hover:text-emerald-700">✎ Rename</span> }}
+                    </button>
+                }}
+                <span className="px-2 text-gray-500">{"Saved to account" if authenticated else "Saved on this device"}</span>
+            </div><nav aria-label="Workspace"><button ref={libraryButton} type="button" className={"is-open" if libraryOpen else ""} aria-expanded={libraryOpen} aria-controls="studio-trip-library" onClick={showLibrary} disabled={busy}>Your trips</button><button type="button" className="studio-preferences-button" onClick={lambda { preferencesOpen = True; }}>Preferences</button>{if authenticated { <button type="button" onClick={signOut} disabled={busy}>Sign out</button> } else { <button type="button" className="studio-account-button" disabled={busy or uploading} onClick={lambda { accountOpen = True; }}>Save & resume anywhere ↗</button> }}</nav></header>
         {if not online { <div className="studio-offline" role="status">You're offline. Your saved itinerary and booking details are available; maps and research need a connection.</div> }}
         {if error { <div className="studio-error" role="alert"><span>{error}</span><button type="button" aria-label="Dismiss error" onClick={lambda { error = ""; }}>×</button></div> }}
         {if notice or (state and state["undo"] and not busy and int(state["revision"]) != undoDismissed) { <div className="studio-notice" role="status"><span>{notice or "Trip updated."}</span>{if deletedUndo { <button type="button" onClick={lambda { restoreTrip(deletedUndo); }}>Undo</button> } elif state and state["undo"] and not busy and int(state["revision"]) != undoDismissed { <button type="button" onClick={undoEdit}>Undo last update</button> }}<button type="button" aria-label="Dismiss notice" onClick={lambda { notice = ""; undoDismissed = int(state["revision"]) if state else -1; }}>×</button></div> }}

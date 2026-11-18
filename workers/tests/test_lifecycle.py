@@ -5,7 +5,7 @@ import pytest
 
 from server import planning_api as api, planning_jobs as jobs
 from server.planning_core import PlanningError, blank_trip, dumps, loads, validate_trip, budget_summary
-from server.planning_lifecycle import abandoned, meaningful, needs_decision, undo_json, delete_json, restore_json, recent_deleted
+from server.planning_lifecycle import abandoned, meaningful, needs_decision, undo_json, rename_json, delete_json, restore_json, recent_deleted
 
 
 @pytest.fixture(autouse=True)
@@ -145,3 +145,20 @@ def test_unbounded_last_snapshot_is_rejected_before_it_can_be_persisted():
     with pytest.raises(PlanningError, match="too large to save together with Undo"):
         bound_undo(state)
     assert state["undoHistory"]  # Never trim the last Undo or the person's chat.
+
+
+def test_rename_is_an_undoable_revision_with_validation():
+    state = planned()
+    revision = state["revision"]
+    with pytest.raises(PlanningError, match="name"): rename_json(dumps(state), "   ", revision, "rename-empty")
+    with pytest.raises(PlanningError, match="160"): rename_json(dumps(state), "x" * 161, revision, "rename-long")
+    with pytest.raises(PlanningError, match="another window"): rename_json(dumps(state), "Bay trip", revision + 1, "rename-stale")
+    renamed = loads(rename_json(dumps(state), "  Bay   trip ", revision, "rename-1"))
+    assert renamed["snapshot"]["title"] == "Bay trip" and renamed["revision"] == revision + 1
+    assert renamed["snapshot"]["days"] == state["snapshot"]["days"]
+    assert loads(rename_json(dumps(renamed), "Bay trip", revision, "rename-1")) == renamed  # retried request
+    with pytest.raises(PlanningError, match="different title"): rename_json(dumps(renamed), "Other", revision, "rename-1")
+    restored = loads(undo_json(dumps(renamed), renamed["revision"], "undo-rename"))
+    assert restored["snapshot"]["title"] == state["snapshot"]["title"]
+    busy = dict(state, activeJob="job-1")
+    with pytest.raises(PlanningError, match="Stop the current"): rename_json(dumps(busy), "Bay trip", revision, "rename-busy")

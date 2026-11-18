@@ -23,7 +23,7 @@ def:pub RootLayout -> JsxLayout {
 
     can with entry { loadStylesheet(FONTS_URL); doc: any = document; doc.title = "Detour · Your next journey"; }
     can with entry {
-        if path == "/studio" { paintPage("#121715", False); }
+        if path == "/studio" { paintPage("var(--dt-bg)", False); }
         else { paintPage("var(--dt-bg)", not mediaMatches(REDUCED_MOTION_QUERY)); }
         refresh_theme();
     }

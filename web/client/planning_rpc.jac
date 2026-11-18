@@ -21,6 +21,9 @@ async def:pub planner_preferences -> str { return str(await __jacCallFunction("p
 async def:pub planner_forget_preference(key: str) -> str { return str(await __jacCallFunction("planner_forget_preference", {"key": key})); }
 
 async def:pub planner_undo(trip_id: str, revision: int, command_id: str) -> str { return str(await __jacCallFunction("planner_undo", {"trip_id": trip_id, "revision": revision, "command_id": command_id})); }
+async def:pub planner_rename(trip_id: str, title: str, revision: int, command_id: str) -> str {
+    return str(await __jacCallFunction("planner_rename", {"trip_id": trip_id, "title": title, "revision": revision, "command_id": command_id}));
+}
 async def:pub planner_delete(trip_id: str) -> str { return str(await __jacCallFunction("planner_delete", {"trip_id": trip_id})); }
 async def:pub planner_restore(trip_id: str) -> str { return str(await __jacCallFunction("planner_restore", {"trip_id": trip_id})); }
 async def:pub planner_deleted -> str { return str(await __jacCallFunction("planner_deleted")); }

@@ -13,7 +13,7 @@ import from server.planning_jobs {
 }
 
 import from server.planning_lifecycle {
-    undo_json as _undo_json, delete_json as _delete_json, restore_json as _restore_json,
+    undo_json as _undo_json, rename_json as _rename_json, delete_json as _delete_json, restore_json as _restore_json,
     abandoned as _abandoned, recent_deleted as _recent_deleted
 }
 import from server.planning_weather { weather_json as _weather_json }
@@ -115,6 +115,23 @@ def:protect planner_undo(trip_id: str, revision: int, command_id: str) -> str {
         trip = _find_trip(trip_id);
         before = json.loads(trip.state_json)["revision"];
         trip.state_json = _undo_json(trip.state_json, revision, command_id);
+        state = json.loads(trip.state_json);
+        if state["revision"] != before {
+            trip ++> PlannerRevision(version=state["revision"], snapshot_json=json.dumps(state["snapshot"]), command_id=command_id);
+        }
+        return trip.state_json;
+    } except Exception as exc { return _failure(exc); }
+}
+
+def:pub planner_guest_rename(state_json: str, title: str, revision: int, command_id: str) -> str {
+    try { return _rename_json(state_json, title, revision, command_id); } except Exception as exc { return _failure(exc); }
+}
+
+def:protect planner_rename(trip_id: str, title: str, revision: int, command_id: str) -> str {
+    try {
+        trip = _find_trip(trip_id);
+        before = json.loads(trip.state_json)["revision"];
+        trip.state_json = _rename_json(trip.state_json, title, revision, command_id);
         state = json.loads(trip.state_json);
         if state["revision"] != before {
             trip ++> PlannerRevision(version=state["revision"], snapshot_json=json.dumps(state["snapshot"]), command_id=command_id);

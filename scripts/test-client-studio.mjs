@@ -37,7 +37,7 @@ function fixture({pollResponse, authenticated=false, withUndo=false} = {}) {
     save_session: (_,value)=>{writes.push(structuredClone(value));return '';},
     guest_token:()=>'guest_test_capability', planner_id:prefix=>`${prefix}_${randomUUID()}`,
     planner_today:()=>'2026-11-15', planner_zone:()=>'America/Detroit',
-    PlannerMap:()=>{}, ChatMarkdown:()=>{}, StudioOffer:function StudioOffer(){},StudioDetails:function StudioDetails(){},StudioWeather:()=>{},
+    HEADER:'', Brand:function Brand(){}, PlannerMap:()=>{}, ChatMarkdown:()=>{}, StudioOffer:function StudioOffer(){},StudioDetails:function StudioDetails(){},StudioWeather:()=>{},
     conversation_offers:(turn,offers,fallback)=>Object.hasOwn(turn,"offerIds")?offers.filter(o=>(turn.offerIds??[]).includes(o.id)):fallback,
     planner_list:async()=>JSON.stringify([{id:state.id,title:state.snapshot.title}]),planner_deleted:async()=>'[]',
     __jacCallFunction: async (name,args)=>{
@@ -51,6 +51,11 @@ function fixture({pollResponse, authenticated=false, withUndo=false} = {}) {
       if(name==='planner_guest_undo') {
         const value=JSON.parse(args.state_json);
         value.snapshot=snapshot;value.pending=null;value.revision++;value.undo=null;
+        return JSON.stringify(value);
+      }
+      if(name==='planner_guest_rename') {
+        const value=JSON.parse(args.state_json);
+        value.snapshot={...value.snapshot,title:args.title};value.revision++;value.undo={revision:value.revision,label:'Trip renamed'};
         return JSON.stringify(value);
       }
       throw Error(`Unexpected RPC ${name}`);
@@ -89,6 +94,20 @@ test('requested edit is displayed immediately after stage and is reversible with
   await button(f.render(),'Undo last update').props.onClick();
   const call=f.calls.find(c=>c.name==='planner_guest_undo');assert.ok(call);assert.equal(call.args.revision,5);
   assert.equal(f.cells[0].val.snapshot.title,'My trip');assert.equal(f.cells[0].val.undo,null);
+});
+test('the header renames the trip in place, trimming spaces, and Escape cancels',async()=>{
+  const f=fixture();
+  const title=()=>find(f.render(),e=>e.type==='button'&&e.props?.title==='Rename this trip');
+  const field=()=>find(f.render(),e=>e.type==='input'&&e.props?.id==='studio-trip-name');
+  title().props.onClick();
+  field().props.onChange({target:{value:'Other'}});field().props.onKeyDown({key:'Escape',nativeEvent:{}});
+  assert.equal(field(),null);assert.equal(f.calls.length,0);
+  title().props.onClick();assert.equal(field().props.value,'My trip');
+  field().props.onChange({target:{value:'  Chicago   weekend '}});
+  await field().props.onKeyDown({key:'Enter',nativeEvent:{isComposing:false},preventDefault(){}});await tick();
+  const call=f.calls.find(c=>c.name==='planner_guest_rename');assert.ok(call);
+  assert.equal(call.args.title,'Chicago weekend');assert.equal(call.args.revision,f.state.revision);
+  assert.equal(f.cells[0].val.snapshot.title,'Chicago weekend');assert.equal(field(),null);
 });
 test('item detail replaces its day; Back restores the day without a trip write',()=>{
   const f=fixture();component(f.render(),'StudioOverview').props.onDay('day_1');

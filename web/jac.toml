@@ -59,7 +59,7 @@ description = "Plan your kind of trip, together with Detour."
 # frame has the right palette. Mirrors client/theme_mode.jac (same key and rule).
 [[client.app_meta_data.scripts]]
 # Kept on one line so the file stays valid however a tool re-lays it out.
-content = '(function () { var root = document.documentElement, pref = null, dark = false; try { pref = window.localStorage.getItem("detour.theme.v1"); } catch (e) {} try { dark = pref === "dark" || (pref !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches); } catch (e) {} var path = window.location.pathname.toLowerCase(); while (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1); if (path === "/") dark = false; else if (path === "/studio") dark = true; root.setAttribute("data-theme", dark ? "dark" : "light"); root.style.colorScheme = dark ? "dark" : "light"; })();'
+content = '(function () { var root = document.documentElement, pref = null, dark = false; try { pref = window.localStorage.getItem("detour.theme.v1"); } catch (e) {} try { dark = pref === "dark" || (pref !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches); } catch (e) {} var path = window.location.pathname.toLowerCase(); while (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1); if (path === "/" || path === "/studio") dark = false; root.setAttribute("data-theme", dark ? "dark" : "light"); root.style.colorScheme = dark ? "dark" : "light"; })();'
 
 # Tailwind v4 utilities, layered above the hand-written styles (see tailwind.css).
 [client.vite]
