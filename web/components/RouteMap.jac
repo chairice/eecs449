@@ -48,7 +48,9 @@ def:pub RouteMap(stops: list[ComparisonStop], label: str, segments: list[Compari
             created: any = leafletMap(host.current, {"zoomControl": False, "scrollWheelZoom": False});
             # OpenStreetMap's standard tiles, greyed in CSS so the green route leads.
             tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-                "attribution": "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors", "maxZoom": 19
+                "attribution": "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors", "maxZoom": 19,
+                # OSM refuses tile requests without a Referer; send our origin even if the host strips it.
+                "referrerPolicy": "strict-origin-when-cross-origin"
             }).addTo(created);
             view.current = created;
             pins.current = layerGroup().addTo(created);
