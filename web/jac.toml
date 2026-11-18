@@ -1,7 +1,7 @@
 [project]
 name = "everyday-agent-web"
 version = "0.1.0"
-jac-version = "==0.37.14"
+jac-version = ">=0.37.14"
 description = "Landing page for the EECS 449 everyday AI agent project"
 entry-point = "main"
 kind = "web-app"
