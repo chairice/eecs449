@@ -37,6 +37,15 @@ def main():
             if not jobs.heartbeat(worker_id):
                 stopped.set()
     threading.Thread(target=beat, daemon=True).start()
+    run(worker_id, stopped)
+
+
+def run(worker_id: str, stopped: threading.Event):
+    """Claim and plan queued jobs until `stopped` is set.
+
+    The caller owns the worker election and heartbeat. web/server/embedded_worker.py
+    reuses this loop on a thread inside the web server.
+    """
     log.info("Planning worker ready")
     while not stopped.is_set():
         job = jobs.claim(worker_id)

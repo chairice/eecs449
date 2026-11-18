@@ -6,6 +6,17 @@ description = "Landing page for the EECS 449 everyday AI agent project"
 entry-point = "main"
 kind = "web-app"
 
+# The planning worker's Python libraries (pins match workers/requirements.lock).
+# Hosts that run only the Jac app use them through server/embedded_worker.py.
+[dependencies]
+anthropic = "==2.8.0"
+pydantic = "==2.14.3"
+python-dotenv = "==1.2.4"
+timezonefinder = "==9.2.0"
+astral = "==3.2"
+pypdf = "==7.1.0"
+pillow = "==12.3.0"
+
 [dependencies.npm]
 react = "^18.2.0"
 react-dom = "^18.2.0"

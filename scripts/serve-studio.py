@@ -117,7 +117,8 @@ def configuration(source: dict[str, str]) -> tuple[dict[str, str], list[str], li
         environment["JAC_SERVE_AUTH_SECRET"] = signing_secret(state)
     elif len(environment["JAC_SERVE_AUTH_SECRET"]) < 32:
         raise ValueError("JAC_SERVE_AUTH_SECRET must contain at least 32 characters.")
-    environment.update(JAC_SERVE_HOST="0.0.0.0", JAC_SERVE_WORKERS="1", JAC_SERVE_DOCS="false", JAC_SERVE_GRAPH="false")
+    environment.update(JAC_SERVE_HOST="0.0.0.0", JAC_SERVE_WORKERS="1", JAC_SERVE_DOCS="false", JAC_SERVE_GRAPH="false",
+                       DETOUR_EMBEDDED_WORKER="off")  # This supervisor runs the worker as its own process.
     environment["PYTHONPATH"] = os.pathsep.join([str(ROOT / "workers"), str(state / "app")])
     environment.setdefault("PLAYWRIGHT_BROWSERS_PATH", str(ROOT / "workers/.browsers"))
     if not environment.get("JAC_DB_URL"):

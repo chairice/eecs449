@@ -101,7 +101,13 @@ def validated_request(raw: str) -> dict:
     return request
 
 
+def _wake_worker() -> None:
+    from server.embedded_worker import ensure_started
+    ensure_started()
+
+
 def enqueue(owner: str, request_json: str, *, deferred: bool = False, kind: str = "PLAN") -> str:
+    _wake_worker()
     request = validated_request(request_json)
     digest = fingerprint(request)
     with connection() as db:
@@ -126,6 +132,7 @@ def enqueue(owner: str, request_json: str, *, deferred: bool = False, kind: str 
 
 
 def activate(owner: str, job_id: str) -> None:
+    _wake_worker()
     with connection() as db:
         db.execute("UPDATE jobs SET status='QUEUED',updated=? WHERE id=? AND owner=? AND status='PREPARED'", (time.time(), job_id, owner))
 
