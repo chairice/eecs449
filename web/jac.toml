@@ -46,6 +46,11 @@ watchdog = ">=3.0.0"
 [serve]
 base_route_app = "app"
 
+# Hosted deploys pass only declared secrets to the app. This is a reference to the
+# host's variable, never the key itself; do not paste a key here (the repo is public).
+[scale.secrets]
+ANTHROPIC_API_KEY = "${ANTHROPIC_API_KEY}"
+
 [placement.pins]
 "client.atlas_flow" = "client"
 "client.planning_state" = "client"
