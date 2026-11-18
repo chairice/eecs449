@@ -9,7 +9,8 @@ from urllib.parse import urlparse
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 ROOT=Path(__file__).resolve().parents[1]
-sys.path[:0]=[str(ROOT/'web'),str(ROOT/'workers')]
+sys.path[:0]=[str(ROOT/'web'),str(ROOT/'workers'),str(ROOT/'scripts')]
+from qa_map_tiles import mock_map_tiles
 from server.planning_core import validate_trip,journey_signature
 os.environ['PLAYWRIGHT_BROWSERS_PATH']=str(ROOT/'workers/.browsers')
 parser=argparse.ArgumentParser(description=__doc__)
@@ -45,6 +46,7 @@ def envelope(value):return {'ok':True,'type':'response','data':{'result':json.du
 with sync_playwright() as playwright:
  browser=playwright.chromium.launch(headless=True,args=['--disable-dev-shm-usage'])
  context=browser.new_context(accept_downloads=True,viewport={'width':1440,'height':1000})
+ mock_map_tiles(context)
  page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.on('console',lambda m:console.append({'type':m.type,'text':m.text}) if m.type=='error' else None)
  page.on('request',lambda r:requests.append(r.url))
  def api(route):
@@ -102,6 +104,6 @@ with sync_playwright() as playwright:
   check('all_pages_numbered',all(f'{index+1} / {len(reader.pages)}' in pdf_page.extract_text() for index,pdf_page in enumerate(reader.pages)))
   page.screenshot(path=str(OUTPUT/'browser.png'),full_page=True)
  finally:
-  (OUTPUT/'results.json').write_text(json.dumps({'results':results,'errors':errors,'console':console,'cached':locals().get('cached',[]),'requests':requests},indent=2))
+  (OUTPUT/'results.json').write_text(json.dumps({'results':results,'errors':errors,'console':console,'cached':locals().get('cached',[]),'requests':requests,'mapTiles':'Explicit mocked SVG tiles; no public map tiles fetched.'},indent=2))
   browser.close()
 print(json.dumps({'passed':sum(r['passed'] for r in results),'total':len(results),'errors':errors,'output':str(OUTPUT)}))

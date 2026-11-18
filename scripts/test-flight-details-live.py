@@ -27,7 +27,8 @@ def main():
     directory = Path(tempfile.mkdtemp(prefix='detour-public-flight-qa-'))
     os.environ['PLANNER_DATA_DIR'] = str(directory)
     os.environ['PLANNER_CAPTURE_REJECTIONS'] = '1'
-    sys.path[:0] = [str(root / 'workers'), str(root / 'web')]
+    os.environ['DETOUR_EMBEDDED_WORKER'] = 'off'
+    sys.path[:0] = [str(root / 'web')]
     from dotenv import load_dotenv
     load_dotenv(root / 'workers/.env')
     from server import planning_jobs as jobs, planning_api as api

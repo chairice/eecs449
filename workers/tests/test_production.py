@@ -34,6 +34,8 @@ def test_persistent_secret_and_isolated_storage_survive_restart(tmp_path):
     assert first["JAC_SERVE_DOCS"] == first["JAC_SERVE_GRAPH"] == "false"
     assert first["JAC_SERVE_WORKERS"] == "1"
     assert worker[1:] == ["-m", "atlas_runtime"]
+    assert first["PYTHONPATH"] == str(state / "app")
+    assert first["DETOUR_EMBEDDED_WORKER"] == "off"
     assert "--no-dev" in web and web[-1] == str(state / "app/main.jac")
     assert first["DETOUR_BUNDLE"].endswith(".jab")
     assert web[web.index("--port") + 1] == "8123"

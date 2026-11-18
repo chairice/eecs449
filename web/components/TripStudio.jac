@@ -1,7 +1,11 @@
 """Conversational trip studio: viewing and selection in the workspace, edits in chat."""
+import "../tailwind.css";
+import "../styles.css";
 import "../studio.css";
 import from react { useEffect, useRef, useMemo }
 import from "@jac/runtime" { useLocation }
+import from .Brand { Brand }
+import from .PublicHeader { HEADER }
 import from .PlannerMap { PlannerMap }
 import from .ChatMarkdown { ChatMarkdown }
 import from .StudioOffers { StudioOptions, conversation_offers, offer_groups }
@@ -9,6 +13,7 @@ import from .StudioDetails { StudioDetails }
 import from .StudioTripPlan { TripChoiceCard, TripDayCard, PhotoCredit }
 import from "@detour/pdf" { export_trip_pdf }
 import from .StudioWeather { StudioWeather }
+import from .StudioConfirmations { StudioConfirmations }
 import from ..client.account { signed_in, account_email, log_in, create_account, log_out, credential_problem }
 import from ..client.planning_state {
     parse_response, parse_job_response, planner_id, guest_token, load_session, save_session, planner_today,
@@ -18,11 +23,11 @@ import from ..client.planning_state {
 import from ..browser { paintPage }
 import from server.planning {
     planner_status, planner_blank, planner_guest_start, planner_guest_poll, planner_guest_stage,
-    planner_guest_cancel, planner_guest_upload, planner_guest_undo, planner_guest_weather, planner_guest_media
+    planner_guest_cancel, planner_guest_upload, planner_guest_undo, planner_guest_weather, planner_guest_media, planner_guest_rename, planner_guest_confirmations
 }
 import from ..client.planning_rpc {
     planner_list, planner_import, planner_get, planner_start, planner_poll, planner_stage,
-    planner_undo, planner_delete, planner_restore, planner_deleted, planner_weather,
+    planner_undo, planner_rename, planner_confirmations, planner_delete, planner_restore, planner_deleted, planner_weather,
     planner_cancel, planner_upload, planner_preferences, planner_forget_preference, planner_media
 }
 
@@ -69,6 +74,7 @@ def:pub TripStudio -> JsxElement {
     alive = useRef(True);
     chatEnd = useRef(None);
     inputRef = useRef(None);
+    renameScope = useRef(None);
     has state: any = None, savedTrips: any = [], attachments: any = [];
     has prompt: str = "", error: str = "", notice: str = "", jobId: str = "", progress: str = "";
     has pane: str = "overview", dayId: str = "", selectedId: str = "", context: any = None;
@@ -80,6 +86,7 @@ def:pub TripStudio -> JsxElement {
     has uploading: bool = False;
     has deletedTrips: any = [], showDeleted: bool = False, deletedUndo: str = "";
     has undoDismissed: int = -1, deletedCurrent: bool = False;
+    has renaming: bool = False, titleDraft: str = "";
     has email: str = "", password: str = "", authProblem: str = "", authBusy: bool = False;
     has optionGroup: str = "", optionScope: any = None;
     has exporting: bool = False;
@@ -93,7 +100,7 @@ def:pub TripStudio -> JsxElement {
         return str(latest["id"]) if latest else "";
     }
     def hasGuestWork -> bool {
-        return bool(state and (len(state["conversation"]) > 0 or len(state["snapshot"]["places"]) > 0 or len(state["snapshot"]["days"]) > 0 or len(state["snapshot"]["bookings"]) > 0 or state["pending"]));
+        return bool(state and (len(state["conversation"]) > 0 or len(state["snapshot"]["places"]) > 0 or len(state["snapshot"]["days"]) > 0 or len(state["snapshot"]["bookings"]) > 0 or len(state["confirmations"] or []) > 0 or state["pending"]));
     }
     def commit(value: any) {
         if not alive.current { return; }
@@ -116,7 +123,7 @@ def:pub TripStudio -> JsxElement {
                 preferences = parse_response(await planner_preferences());
                 savedTrips = parse_response(await planner_list(str(current.current["id"]) if current.current else ""));
                 guest = load_session("guest");
-                if guest and (len(guest["conversation"] or []) > 0 or len(guest["snapshot"]["places"] or []) > 0 or len(guest["snapshot"]["bookings"] or []) > 0 or guest["pending"]) {
+                if guest and (len(guest["conversation"] or []) > 0 or len(guest["snapshot"]["places"] or []) > 0 or len(guest["snapshot"]["days"] or []) > 0 or len(guest["snapshot"]["bookings"] or []) > 0 or len(guest["confirmations"] or []) > 0 or guest["pending"]) {
                     response = parse_response(await planner_import(JSON.stringify(guest), guest_token()));
                     commit(response); jobId = str(response["activeJob"] or ""); finish_guest_import();
                 } elif cached {
@@ -137,7 +144,7 @@ def:pub TripStudio -> JsxElement {
     }
     useEffect(lambda {
         alive.current = True;
-        paintPage("#121715", False);
+        paintPage("var(--dt-bg)", False);
         browser: any = window;
         online = bool(browser.navigator.onLine);
         def statusChange { online = bool(browser.navigator.onLine); }
@@ -176,7 +183,7 @@ def:pub TripStudio -> JsxElement {
                     }
                 }
             } elif result["status"] in ["FAILED", "CANCELLED"] {
-                error = "That request didn’t finish. Your trip is saved; you can try again or keep planning." if result["status"] == "FAILED" else "";
+                error = (str(result["error"]) if result["error"] else "That request didn’t finish. Your trip is saved; you can try again or keep planning.") if result["status"] == "FAILED" else "";
                 value = JSON.parse(JSON.stringify(current.current)); value["activeJob"] = ""; commit(value);
                 jobId = ""; busy = False;
 
@@ -203,7 +210,8 @@ def:pub TripStudio -> JsxElement {
         savedView = load_trip_view(str(state["id"]));
         restoredDay = "";
         for planned in state["snapshot"]["days"] or [] { if planned["id"] == savedView["dayId"] { restoredDay = str(planned["id"]); } }
-        dayId = restoredDay; pane = "map" if savedView["pane"] == "map" else "day" if restoredDay else "overview";
+        renaming = False; renameScope.current = None;
+        dayId = restoredDay; pane = "confirmations" if savedView["pane"] == "confirmations" else "map" if savedView["pane"] == "map" else "day" if restoredDay else "overview";
         inspected = None; selectedId = restoredDay; viewHistory.current = [];
         phoneTab = "trip" if restoredDay or savedView["phoneTab"] == "trip" else "chat";
         viewTrip.current = str(state["id"]);
@@ -344,6 +352,58 @@ def:pub TripStudio -> JsxElement {
             commit(value); inspected = None; selectedId = ""; notice = "Last trip update undone.";
         } except Exception { error = "Couldn't undo that update. Reopen the trip and try again."; }
         busy = False;
+    }
+    def startRename {
+        if not state or busy { return; }
+        renameScope.current = str(state["id"]);
+        titleDraft = str(state["snapshot"]["title"]); renaming = True;
+    }
+    async def renameTrip {
+        expected = renameScope.current;
+        if not renaming or not expected or not current.current or current.current["id"] != expected { return; }
+        renameScope.current = None;
+        renaming = False;
+        title = " ".join(titleDraft.split());
+        if not state or not title or title == str(state["snapshot"]["title"]) { return; }
+        busy = True;
+        try {
+            command = planner_id("rename");
+            value = parse_response(await planner_rename(str(state["id"]), title, int(state["revision"]), command) if signed_in() else await planner_guest_rename(JSON.stringify(state), title, int(state["revision"]), command));
+            if not current.current or current.current["id"] != expected { return; }
+            if int(value["revision"]) < int(current.current["revision"]) { return; }
+            # Rename is the only snapshot change; keep newer auxiliary results.
+            latest = JSON.parse(JSON.stringify(current.current));
+            latest["snapshot"]["title"] = value["snapshot"]["title"];
+            for field in ["revision", "undo", "undoHistory", "commands", "pending", "budgetSummary"] {
+                if field in value { latest[field] = value[field]; }
+            }
+            if value["updatedAt"] and (not latest["updatedAt"] or str(value["updatedAt"]) > str(latest["updatedAt"])) { latest["updatedAt"] = value["updatedAt"]; }
+            commit(latest);
+            savedTrips = [({**trip, "title": value["snapshot"]["title"]} if trip["id"] == value["id"] else trip) for trip in savedTrips];
+            notice = "Trip renamed.";
+        } except Exception {
+            if current.current and current.current["id"] == expected {
+                error = "Couldn't rename the trip. Please try again.";
+                renameScope.current = expected; renaming = True;
+            }
+        } finally { busy = False; }
+    }
+    async def saveConfirmations(updated: any) -> bool {
+        if not state { return False; }
+        expected = str(state["id"]);
+        try {
+            payload = JSON.stringify(updated);
+            saved = parse_response(await planner_confirmations(str(state["id"]), payload) if signed_in() else await planner_guest_confirmations(JSON.stringify(state), payload));
+            # Keep whatever else changed meanwhile (a planning result may have landed); take only the list.
+            if not current.current or current.current["id"] != expected { return True; }
+            value = JSON.parse(JSON.stringify(current.current)); value["confirmations"] = saved["confirmations"];
+            if saved["updatedAt"] and (not value["updatedAt"] or str(saved["updatedAt"]) > str(value["updatedAt"])) { value["updatedAt"] = saved["updatedAt"]; }
+            commit(value);
+            return True;
+        } except Exception {
+            if current.current and current.current["id"] == expected { error = "Couldn't save that confirmation. Please try again."; }
+            return False;
+        }
     }
     def rememberView {
         doc: any = document;
@@ -538,21 +598,38 @@ def:pub TripStudio -> JsxElement {
     if state {
         for (index, turn) in enumerate(state["conversation"]) { if turn["role"] != "user" { lastAssistant = index; } }
     }
-    hasPlan = bool(snapshot and (len(snapshot["places"]) > 0 or len(snapshot["days"]) > 0 or len(snapshot["legs"]) > 0 or len(snapshot["stays"]) > 0 or len(snapshot["rentals"] or []) > 0 or len(snapshot["bookings"]) > 0));
+    hasPlan = bool(state and (len(state["confirmations"] or []) > 0 or (snapshot and (len(snapshot["places"]) > 0 or len(snapshot["days"]) > 0 or len(snapshot["legs"]) > 0 or len(snapshot["stays"]) > 0 or len(snapshot["rentals"] or []) > 0 or len(snapshot["bookings"]) > 0))));
     hasResults = bool(state and (len(state["offers"] or []) > 0 or len(state["researchLinks"] or []) > 0));
-    starting = not hasPlan and not hasResults;
+    starting = not hasPlan and not hasResults and pane != "confirmations";
     optionOffers: any = [offer for offer in state["offers"] or [] if offer["id"] in optionScope] if state and optionScope is not None else visibleOffers;
     selectedOffers: any = [item["offerId"] for field in ["legs", "stays", "rentals"] for item in snapshot[field] or [] if item["offerId"]] if snapshot else [];
     canUndo = bool(state and state["undo"] and not busy);
-    return <div className={"trip-studio " + ("chat-collapsed " if not chatOpen else "") + "phone-" + phoneTab + (" is-starting" if starting else "") + (" is-map" if pane == "map" and not inspected else "")}>
-        <header className="studio-header"><a className="studio-wordmark" href="/" aria-label="Detour home"><span>◈</span> detour</a><nav aria-label="Workspace">{if canUndo and phoneTab == "chat" { <button type="button" className="studio-phone-undo" onClick={undoEdit} aria-label="Undo last trip change" title="Undo last trip change">↶</button> }}{if not chatOpen and not starting { <button type="button" className="studio-show-chat" onClick={lambda { chatOpen = True; }}>Chat</button> }}<button ref={libraryButton} type="button" className={"is-open" if libraryOpen else ""} aria-expanded={libraryOpen} aria-controls="studio-trip-library" onClick={showLibrary} disabled={busy}>Your trips</button><button type="button" className="studio-preferences-button" onClick={lambda { preferencesOpen = True; }}>Preferences</button>{if authenticated { <button type="button" onClick={signOut} disabled={busy}>Sign out</button> } else { <button type="button" className="studio-account-button" disabled={busy or uploading} onClick={lambda { accountOpen = True; }}>Save trip</button> }}</nav></header>
+    return <div className={"trip-studio bg-linear-to-br from-emerald-100/80 via-green-50 to-emerald-50 " + ("chat-collapsed " if not chatOpen else "") + "phone-" + phoneTab + (" is-starting" if starting else "") + (" is-map" if pane == "map" and not inspected else "")}>
+        <header className={HEADER + " studio-header static"}><Brand/>
+            <div className={"studio-trip-title min-w-0" + (" is-renaming" if renaming else "")}>
+                {if renaming {
+                    <form className="flex items-center" onSubmit={lambda (e: FormEvent) { e.preventDefault(); renameTrip(); }}>
+                        <label htmlFor="studio-trip-name" className="studio-sr-only">Trip name</label>
+                        <input id="studio-trip-name" autoFocus={True} value={titleDraft} maxLength={160} onChange={lambda (e: ChangeEvent) { titleDraft = str(e.target.value); }} onFocus={lambda (e: any) { e.target.select(); }} onBlur={lambda { renameTrip(); }}
+                            onKeyDown={lambda (e: any) { if e.key == "Escape" { renameScope.current = None; renaming = False; } elif e.key == "Enter" and not e.nativeEvent.isComposing { e.preventDefault(); renameTrip(); } }}
+                            className="w-full max-w-sm rounded-lg border border-emerald-400 bg-white px-2 py-1 text-sm font-semibold text-gray-900 shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/40"/>
+                    </form>
+                } else {
+                    <button type="button" onClick={startRename} disabled={not state or busy} title="Rename this trip"
+                        className="group inline-flex max-w-full items-center gap-1.5 rounded-lg px-2 py-1 text-left text-sm font-semibold text-gray-900 transition-colors hover:bg-white/70">
+                        <span className="truncate">{str(state["snapshot"]["title"]) if state else "Your next journey"}</span>
+                        {if state { <span aria-hidden="true" className="text-xs text-emerald-700 group-hover:text-emerald-800">✎ Rename</span> }}
+                    </button>
+                }}
+                <span className="px-2 text-gray-500">{"Saved to account" if authenticated else "Saved on this device"}</span>
+            </div><nav aria-label="Workspace"><button type="button" className="studio-mobile-rename" aria-label="Rename trip" title="Rename this trip" onClick={startRename} disabled={not state or busy}>✎</button>{if starting { <button type="button" onClick={lambda { choosePane("confirmations"); phoneTab = "trip"; }}>Confirmations</button> }}{if canUndo and phoneTab == "chat" { <button type="button" className="studio-phone-undo" onClick={undoEdit} aria-label="Undo last trip change" title="Undo last trip change">↶</button> }}{if not chatOpen and not starting { <button type="button" className="studio-show-chat" onClick={lambda { chatOpen = True; }}>Chat</button> }}<button ref={libraryButton} type="button" className={"is-open" if libraryOpen else ""} aria-expanded={libraryOpen} aria-controls="studio-trip-library" onClick={showLibrary} disabled={busy}>Your trips</button><button type="button" className="studio-preferences-button" onClick={lambda { preferencesOpen = True; }}>Preferences</button>{if authenticated { <button type="button" onClick={signOut} disabled={busy}>Sign out</button> } else { <button type="button" className="studio-account-button" disabled={busy or uploading} onClick={lambda { accountOpen = True; }}>Save trip</button> }}</nav></header>
         {if not online { <div className="studio-offline" role="status">You're offline. Your saved itinerary and booking details are available; maps and research need a connection.</div> }}
         {if error { <div className="studio-error" role="alert"><span>{error}</span><button type="button" aria-label="Dismiss error" onClick={lambda { error = ""; }}>×</button></div> }}
         {if notice { <div className="studio-toast" role="status"><span>{notice}</span>{if deletedUndo { <button type="button" onClick={lambda { restoreTrip(deletedUndo); }}>Undo</button> }}<button type="button" aria-label="Dismiss notice" onClick={lambda { notice = ""; }}>×</button></div> }}
         {if libraryOpen { <section ref={libraryRef} id="studio-trip-library" className="studio-library" aria-label="Your trips"><div className="studio-heading-row"><h2>{"Recently Deleted" if showDeleted else "Your trips"}</h2><button type="button" onClick={lambda { libraryOpen = False; }} aria-label="Close your trips">×</button></div><div className="studio-library-actions"><button type="button" onClick={newTrip} disabled={busy}>+ New trip</button>{if authenticated { <button type="button" onClick={lambda { showDeleted = not showDeleted; }}>{"← Your trips" if showDeleted else "Recently Deleted"}</button> }}</div>{if not authenticated { <p>Your current trip stays on this device. Sign in to keep multiple trips and resume anywhere.</p> }}{if showDeleted { <div><p>Removed trips stay here for 30 days.</p>{for trip in deletedTrips { <div className="studio-library-row" key={trip["id"]}><span>{str(trip["title"])}</span><button type="button" onClick={lambda { restoreTrip(str(trip["id"])); }}>Restore</button></div> }}{if len(deletedTrips) == 0 { <p>No recently deleted trips.</p> }}</div> } else { <div>{for trip in savedTrips { <div className="studio-library-row" key={trip["id"]}><button type="button" aria-current={"page" if state and state["id"] == trip["id"] else None} onClick={lambda { openTrip(str(trip["id"])); }}>{str(trip["title"]) + " →"}</button><button type="button" className="studio-delete-trip" aria-label={"Delete " + str(trip["title"])} onClick={lambda { deleteTrip(str(trip["id"])); }}>Remove</button></div> }}</div> }}<button type="button" className="studio-library-preferences" onClick={lambda { libraryOpen = False; preferencesOpen = True; }}>Preferences</button></section> }}
         {if state { <main className="studio-workspace">
-            <section className="studio-planning-pane" aria-label="Trip planner"><nav className="studio-tabs" aria-label="Trip views"><button type="button" className={"active" if pane != "map" else ""} onClick={lambda { choosePane("day" if dayId else "overview"); }}>Your trip</button><button type="button" className={"active" if pane == "map" else ""} onClick={lambda { choosePane("map"); }}>Map</button><button type="button" className="studio-export-pdf" onClick={exportPdf} disabled={exporting or not hasPlan}>{"Exporting…" if exporting else "Export PDF"}</button>{if canUndo { <button type="button" className="studio-workspace-undo" onClick={undoEdit} aria-label="Undo last trip change" title="Undo the last trip change">↶ Undo</button> }}</nav>
-                <div className={"studio-content" + (" is-map" if pane == "map" and not inspected else "")} ref={contentRef}>{if inspected { <StudioDetails item={inspected} snapshot={snapshot} resources={state} weather={state["weather"]} onBack={backView} onContext={discuss} onCompare={compareItem} onResearch={lambda (id: str, label: str, message: str) { send(message, {"id": id, "label": label, "scope": "APPROVED"}); }}/> } elif pane == "comparison" { <div className="studio-context-options"><button type="button" className="studio-back" onClick={backView}>← Back to your trip</button><StudioOptions offers={optionOffers} links={state["researchLinks"]} onChoose={chooseOffer} onContext={discuss} groupId={optionGroup} onGroup={lambda (id: str) { optionGroup = id; }} selectedOfferIds={selectedOffers} busy={busy}/></div> } elif pane == "map" { <div className="studio-geography">{if day { <div className="studio-map-day-context"><button type="button" onClick={lambda { choosePane("day"); }}>{date_label(str(day["date"])) + " · " + str(day["title"]) + " →"}</button><button type="button" onClick={lambda { dayId = ""; selectedId = ""; }}>Show whole trip</button></div> }}<PlannerMap snapshot={dayMapSnapshot} resources={state} onLocate={lambda { send("Check this trip's map locations using source-backed locations, and keep the itinerary unchanged."); }} roads={state["routes"] or []} focusIds={focusIds} selectedId={selectedId} onSelect={lambda (id: str) { inspect(id, place_label(snapshot, id)); }}/></div> } elif day and pane == "day" { <StudioDay day={day} snapshot={snapshot} onBack={lambda { choosePane("overview"); }} onContext={inspect} weather={state["weather"]} resources={state} onCompare={compareItem} onMap={lambda { choosePane("map"); }} onDiscuss={discuss} onDay={openDay}/> } elif not hasPlan { <div className="studio-gentle-empty"><h2>A trip, taking shape.</h2><p>Your route and day plans will appear here as we plan.</p><button type="button" className="studio-subtle-button" onClick={lambda { phoneTab = "chat"; chatOpen = True; }}>Continue the conversation</button></div> } else { <StudioOverview snapshot={snapshot} costs={state["budgetSummary"]} weather={state["weather"]} onDay={openDay} onContext={inspect} resources={state} onCompare={compareItem}/> }}</div>
+            <section className="studio-planning-pane" aria-label="Trip planner"><nav className="studio-tabs" aria-label="Trip views"><button type="button" className={"active" if pane not in ["map", "confirmations"] else ""} onClick={lambda { choosePane("day" if dayId else "overview"); }}>Your trip</button><button type="button" className={"active" if pane == "map" else ""} onClick={lambda { choosePane("map"); }}>Map</button><button type="button" className={"active" if pane == "confirmations" else ""} onClick={lambda { choosePane("confirmations"); phoneTab = "trip"; }}>Confirmations{if len(state["confirmations"] or []) > 0 { <span>{len(state["confirmations"])}</span> }}</button><button type="button" className="studio-export-pdf" onClick={exportPdf} disabled={exporting or not hasPlan}>{"Exporting…" if exporting else "Export PDF"}</button>{if canUndo { <button type="button" className="studio-workspace-undo" onClick={undoEdit} aria-label="Undo last trip change" title="Undo the last trip change">↶ Undo</button> }}</nav>
+                <div className={"studio-content" + (" is-map" if pane == "map" and not inspected else "")} ref={contentRef}>{if inspected { <StudioDetails item={inspected} snapshot={snapshot} resources={state} weather={state["weather"]} onBack={backView} onContext={discuss} onCompare={compareItem} onResearch={lambda (id: str, label: str, message: str) { send(message, {"id": id, "label": label, "scope": "APPROVED"}); }}/> } elif pane == "confirmations" { <StudioConfirmations key={str(state["id"])} entries={state["confirmations"] or []} busy={not online} onSave={saveConfirmations}/> } elif pane == "comparison" { <div className="studio-context-options"><button type="button" className="studio-back" onClick={backView}>← Back to your trip</button><StudioOptions offers={optionOffers} links={state["researchLinks"]} onChoose={chooseOffer} onContext={discuss} groupId={optionGroup} onGroup={lambda (id: str) { optionGroup = id; }} selectedOfferIds={selectedOffers} busy={busy}/></div> } elif pane == "map" { <div className="studio-geography">{if day { <div className="studio-map-day-context"><button type="button" onClick={lambda { choosePane("day"); }}>{date_label(str(day["date"])) + " · " + str(day["title"]) + " →"}</button><button type="button" onClick={lambda { dayId = ""; selectedId = ""; }}>Show whole trip</button></div> }}<PlannerMap snapshot={dayMapSnapshot} resources={state} onLocate={lambda { send("Check this trip's map locations using source-backed locations, and keep the itinerary unchanged."); }} roads={state["routes"] or []} focusIds={focusIds} selectedId={selectedId} onSelect={lambda (id: str) { inspect(id, place_label(snapshot, id)); }}/></div> } elif day and pane == "day" { <StudioDay day={day} snapshot={snapshot} onBack={lambda { choosePane("overview"); }} onContext={inspect} weather={state["weather"]} resources={state} onCompare={compareItem} onMap={lambda { choosePane("map"); }} onDiscuss={discuss} onDay={openDay}/> } elif not hasPlan { <div className="studio-gentle-empty"><h2>A trip, taking shape.</h2><p>Your route and day plans will appear here as we plan.</p><button type="button" className="studio-subtle-button" onClick={lambda { phoneTab = "chat"; chatOpen = True; }}>Continue the conversation</button></div> } else { <StudioOverview snapshot={snapshot} costs={state["budgetSummary"]} weather={state["weather"]} onDay={openDay} onContext={inspect} resources={state} onCompare={compareItem}/> }}</div>
             </section>
             <aside className="studio-chat" aria-label="Conversation with Detour"><header className="studio-chat-heading"><strong>Conversation</strong>{if not starting { <button type="button" aria-label="Collapse chat" title="Collapse conversation" onClick={lambda { chatOpen = False; }}>⇥</button> }}</header><div className="studio-chat-log" role="log" aria-label="Planning conversation" aria-live="polite">
                 {if len(state["conversation"]) == 0 { <div className="studio-chat-intro"><span className="studio-ai-mark" aria-hidden="true">✳</span><h1>{"Where would you like to go?" if starting else "What shall we plan next?"}</h1><p>A quick work trip, a weekend away, or a plan you've already started.</p></div> }}

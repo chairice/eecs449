@@ -6,7 +6,9 @@ No user trip is modified. Outputs contain synthetic test-trip data only.
 """
 import argparse
 import json
+import sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "web"))
 from dotenv import load_dotenv
 from atlas_runtime.planner import plan
 from server.planning_core import blank_trip, uid, validate_trip

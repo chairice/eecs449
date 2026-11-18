@@ -21,6 +21,18 @@ export function pdf_public_url(value: unknown): string {
     return url.href;
   } catch { return ''; }
 }
+/** Explicit email bookmarks keep message-navigation fragments, unlike sources. */
+export function pdf_confirmation_url(value: unknown): string {
+  const safe=pdf_public_url(value);
+  if(!safe || typeof value!=='string')return '';
+  try {
+    const original=new URL(value),result=new URL(safe);
+    const fragment=decodeURIComponent(original.hash.slice(1));
+    if(/(?:^|[?&#;])(?:access[_-]?token|refresh[_-]?token|id[_-]?token|token|secret|password|credential|auth|authorization|key|api[_-]?key|session|signature)\s*=/i.test(fragment))return '';
+    result.hash=original.hash;
+    return result.href;
+  } catch { return ''; }
+}
 export function pdf_money(amount: unknown, currency = 'USD'): string {
   if (!Number.isSafeInteger(amount) || Number(amount) < 0) return '';
   try { return new Intl.NumberFormat('en-US', {style:'currency',currency,minimumFractionDigits:Number(amount)%100 ? 2 : 0}).format(Number(amount)/100); }
@@ -177,6 +189,7 @@ export function build_trip_document(state: RecordValue): RecordValue {
     timezone:pdf_text(trip.timezone),notes:pdf_text(trip.notes),constraints:(Array.isArray(trip.constraints)?trip.constraints:[]).map(pdf_text),
     unresolved:(Array.isArray(trip.unresolved)?trip.unresolved:[]).map(pdf_text),travel,stays,rentals,days,
     bookings:rows(trip.bookings).map(b=>({title:pdf_text(b.title),status:pdf_text(b.status).replaceAll('_',' '),amount:pdf_money(b.amountMinor,b.currency || 'USD'),details:pdf_text(b.details)})),
+    confirmations:rows(state.confirmations).map(entry=>({title:pdf_text(entry.nickname).trim(),url:pdf_confirmation_url(entry.link)})).filter(entry=>entry.title),
     costs,budget,warnings,places:places.map(p=>({label:pdf_text(p.label),...coordinates(p)})).filter(p=>Number.isFinite(p.lat)),
   };
 }

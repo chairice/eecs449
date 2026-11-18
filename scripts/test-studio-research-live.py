@@ -8,7 +8,9 @@ import argparse
 import copy
 import json
 import os
+import sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "web"))
 from dotenv import load_dotenv
 from atlas_runtime.planner import plan
 from server.planning_core import blank_trip, uid

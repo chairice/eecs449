@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Real Chromium regression for public research widgets; no network or trip writes.
 
-Run with PYTHONPATH=workers:web workers/.venv/bin/python scripts/test-research-browser.py.
+Run with workers/.venv/bin/python scripts/test-research-browser.py.
 Uses a private temporary evidence directory and a tiny local form (not inventory).
 """
 import os
@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "workers"), str(ROOT / "web")]
+sys.path[:0] = [str(ROOT / "web")]
 
 from atlas_runtime.browser import ResearchBrowser
 from server.planning_core import PlanningError

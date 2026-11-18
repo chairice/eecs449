@@ -6,7 +6,8 @@ concrete trip fields, current revisions, and the pending question it answered.
 import copy
 from datetime import datetime, timedelta, timezone
 
-from server.planning_core import PlanningError, dumps, fingerprint, identifier, loads, now, validate_trip, budget_summary
+from server.planning_core import (PlanningError, dumps, fingerprint, identifier, loads, now, validate_trip, budget_summary,
+    public_url, record, sequence, text)
 
 
 def consequential_view(snapshot):
@@ -77,6 +78,65 @@ def remember_undo(state, label="Trip updated"):
     state["undo"] = {"revision": state["revision"] + 1, "label": label}
 
 
+MAX_CONFIRMATIONS = 50
+
+
+def clean_confirmations(value: object) -> list:
+    """Bookmarked confirmation emails: a nickname and an http(s) link each.
+
+    They sit beside the plan, not in it, so saving them never changes the trip's
+    revision and never conflicts with a planning task in progress.
+    """
+    entries = sequence(value, "confirmations", MAX_CONFIRMATIONS)
+    result, seen = [], set()
+    for entry in entries:
+        entry = record(entry, "confirmation")
+        entry_id = identifier(entry.get("id"), "confirmation ID")
+        if entry_id in seen: raise PlanningError("Two confirmations share an ID.")
+        seen.add(entry_id)
+        try:
+            nickname = text(entry.get("nickname"), "nickname", 120, empty=False)
+        except PlanningError:
+            raise PlanningError("Give each confirmation a nickname (up to 120 characters).") from None
+        try:
+            link = public_url(entry.get("link"), empty=False)
+        except PlanningError:
+            raise PlanningError("Use a full web link to the email, starting with https://.") from None
+        result.append({"id": entry_id, "nickname": " ".join(nickname.split()), "link": link})
+    return result
+
+
+def confirmations_json(state_json: str, confirmations_json: str) -> str:
+    state = loads(state_json)
+    state["confirmations"] = clean_confirmations(loads(confirmations_json))
+    state["updatedAt"] = now()
+    return dumps(state)
+
+
+def rename_json(state_json: str, title: str, revision: int, command_id: str) -> str:
+    """Rename the trip as an ordinary revision, undoable like any other update."""
+    state = loads(state_json)
+    command = identifier(command_id, "rename ID")
+    clean = " ".join(str(title or "").split())
+    signature = fingerprint({"renameRevision": revision, "title": clean})
+    commands = state.setdefault("commands", {})
+    if command in commands:
+        if commands[command] != signature: raise PlanningError("This rename request was already used for a different title.")
+        return dumps(state)
+    if not clean: raise PlanningError("Give the trip a name.")
+    if len(clean) > 160: raise PlanningError("Trip names can be up to 160 characters.")
+    if state.get("activeJob"): raise PlanningError("Stop the current planning task before renaming the trip.")
+    if state["revision"] != revision: raise PlanningError("This trip changed in another window. Reload before renaming it.")
+    if clean == state["snapshot"].get("title"): return dumps(state)
+    remember_undo(state, "Trip renamed")
+    snapshot = copy.deepcopy(state["snapshot"]); snapshot["title"] = clean
+    state["snapshot"] = validate_trip(snapshot)
+    state["revision"] += 1
+    state["updatedAt"] = now()
+    commands[command] = signature
+    return dumps(bound_undo(state))
+
+
 def undo_json(state_json: str, revision: int, command_id: str) -> str:
     state = loads(state_json)
     command = identifier(command_id, "undo ID")
@@ -103,7 +163,7 @@ def undo_json(state_json: str, revision: int, command_id: str) -> str:
 def meaningful(state):
     """Chats, title changes and an isolated candidate place do not constitute a plan."""
     snapshot = state.get("snapshot", {})
-    if state.get("retainedDraft") or state.get("hasImportedMaterial") or state.get("activeJob") or state.get("pending"):
+    if state.get("retainedDraft") or state.get("hasImportedMaterial") or state.get("activeJob") or state.get("pending") or state.get("confirmations"):
         return True
     if any(snapshot.get(k) for k in ["legs", "stays", "rentals", "bookings"]): return True
     if any(day.get("items") or day.get("overnightPlaceId") for day in snapshot.get("days", [])): return True

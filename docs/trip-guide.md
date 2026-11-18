@@ -1,5 +1,7 @@
 # Saved trip guide and PDF
 
+> **November 18 integration:** The landing-matched theme, trip renaming/deletion fixes, bookmarked emails and packaged web-only worker are combined with this guide. See [the merge scope and current verification](merge-integration.md). The dated local-only/publication statements below describe the earlier November 16 baseline.
+
 November 16, 2026 (America/Detroit). This is the follow-up to the [compact workspace refresh](studio-ux-refresh.md) on local branch `codex/detour-clearer-workspace`. The local implementation and required validation are complete. This iteration has not been committed, pushed or deployed; the earlier production instance remains unchanged.
 
 ## A useful saved trip
@@ -36,7 +38,7 @@ The local PDF QA fixture is `output/pdf/detour-offsite-qa.pdf` (three pages). It
 | [TripStudio.jac](../web/components/TripStudio.jac), [StudioDetails.jac](../web/components/StudioDetails.jac) | All-day navigation, contextual comparisons, practical details and full-state PDF action |
 | [Planning state helpers](../web/client/planning_state.jac) | Pure joins for selected offers, bookings, photos, day context and per-trip view cache |
 | [Planning media](../web/server/planning_media.py), [place photo adapter](../web/server/place_photos.py) | Quiet cached/background imagery for existing trips |
-| [Worker photos](../workers/atlas_runtime/place_photos.py), [flight journeys](../workers/atlas_runtime/flight_journey.py) | Sourced enrichment and matching to saved travel identity |
+| [Worker photos](../web/atlas_runtime/place_photos.py), [flight journeys](../web/atlas_runtime/flight_journey.py) | Sourced enrichment and matching to saved travel identity |
 | [PDF model](../web/client/trip_pdf.ts), [renderer](../web/client/trip_pdf_render.ts), [font licence](../web/client/pdf_assets/LICENSE_LIBERATION) | Whole-trip offline document, safe public links, embedded fonts and vector diagrams |
 | [Full browser journey](../scripts/qa-studio-agenda.py), [cold-offline PDF check](../scripts/test-studio-pdf-offline.py), [live offsite test](../scripts/test-trip-guide-live.py) | Isolated guide/account navigation, actual local PDF download/cold export and opt-in real model/source workflow |
 | [Agenda tests](../scripts/test-studio-agenda.mjs), [PDF tests](../scripts/test-trip-pdf.mjs), [resource tests](../workers/tests/test_trip_resources.py) | Saved-guide joins, export content and sourced-resource regressions |

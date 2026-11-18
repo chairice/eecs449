@@ -124,8 +124,8 @@ test('initialise, toggle, follow the OS and other tabs', () => {
 
 test('current landing and studio keep their palettes while compatibility pages honor the preference', () => {
   assert.equal(theme_for_path('/', 'dark', true), 'light');
-  assert.equal(theme_for_path('/studio', 'light', false), 'dark');
-  assert.equal(theme_for_path('/STUDIO/', 'light', false), 'dark');
+  assert.equal(theme_for_path('/studio', 'dark', true), 'light');
+  assert.equal(theme_for_path('/STUDIO/', 'dark', false), 'light');
   assert.equal(theme_for_path('/plan', 'dark', false), 'dark');
   assert.equal(theme_for_path('/atlas', 'light', true), 'light');
   assert.equal(theme_for_path('/commuter', 'system', true), 'dark');
@@ -138,9 +138,9 @@ test('OS and other-tab changes cannot override fixed palettes or erase a legacy 
   assert.equal(page.root.dataset.theme, 'light');
   page.otherTab('light');
   window.location.pathname = '/studio'; refresh_theme();
-  assert.equal(page.root.dataset.theme, 'dark');
-  page.setSystemDark(false); page.otherTab('light');
-  assert.equal(page.root.dataset.theme, 'dark');
+  assert.equal(page.root.dataset.theme, 'light');
+  page.setSystemDark(true); page.otherTab('light');
+  assert.equal(page.root.dataset.theme, 'light');
   window.location.pathname = '/plan'; refresh_theme();
   assert.equal(page.root.dataset.theme, 'light');
   set_preference('dark');

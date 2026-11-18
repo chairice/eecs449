@@ -135,6 +135,16 @@ export function render_trip_pdf(model: Value): jsPDF {
 
   }
   if(model.bookings.length){next();section('Booking details','Added to your trip');for(const booking of model.bookings){ensure(85);text(booking.title,15,true);tag(booking.status);money(booking.amount);paragraph(booking.details);space(10);rule();}}
+  if(model.confirmations?.length){
+    next();section('Important emails','Bookmarked for this trip');
+    note('Open these saved links in your email account. Bookmarks do not change booking status.');
+    for(const confirmation of model.confirmations){
+      ensure(textHeight(confirmation.title,12,true)+35);text(confirmation.title,12,true);
+      if(confirmation.url)links([{label:'Open email',url:confirmation.url}]);
+      else note('Open this bookmark in Detour.');
+      space(10);
+    }
+  }
   const total=doc.getNumberOfPages();
   for(let page=1;page<=total;page++){
     doc.setPage(page);doc.setDrawColor(...line as [number,number,number]);doc.line(M,H-43,W-M,H-43);

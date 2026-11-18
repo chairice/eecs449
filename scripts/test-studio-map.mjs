@@ -44,3 +44,30 @@ test('a legacy selected quote with a conflicting flight schedule does not draw o
  snapshot.legs[0].departTime='07:00';snapshot.legs[0].durationMinutes=400;resources.offers[0].flight.durationMinutes=388;
  assert.deepEqual(plain(join(snapshot,resources)),snapshot);
 });
+
+test('actual drawn routes and active pins share the landing brand with readable light-map contrast',()=>{
+ const effects=[],lines=[],pins=[];
+ const layer=()=>({addTo(){return this;},bindTooltip(){return this;},on(){return this;}});
+ const map={setView(){},remove(){},invalidateSize(){},fitBounds(){}};
+ const component=runInNewContext(`${source}\nPlannerMap;`,{
+  __jacJsx:(type,props,children)=>({type,props,children}),useRef:initial=>({current:initial}),
+  useJacState:initial=>({val:initial,set(){}}),useEffect:callback=>effects.push(callback),
+  createMap:()=>map,tileLayer:()=>layer(),layerGroup:()=>({...layer(),clearLayers(){}}),
+  polyline:(points,options)=>{lines.push(options);return layer();},
+  circleMarker:(point,options)=>{pins.push(options);return layer();},
+  ResizeObserver:function(){this.observe=()=>{};this.disconnect=()=>{};},document:{createElement:()=>({})},
+ });
+ const {snapshot}=fixture();component({snapshot,focusIds:['sfo'],selectedId:'sfo',onSelect(){},resources:{}});
+ for(const effect of effects)effect();
+ const css=readFileSync(new URL('../web/styles.css',import.meta.url),'utf8');
+ const rgb=color=>{
+  if(color.startsWith('var(')){const name=color.slice(4,-1);color=css.match(new RegExp(`${name}:\\s*(#[0-9a-f]{6})`,'i'))[1];}
+  return [1,3,5].map(index=>parseInt(color.slice(index,index+2),16));
+ };
+ const luminance=value=>value.map(n=>n/255).map(n=>n<=.04045?n/12.92:((n+.055)/1.055)**2.4).reduce((sum,n,index)=>sum+n*[.2126,.7152,.0722][index],0);
+ const contrast=(first,second)=>{const [low,high]=[luminance(first),luminance(second)].sort((a,b)=>a-b);return (high+.05)/(low+.05);};
+ const background=[232,238,232],brand=rgb('var(--dt-accent)');
+ assert.ok(lines.length>0&&pins.length>0);
+ for(const line of lines){const color=rgb(line.color);assert.deepEqual(color,brand);assert.ok(contrast(color.map((n,i)=>n*line.opacity+background[i]*(1-line.opacity)),background)>=3);}
+ assert.deepEqual(rgb(pins[0].fillColor),brand);assert.ok(contrast(brand,background)>=3);
+});

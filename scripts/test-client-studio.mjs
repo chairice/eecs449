@@ -6,7 +6,7 @@ import { runInNewContext } from 'node:vm';
 import { randomUUID } from 'node:crypto';
 import * as helpers from '../web/.jac/client/compiled/client/planning_state.js';
 
-function fixture({pollResponse, authenticated=false, withUndo=false, savedView={}} = {}) {
+function fixture({pollResponse, authenticated=false, withUndo=false, savedView={}, rpcHook} = {}) {
   const snapshot = { schemaVersion: 1, id: 'trip_ui', title: 'My trip', startDate: '', endDate: '', detail:'DETAILED',
     places: [], stays: [], legs: [], rentals:[], bookings: [], unresolved: [], budget:{amountMinor:null,currency:'USD'},
     days: [{ id: 'day_1', date: '2026-12-26', title: 'An open day', overnightPlaceId: '', notes: '', items: [{id:'item_1',title:'Client meeting',kind:'ACTIVITY',placeId:'',startTime:'13:00',endTime:'14:00',notes:'',sourceRefs:[]}] }] };
@@ -40,12 +40,13 @@ function fixture({pollResponse, authenticated=false, withUndo=false, savedView={
     file_content:async()=>Buffer.from('draft notes').toString('base64'),
     guest_token:()=>'guest_test_capability', planner_id:prefix=>`${prefix}_${randomUUID()}`,
     planner_today:()=>'2026-11-15', planner_zone:()=>'America/Detroit',
-    PlannerMap:()=>{}, ChatMarkdown:()=>{}, StudioOffer:function StudioOffer(){},StudioOptions:function StudioOptions(){},StudioDetails:function StudioDetails(){},StudioWeather:()=>{},TripChoiceCard:()=>{},TripDayCard:()=>{},TripPhoto:()=>{},PhotoCredit:()=>{},
+    HEADER:'', Brand:function Brand(){}, StudioConfirmations:function StudioConfirmations(){}, PlannerMap:()=>{}, ChatMarkdown:()=>{}, StudioOffer:function StudioOffer(){},StudioOptions:function StudioOptions(){},StudioDetails:function StudioDetails(){},StudioWeather:()=>{},TripChoiceCard:()=>{},TripDayCard:()=>{},TripPhoto:()=>{},PhotoCredit:()=>{},
     conversation_offers:(turn,offers,fallback)=>Object.hasOwn(turn,"offerIds")?offers.filter(o=>(turn.offerIds??[]).includes(o.id)):fallback,
     offer_groups:offers=>offers.map(offer=>({id:offer.id,label:offer.title,date:offer.query?.departDate??"Nov 22",count:1,category:offer.category??"FLIGHT",offers:[offer]})),
     planner_list:async()=>JSON.stringify([{id:state.id,title:state.snapshot.title}]),planner_deleted:async()=>'[]',
     __jacCallFunction: async (name,args)=>{
       calls.push({name,args});
+      if(rpcHook){const hooked=rpcHook(name,args);if(hooked!==undefined)return await hooked;}
       if(name==='planner_guest_start') return JSON.stringify({jobId:'job_ui'});
       if(name==='planner_guest_poll') return JSON.stringify(pollResponse ? pollResponse() : {id:'job_ui',status:'SUCCEEDED',progress:'Complete',result:{}});
       if(name==='planner_guest_stage') return JSON.stringify({...state,activeJob:'',pending:null,revision:5,
@@ -57,10 +58,20 @@ function fixture({pollResponse, authenticated=false, withUndo=false, savedView={
         value.snapshot=snapshot;value.pending=null;value.revision++;value.undo=null;
         return JSON.stringify(value);
       }
+      if(name==='planner_guest_confirmations') {
+        const value=JSON.parse(args.state_json);value.confirmations=JSON.parse(args.confirmations_json);
+        return JSON.stringify(value);
+      }
+      if(name==='planner_guest_rename') {
+        const value=JSON.parse(args.state_json);
+        value.undoHistory=[...(value.undoHistory??[]),{snapshot:structuredClone(value.snapshot)}];value.commands={...(value.commands??{}),[args.command_id]:'rename-signature'};value.updatedAt='2026-11-18T12:00:00Z';
+        value.snapshot={...value.snapshot,title:args.title};value.revision++;value.undo={revision:value.revision,label:'Trip renamed'};
+        return JSON.stringify(value);
+      }
       throw Error(`Unexpected RPC ${name}`);
     },
   });
-  const render = () => {cellIndex=0;refIndex=0;effects.length=0;return component();};
+  const render = () => {cellIndex=0;refIndex=0;effects.length=0;const tree=component();refs[0].current=cells[0].val;return tree;};
   const send=async text=>{
     find(render(),e=>e.type==='textarea').props.onChange({target:{value:text}});
     find(render(),e=>e.type==='form'&&e.props?.className==='studio-composer').props.onSubmit({preventDefault(){}});
@@ -93,6 +104,33 @@ test('requested edit is displayed immediately after stage and is reversible with
   await find(f.render(),e=>e.props?.['aria-label']==='Undo last trip change').props.onClick();
   const call=f.calls.find(c=>c.name==='planner_guest_undo');assert.ok(call);assert.equal(call.args.revision,5);
   assert.equal(f.cells[0].val.snapshot.title,'My trip');assert.equal(f.cells[0].val.undo,null);
+});
+test('the header renames the trip in place, trimming spaces, and Escape cancels',async()=>{
+  const f=fixture();
+  const title=()=>find(f.render(),e=>e.type==='button'&&e.props?.title==='Rename this trip');
+  const field=()=>find(f.render(),e=>e.type==='input'&&e.props?.id==='studio-trip-name');
+  title().props.onClick();
+  field().props.onChange({target:{value:'Other'}});field().props.onKeyDown({key:'Escape',nativeEvent:{}});
+  assert.equal(field(),null);assert.equal(f.calls.length,0);
+  title().props.onClick();assert.equal(field().props.value,'My trip');
+  field().props.onChange({target:{value:'  Chicago   weekend '}});
+  await field().props.onKeyDown({key:'Enter',nativeEvent:{isComposing:false},preventDefault(){}});await tick();
+  const call=f.calls.find(c=>c.name==='planner_guest_rename');assert.ok(call);
+  assert.equal(call.args.title,'Chicago weekend');assert.equal(call.args.revision,f.state.revision);
+  assert.equal(f.cells[0].val.snapshot.title,'Chicago weekend');assert.equal(field(),null);
+  assert.equal(f.cells[0].val.undoHistory.at(-1).snapshot.title,'My trip');
+  assert.ok(Object.hasOwn(f.cells[0].val.commands,call.args.command_id));
+  assert.equal(f.cells[0].val.updatedAt,'2026-11-18T12:00:00Z');
+});
+test('the Confirmations tab saves bookmarks beside the plan without changing its revision',async()=>{
+  const f=fixture();
+  button(f.render(),'Confirmations').props.onClick();
+  const pane=component(f.render(),'StudioConfirmations');assert.equal(JSON.stringify(pane.props.entries),'[]');
+  const entry={id:'c1',nickname:'Hotel',link:'https://mail.google.com/mail/u/0/#inbox/x'};
+  assert.equal(await pane.props.onSave([entry]),true);
+  const call=f.calls.find(c=>c.name==='planner_guest_confirmations');assert.ok(call);
+  assert.equal(JSON.stringify(f.cells[0].val.confirmations),JSON.stringify([entry]));assert.equal(f.cells[0].val.revision,f.state.revision);
+  assert.equal(JSON.stringify(component(f.render(),'StudioConfirmations').props.entries),JSON.stringify([entry]));
 });
 test('item detail replaces its day; Back restores the day without a trip write',()=>{
   const f=fixture();component(f.render(),'StudioOverview').props.onDay('day_1');
@@ -136,10 +174,11 @@ test('trip switcher toggles, dismisses on Escape and outside click, and restores
 });
 test('a failed job shows a recoverable message, preserves work, stops polling and allows retry',async()=>{
   let failed=true;
-  const f=fixture({pollResponse:()=>({id:'job_ui',status:failed?'FAILED':'SUCCEEDED',progress:'Needs attention',error:'private provider traceback',result:{}})});
+  const f=fixture({pollResponse:()=>({id:'job_ui',status:failed?'FAILED':'SUCCEEDED',progress:'Needs attention',error:'Detour\'s AI service is busy. Please wait a moment and try again.',result:{}})});
   await f.send('Plan a short work trip');const poll=f.effects.find(effect=>effect.deps?.[0]==='job_ui');poll.callback();await tick();
   let tree=f.render();assert.equal(f.cells[0].val.activeJob,'');assert.equal(f.cells[0].val.snapshot.title,'My trip');assert.equal(f.cells[0].val.pending.id,'decision_1');
-  assert.ok(find(tree,e=>e.props?.role==='alert'));assert.equal(JSON.stringify(tree).includes('private provider traceback'),false);
+  // The worker stores only public_error() text (workers/atlas_runtime/errors.py), so the reason is shown.
+  assert.ok(JSON.stringify(find(tree,e=>e.props?.role==='alert')).includes('AI service is busy'));
   const polls=f.calls.filter(c=>c.name==='planner_guest_poll').length;poll.callback();await tick();assert.equal(f.calls.filter(c=>c.name==='planner_guest_poll').length,polls);
   failed=false;await f.send('Try planning the work trip again');assert.equal(find(f.render(),e=>e.props?.role==='alert'),null);
   f.effects.find(effect=>effect.deps?.[0]==='job_ui').callback();await tick();assert.equal(f.cells[0].val.snapshot.title,'Updated trip');
@@ -296,4 +335,48 @@ test('contextual comparison can reopen a selected historical offer when the acti
 test('PDF export projects the full saved trip locally without a planning request',async()=>{
  const f=fixture();await button(f.render(),'Export PDF').props.onClick();
  assert.deepEqual(f.calls.map(c=>c.name),['local_pdf']);assert.equal(f.cells[0].val.pending.id,'decision_1');
+});
+
+test('confirmation responses preserve newer plan revisions and never cross trip boundaries',async()=>{
+ let resolveSave;
+ const f=fixture({rpcHook:(name,args)=>name==='planner_guest_confirmations'?new Promise(resolve=>{resolveSave=()=>resolve(JSON.stringify({...JSON.parse(args.state_json),confirmations:JSON.parse(args.confirmations_json)}));}):undefined});
+ button(f.render(),'Confirmations').props.onClick();
+ const entry={id:'email_one',nickname:'Hotel',link:'https://mail.google.com/mail/u/0/#inbox/message'};
+ let save=component(f.render(),'StudioConfirmations').props.onSave([entry]);
+ f.cells[0].val={...f.cells[0].val,revision:8,snapshot:{...f.cells[0].val.snapshot,title:'Newer planning result'}};f.render();
+ resolveSave();await save;
+ assert.equal(f.cells[0].val.revision,8);assert.equal(f.cells[0].val.snapshot.title,'Newer planning result');
+ assert.equal(f.cells[0].val.confirmations[0].id,'email_one');
+ save=component(f.render(),'StudioConfirmations').props.onSave([{...entry,nickname:'First trip only'}]);
+ f.cells[0].val={...f.cells[0].val,id:'trip_other',snapshot:{...f.cells[0].val.snapshot,id:'trip_other'},confirmations:[]};f.render();
+ resolveSave();await save;
+ assert.equal(f.cells[0].val.id,'trip_other');assert.deepEqual(f.cells[0].val.confirmations,[]);
+});
+
+test('bookmark-only guest trips remain visible, exportable and protected before New trip',()=>{
+ const f=fixture();f.render();
+ f.cells[0].val={...f.cells[0].val,pending:null,conversation:[],snapshot:{...f.state.snapshot,days:[]},confirmations:[{id:'email_only',nickname:'Ticket',link:'https://outlook.live.com/mail/0/inbox/id/test'}]};
+ let tree=f.render();assert.equal(button(tree,'Export PDF').props.disabled,false);
+ assert.equal(tree.props.className.includes('is-starting'),false);
+ button(tree,'Your trips').props.onClick();button(f.render(),'+ New trip').props.onClick();
+ tree=f.render();assert.ok(find(tree,e=>e.props?.role==='dialog'&&e.props?.['aria-labelledby']==='studio-account-title'));
+ assert.equal(f.calls.length,0);assert.equal(f.cells[0].val.confirmations[0].id,'email_only');
+});
+
+test('the saved confirmation view restores for its own trip without losing the selected day',()=>{
+ const f=fixture({savedView:{pane:'confirmations',dayId:'day_1',phoneTab:'trip'}});f.render();
+ const restore=f.effects.find(effect=>effect.deps?.length===1&&effect.deps[0]===f.state.id);assert.ok(restore);restore.callback();
+ assert.ok(component(f.render(),'StudioConfirmations'));
+ button(f.render(),'Your trip').props.onClick();assert.equal(component(f.render(),'StudioDay').props.day.id,'day_1');
+});
+
+test('failed rename keeps its editable draft and Escape cannot save through blur',async()=>{
+ const f=fixture({rpcHook:name=>name==='planner_guest_rename'?Promise.reject(new Error('offline')):undefined});
+ const title=()=>find(f.render(),e=>e.type==='button'&&e.props?.title==='Rename this trip'&&!e.props?.['aria-label']);
+ const field=()=>find(f.render(),e=>e.type==='input'&&e.props?.id==='studio-trip-name');
+ title().props.onClick();field().props.onChange({target:{value:'Keep this draft'}});
+ await field().props.onKeyDown({key:'Enter',nativeEvent:{},preventDefault(){}});await tick();
+ assert.equal(field().props.value,'Keep this draft');assert.equal(f.cells[0].val.snapshot.title,'My trip');
+ const cancelled=field();cancelled.props.onKeyDown({key:'Escape',nativeEvent:{}});await cancelled.props.onBlur();
+ assert.equal(field(),null);assert.equal(f.calls.filter(call=>call.name==='planner_guest_rename').length,1);
 });

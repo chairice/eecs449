@@ -5,7 +5,7 @@ import pytest
 
 from server import planning_api as api, planning_jobs as jobs
 from server.planning_core import PlanningError, blank_trip, dumps, loads, validate_trip, budget_summary
-from server.planning_lifecycle import abandoned, meaningful, needs_decision, undo_json, delete_json, restore_json, recent_deleted
+from server.planning_lifecycle import abandoned, meaningful, needs_decision, undo_json, rename_json, confirmations_json, delete_json, restore_json, recent_deleted
 
 
 @pytest.fixture(autouse=True)
@@ -145,3 +145,82 @@ def test_unbounded_last_snapshot_is_rejected_before_it_can_be_persisted():
     with pytest.raises(PlanningError, match="too large to save together with Undo"):
         bound_undo(state)
     assert state["undoHistory"]  # Never trim the last Undo or the person's chat.
+
+
+def test_rename_is_an_undoable_revision_with_validation():
+    state = planned()
+    revision = state["revision"]
+    with pytest.raises(PlanningError, match="name"): rename_json(dumps(state), "   ", revision, "rename-empty")
+    with pytest.raises(PlanningError, match="160"): rename_json(dumps(state), "x" * 161, revision, "rename-long")
+    with pytest.raises(PlanningError, match="another window"): rename_json(dumps(state), "Bay trip", revision + 1, "rename-stale")
+    renamed = loads(rename_json(dumps(state), "  Bay   trip ", revision, "rename-1"))
+    assert renamed["snapshot"]["title"] == "Bay trip" and renamed["revision"] == revision + 1
+    assert renamed["snapshot"]["days"] == state["snapshot"]["days"]
+    assert loads(rename_json(dumps(renamed), "Bay trip", revision, "rename-1")) == renamed  # retried request
+    with pytest.raises(PlanningError, match="different title"): rename_json(dumps(renamed), "Other", revision, "rename-1")
+    restored = loads(undo_json(dumps(renamed), renamed["revision"], "undo-rename"))
+    assert restored["snapshot"]["title"] == state["snapshot"]["title"]
+    busy = dict(state, activeJob="job-1")
+    with pytest.raises(PlanningError, match="Stop the current"): rename_json(dumps(busy), "Bay trip", revision, "rename-busy")
+
+
+def test_confirmations_are_validated_bookmarks_beside_the_plan():
+    state = planned()
+    links = [{"id": "c1", "nickname": "  Hotel   booking ", "link": "https://mail.google.com/mail/u/0/#inbox/FMfcgz"}]
+    saved = loads(confirmations_json(dumps(state), dumps(links)))
+    assert saved["confirmations"] == [{"id": "c1", "nickname": "Hotel booking", "link": "https://mail.google.com/mail/u/0/#inbox/FMfcgz"}]
+    assert saved["revision"] == state["revision"] and saved["snapshot"] == state["snapshot"]
+    for bad, message in [([{"id": "c2", "nickname": "", "link": "https://example.com"}], "nickname"),
+                         ([{"id": "c2", "nickname": "X", "link": "javascript:alert(1)"}], "https://"),
+                         ([{"id": "c2", "nickname": "X", "link": "http://localhost/x"}], "https://"),
+                         ([{"id": "c2", "nickname": "A", "link": "https://a.com"}, {"id": "c2", "nickname": "B", "link": "https://b.com"}], "share an ID")]:
+        with pytest.raises(PlanningError, match=message): confirmations_json(dumps(state), dumps(bad))
+    with pytest.raises(PlanningError): confirmations_json(dumps(state), dumps([{"id": f"c{i}", "nickname": "X", "link": "https://a.com"} for i in range(51)]))
+    # A guest's bookmarks come along when the trip is saved to an account.
+    assert api.fresh(dumps(saved))["confirmations"] == saved["confirmations"]
+    assert api.fresh(dumps(state))["confirmations"] == []
+
+
+def test_email_bookmarks_make_an_otherwise_empty_trip_meaningful():
+    state = api.fresh()
+    state = loads(confirmations_json(dumps(state), dumps([
+        {"id": "mail-1", "nickname": "Keep this travel email", "link": "https://mail.google.com/mail/u/0/#inbox/example"}
+    ])))
+    state["updatedAt"] = (datetime.now(timezone.utc) - timedelta(days=3)).isoformat()
+    assert meaningful(state)
+    assert not abandoned(state)
+
+
+def test_bookmarks_survive_planning_undo_rename_and_delete_restore():
+    state = planned()
+    bookmarks = [{"id": "mail-1", "nickname": "Flight receipt", "link": "https://mail.google.com/mail/u/0/#inbox/example"}]
+    state = loads(confirmations_json(dumps(state), dumps(bookmarks)))
+    original = copy.deepcopy(state["snapshot"])
+    state = run_result(state, [{"action": "upsert_item", "dayId": "day1", "value": {
+        "id": "rest", "title": "A rest break", "kind": "REST"}}])
+    assert state["confirmations"] == bookmarks
+    state = loads(undo_json(dumps(state), state["revision"], "undo-with-mail"))
+    assert state["snapshot"] == original and state["confirmations"] == bookmarks
+    state = loads(rename_json(dumps(state), "Renamed work trip", state["revision"], "rename-with-mail"))
+    assert state["confirmations"] == bookmarks
+    deleted = loads(delete_json(dumps(state)))
+    restored = loads(restore_json(dumps(deleted)))
+    assert restored["confirmations"] == bookmarks and restored["snapshot"] == state["snapshot"]
+
+
+def test_bookmark_save_during_planning_does_not_invalidate_queued_result():
+    state = planned()
+    request = {"tripId": state["id"], "snapshot": state["snapshot"], "baseRevision": state["revision"],
+               "message": "Add a rest", "clientTurnId": "mail-during-plan"}
+    job_id = jobs.enqueue("account:a", dumps(request))
+    state = loads(api.record_job(dumps(state), dumps(request), job_id))
+    bookmarks = [{"id": "mail-1", "nickname": "Hotel email", "link": "https://mail.google.com/mail/u/0/#inbox/example"}]
+    before = copy.deepcopy(state["snapshot"])
+    state = loads(confirmations_json(dumps(state), dumps(bookmarks)))
+    assert state["snapshot"] == before and state["revision"] == request["baseRevision"]
+    job = jobs.claim("worker")
+    jobs.finish(job_id, job["lease_token"], {"operations": [{"action": "upsert_item", "dayId": "day1", "value": {
+        "id": "rest", "title": "A rest break", "kind": "REST"}}], "assistantMessage": "Added the rest break."})
+    state = api.stage(dumps(state), "account:a", job_id)
+    assert state["snapshot"]["days"][0]["items"][0]["id"] == "rest"
+    assert state["confirmations"] == bookmarks and not state.get("activeJob")

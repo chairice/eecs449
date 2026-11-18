@@ -1,6 +1,6 @@
 # Detour planning runtime
 
-Jac owns account access, accepted trips, atomic revision transactions, conversational decisions, Undo, deletion/recovery and revision history. This Python process runs Anthropic and an isolated Chromium research browser outside those transactions. It reads a private SQLite WAL work queue; it cannot directly mutate Jac's accepted trips. Routine requested edits commit immediately through Jac after validation; consequential assistant suggestions ask in the main chat and bind the answer to the pending decision and current revision. Fixed/booked commitments remain protected.
+Jac owns account access, accepted trips, atomic revision transactions, conversational decisions, Undo, deletion/recovery and revision history. The canonical Python package is now `web/atlas_runtime/`, included in the web application for web-only hosting; this `workers/` directory retains local environment setup, locked dependencies and tests. The runtime runs Anthropic and an isolated Chromium research browser outside graph transactions. It reads a private SQLite WAL work queue; it cannot directly mutate Jac's accepted trips. Routine requested edits commit immediately through Jac after validation; consequential assistant suggestions ask in the main chat and bind the answer to the pending decision and current revision. Fixed/booked commitments remain protected.
 
 Public research supports source-backed flight, stay and car cards with strict active date/party/time evidence. The fresh-guest app pipeline produced nine real cards for the exact two-flight/San Francisco hotel scenario without itinerary edits; Airbnb produced three dated home/room offers. The full car-chat pipeline also passed with three genuine dated car cards and unchanged itinerary, starting from an observed public provider-results URL. Merged-main checks passed 74 Jac source checks, 134 Jac tests and 81 Node tests; the final Python suite passed 167 tests. The real Chromium control regression, sealed build/manifest verification, offline finalization and secret scan also passed. Native production API, restart/upgrade persistence and the public HTTPS model-to-reply path are verified in the status document.
 
@@ -18,6 +18,8 @@ bash scripts/dev-studio.sh
 ```
 
 Open `http://localhost:8000/` for the Detour landing page or `http://localhost:8000/studio` for the workspace. Jac's API runs on port 8001 in development. `PLANNER_MODEL` selects the Anthropic model; the default is `claude-sonnet-5-5`. No credential is sent to the browser.
+
+Both repository supervisors disable the embedded worker (`DETOUR_EMBEDDED_WORKER=off`) and run one separate worker with the shared private queue. Direct Jac web-only hosting instead enables the embedded worker by default and reads the host environment or a private project `.env`. Its pinned Python dependencies are declared in `web/jac.toml`; Chromium must also be installed in the interpreter/cache used by that host, for example with `python -m playwright install chromium`. Installing the Playwright Python package alone does not install a browser. The repository's `workers/.browsers` cache is used when present; otherwise the configured/default Playwright cache applies. Never launch an extra external worker beside an enabled embedded worker.
 
 Run deterministic tests from the repository root. The full validation includes a local Chromium interaction regression; install Chromium during setup above. These checks need no model key or public-site access:
 
@@ -45,7 +47,7 @@ These opt-in tests use the configured Anthropic credits. They create synthetic
 test trips and do not change user trips or make bookings:
 
 ```sh
-export PYTHONPATH="$PWD/workers:$PWD/web"
+export PYTHONPATH="$PWD/web"
 export PLAYWRIGHT_BROWSERS_PATH="$PWD/workers/.browsers"
 workers/.venv/bin/python scripts/test-studio-live.py --scenario mixed
 workers/.venv/bin/python scripts/test-studio-live.py --scenario business

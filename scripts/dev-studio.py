@@ -11,7 +11,8 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(os.getenv("PLANNER_ENV_FILE", str(ROOT / "workers/.env")))
 environment = dict(os.environ)
-environment["PYTHONPATH"] = os.pathsep.join([str(ROOT / "workers"), str(ROOT / "web")])
+environment["PYTHONPATH"] = str(ROOT / "web")
+environment["DETOUR_EMBEDDED_WORKER"] = "off"  # The worker runs as its own process below.
 environment.setdefault("PLANNER_DATA_DIR", str(ROOT / "web/.jac/data/planner"))
 environment.setdefault("PLAYWRIGHT_BROWSERS_PATH", str(ROOT / "workers/.browsers"))
 children = []

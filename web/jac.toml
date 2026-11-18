@@ -6,6 +6,18 @@ description = "Landing page for the EECS 449 everyday AI agent project"
 entry-point = "main"
 kind = "web-app"
 
+# The planning worker's Python libraries (pins match workers/requirements.lock).
+# Hosts that run only the Jac app use them through server/embedded_worker.py.
+[dependencies]
+anthropic = "==2.8.0"
+pydantic = "==2.14.3"
+python-dotenv = "==1.2.4"
+timezonefinder = "==9.2.0"
+astral = "==3.2"
+pypdf = "==7.1.0"
+pillow = "==12.3.0"
+playwright = "==1.65.2"
+
 [dependencies.npm]
 react = "^18.2.0"
 react-dom = "^18.2.0"
@@ -32,7 +44,6 @@ tailwindcss = "^4.3.3"
 watchdog = ">=3.0.0"
 
 [serve]
-host = "127.0.0.1"
 base_route_app = "app"
 
 [placement.pins]
@@ -44,25 +55,14 @@ base_route_app = "app"
 
 # What a browser tab and a shared link show.
 [client.app_meta_data]
-title = "Detour · Your next journey"
+title = "Detour \u00B7 Your next journey"
 description = "Plan your kind of trip, together with Detour."
 
 # Paint the remembered light/dark theme before the bundle loads, so the first
 # frame has the right palette. Mirrors client/theme_mode.jac (same key and rule).
 [[client.app_meta_data.scripts]]
-content = """
-(function () {
-  var root = document.documentElement, pref = null, dark = false;
-  try { pref = window.localStorage.getItem("detour.theme.v1"); } catch (e) {}
-  try { dark = pref === "dark" || (pref !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches); } catch (e) {}
-  var path = window.location.pathname.toLowerCase();
-  while (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
-  if (path === "/") dark = false;
-  else if (path === "/studio") dark = true;
-  root.setAttribute("data-theme", dark ? "dark" : "light");
-  root.style.colorScheme = dark ? "dark" : "light";
-})();
-"""
+# Kept on one line so the file stays valid however a tool re-lays it out.
+content = '(function () { var root = document.documentElement, pref = null, dark = false; try { pref = window.localStorage.getItem("detour.theme.v1"); } catch (e) {} try { dark = pref === "dark" || (pref !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches); } catch (e) {} var path = window.location.pathname.toLowerCase(); while (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1); if (path === "/" || path === "/studio") dark = false; root.setAttribute("data-theme", dark ? "dark" : "light"); root.style.colorScheme = dark ? "dark" : "light"; })();'
 
 # Tailwind v4 utilities, layered above the hand-written styles (see tailwind.css).
 [client.vite]
@@ -79,8 +79,8 @@ dedupe = ["jspdf"]
 "@detour/pdf" = "./client/trip_pdf.ts"
 
 [client.pwa]
-theme_color = "#121715"
-background_color = "#121715"
+theme_color = "#e0f2fe"
+background_color = "#f0fdf4"
 cache_name = "atlas-studio-v1"
 install_banner = false
 

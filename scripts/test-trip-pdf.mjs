@@ -14,7 +14,7 @@ const root=fileURLToPath(new URL('..',import.meta.url));
 await build({stdin:{contents:"export * from './trip_pdf'; export * from './trip_pdf_render';",resolveDir:join(root,'web/client'),loader:'ts'},
   bundle:true,platform:'browser',format:'esm',outfile:join(temporary,'export.mjs'),
   nodePaths:[join(root,'web/.jac/client/node_modules'),...String(process.env.DETOUR_PDF_NODE_PATH || '').split(':').filter(Boolean)],logLevel:'silent'});
-const {build_trip_document,render_trip_pdf,pdf_money,pdf_public_url,pdf_observed_date}=await import(pathToFileURL(join(temporary,'export.mjs')));
+const {build_trip_document,render_trip_pdf,pdf_money,pdf_public_url,pdf_confirmation_url,pdf_observed_date}=await import(pathToFileURL(join(temporary,'export.mjs')));
 process.on('exit',()=>rmSync(temporary,{recursive:true,force:true}));
 const workerPython=join(root,'workers/.venv/bin/python');
 function extractedPages(pdf){
@@ -27,6 +27,30 @@ test('PDF includes the entire committed logistics agenda and never mutates saved
   const before=JSON.stringify(state),model=build_trip_document(state);
   assert.equal(model.days.length,2);assert.equal(model.days[0].items.length,5);assert.equal(model.travel[0].carrier,'American');
   assert.equal(model.travel[0].connectionPending,true);assert.equal(model.travel[0].price,'');assert.equal(JSON.stringify(state),before);
+});
+test('explicit email bookmarks preserve safe message fragments without claiming a booking',()=>{
+  const state=tripPdfFixture();
+  const gmail='https://mail.google.com/mail/u/0/#inbox/QA-message-only';
+  const outlook='https://outlook.office.com/mail/inbox/id/QA-message-only#conversation';
+  state.confirmations=[{id:'qa-gmail',nickname:'Hotel confirmation email',link:gmail},{id:'qa-outlook',nickname:'Conference invitation',link:outlook}];
+  const before=JSON.stringify(state),model=build_trip_document(state);
+  assert.deepEqual(model.confirmations,[{title:'Hotel confirmation email',url:gmail},{title:'Conference invitation',url:outlook}]);
+  assert.equal(model.travel[0].status,'Selected - not booked');assert.equal(model.bookings.length,0);
+  assert.equal(JSON.stringify(state),before);assert.equal(pdf_public_url(gmail),'https://mail.google.com/mail/u/0/');
+  for(const bad of ['javascript:alert(1)','http://localhost/inbox','https://mail.google.com/?access_token=MUST_NOT_EXPORT','https://mail.google.com/#access_token=MUST_NOT_EXPORT','https://mail.google.com/#access%5ftoken%3dMUST_NOT_EXPORT'])assert.equal(pdf_confirmation_url(bad),'');
+  state.confirmations.push({id:'unsafe',nickname:'Open this one in Detour',link:'https://mail.google.com/#access_token=MUST_NOT_EXPORT'});
+  const guarded=build_trip_document(state);
+  assert.equal(guarded.confirmations[2].url,'');assert.ok(!JSON.stringify(guarded).includes('MUST_NOT_EXPORT'));
+});
+test('actual PDF contains bookmarked email names and clickable Gmail message destinations',()=>{
+  const state=tripPdfFixture(),url='https://mail.google.com/mail/u/0/#inbox/QA-message-only';
+  state.confirmations=[{id:'qa-email',nickname:'Hotel confirmation email',link:url}];
+  const pdf=render_trip_pdf(build_trip_document(state)),pages=extractedPages(pdf);
+  assert.ok(pages.some(page=>page.includes('Important emails') && page.includes('Hotel confirmation email') && page.includes('Open email')));
+  const file=join(temporary,'bookmark-links.pdf');writeFileSync(file,new Uint8Array(pdf.output('arraybuffer')));
+  const script="from pypdf import PdfReader;import json,sys;print(json.dumps([str(a.get_object().get('/A',{}).get('/URI','')) for p in PdfReader(sys.argv[1]).pages for a in p.get('/Annots',[])]))";
+  const links=JSON.parse(execFileSync(workerPython,['-c',script,file],{encoding:'utf8'}));assert.ok(links.includes(url));
+  if(process.env.DETOUR_PDF_CONFIRMATIONS_SAMPLE)writeFileSync(process.env.DETOUR_PDF_CONFIRMATIONS_SAMPLE,new Uint8Array(pdf.output('arraybuffer')));
 });
 test('export projection excludes raw conversation, private context, pending edits, captures and unused alternatives',()=>{
   const state=tripPdfFixture();state.capturePath='/private/raw/capture';const model=JSON.stringify(build_trip_document(state));

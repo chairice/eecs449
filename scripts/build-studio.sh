@@ -21,3 +21,4 @@ cd "$repo_dir/web"
 "$jac_bin" build main.jac
 "$worker_python" "$repo_dir/scripts/finalize-studio-build.py"
 "$worker_python" "$repo_dir/scripts/check-build-secrets.py" "$repo_dir/web/dist/everyday-agent-web.jab"
+"$worker_python" "$repo_dir/scripts/check-built-runtime.py" "$repo_dir/web/dist/everyday-agent-web.jab"

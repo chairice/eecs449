@@ -8,8 +8,13 @@ import argparse
 import copy
 import json
 import os
+import sys
 import tempfile
 from pathlib import Path
+
+# This opt-in driver claims its own isolated jobs; never start a second worker.
+os.environ["DETOUR_EMBEDDED_WORKER"] = "off"
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "web"))
 
 from dotenv import load_dotenv
 from atlas_runtime.planner import plan

@@ -65,7 +65,7 @@ def:pub PlannerMap(snapshot: any, focusIds: any, selectedId: str, onSelect: Call
     useEffect(lambda {
         instance: any = createMap(host.current, {"zoomControl": False, "scrollWheelZoom": True, "maxZoom": 18, "minZoom": 2});
         view.current = instance;
-        tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {"maxZoom": 19, "attribution": "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors", "className": "studio-map-tiles"}).addTo(instance);
+        tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {"maxZoom": 19, "attribution": "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors", "className": "studio-map-tiles", "referrerPolicy": "strict-origin-when-cross-origin"}).addTo(instance);
         overlay.current = layerGroup().addTo(instance);
         instance.setView([38.8, -105], 4);
         observer = ResizeObserver(lambda (_entries: any, _observer: any) { instance.invalidateSize(); });
@@ -84,18 +84,18 @@ def:pub PlannerMap(snapshot: any, focusIds: any, selectedId: str, onSelect: Call
             routed: bool = False;
             for road in roads or [] {
                 if road["id"] == leg["routeSourceRef"] and Math.abs(road["from"]["lat"] - first["lat"]) < 0.002 and Math.abs(road["to"]["lat"] - last["lat"]) < 0.002 and Math.abs(road["from"]["lon"] - first["lon"]) < 0.002 and Math.abs(road["to"]["lon"] - last["lon"]) < 0.002 {
-                    polyline(road["points"], {"color": "#d8c291", "weight": 3, "opacity": 0.85, "interactive": False}).addTo(overlay.current);
+                    polyline(road["points"], {"color": "var(--dt-accent)", "weight": 3, "opacity": 0.95, "interactive": False}).addTo(overlay.current);
                     routed = True;
                 }
             }
             # Dashed connections show trip structure, not calculated driving geometry.
-            if not routed { polyline([[first["lat"], first["lon"]], [last["lat"], last["lon"]]], {"color": "#a5bda9", "weight": 2, "opacity": 0.55, "dashArray": "4 8", "interactive": False}).addTo(overlay.current); }
+            if not routed { polyline([[first["lat"], first["lon"]], [last["lat"], last["lon"]]], {"color": "var(--dt-accent)", "weight": 2, "opacity": 0.9, "dashArray": "4 8", "interactive": False}).addTo(overlay.current); }
         }
         for (index, place) in enumerate(display["places"]) {
             if place["lat"] is None { continue; }
             active = len(mapFocus) == 0 or place["id"] in mapFocus;
             if active { points.append([place["lat"], place["lon"]]); }
-            pin: any = circleMarker([place["lat"], place["lon"]], {"radius": 8 if place["id"] == selectedId else 5, "color": "#f0eee6", "weight": 2, "fillColor": "#d8c291" if active else "#737a77", "fillOpacity": 1, "opacity": 1 if active else 0.4}).addTo(overlay.current);
+            pin: any = circleMarker([place["lat"], place["lon"]], {"radius": 8 if place["id"] == selectedId else 5, "color": "var(--dt-surface)", "weight": 2, "fillColor": "var(--dt-accent)" if active else "var(--dt-muted)", "fillOpacity": 1, "opacity": 1 if active else 0.4}).addTo(overlay.current);
             label: any = document.createElement("span");
             label.textContent = str(place["label"]);
             pin.bindTooltip(label, {"direction": "top", "permanent": active and len(display["places"]) < 12, "className": "studio-map-label"});

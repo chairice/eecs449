@@ -32,7 +32,7 @@ bash scripts/dev-studio.sh
 
 Open [the landing page](http://localhost:8000/) or [the studio](http://localhost:8000/studio). The supervisor starts Jac and the isolated research worker with the same private environment; the development API is on port 8001. Client edits hot-reload; server/worker changes require a coordinated restart. Use Ctrl+C to stop the supervisor.
 
-Running `../scripts/jac run --dev main.jac` from `web/` starts only the Jac application. It does not replace the worker supervisor. Run Jac commands from `web/` so they use the pinned app configuration. The `../scripts/jac` wrapper verifies the compiler version and can recover a broken native launcher from its installed runtime.
+Running `../scripts/jac run --dev main.jac` from `web/` can also start the embedded planning worker, which is enabled by default for web-only hosting. The development and production supervisors explicitly set `DETOUR_EMBEDDED_WORKER=off` because they already run one separate worker process. Do not start a second worker alongside either supervisor. Run Jac commands from `web/` so they use the pinned app configuration. The `../scripts/jac` wrapper verifies the compiler version and can recover a broken native launcher from its installed runtime.
 
 ## Validate and build
 
@@ -57,6 +57,8 @@ workers/.venv/bin/python scripts/test-studio-pdf-offline.py --base http://127.0.
 
 The cold-offline check uses a fresh local browser context and a labelled fixture with intercepted API responses; it does not call the model or modify existing accounts/trips. Source-dependent offsite research is a separate opt-in command: `workers/.venv/bin/python scripts/test-trip-guide-live.py --run-live`. It consumes configured model credits and observes real public pages; its fixture commitments are explicitly user-supplied test inputs.
 
+Browser QA supplies explicitly labelled synthetic map tiles from `scripts/qa_map_tiles.py`; automated tests do not request OpenStreetMap's public tile service. These checks verify map controls and planned overlays, not live-provider availability. Email bookmarks are included in PDF exports with usable Gmail/Outlook message links, while sensitive capability URLs remain excluded.
+
 The emitted client in `web/.jac/client/dist/` is only one part of the application. A static host alone cannot run accounts, graph persistence, planning jobs or browser research. For a direct build from `web/`, run `../scripts/jac build main.jac`, then `python3 ../scripts/finalize-studio-build.py` and the bundle secret scan before distributing the artifact. Restart development after building.
 
 For local production-client/offline QA, `workers/.venv/bin/python scripts/preview-studio.py` serves the built client on port 8002 and proxies the already-running local Jac API. It is a test preview, not a production server.
@@ -79,17 +81,18 @@ Paths below are relative to `web/` unless shown otherwise.
 | `server/planning_jobs.py`, `server/planning_lifecycle.py` | Private SQLite work queue, leases, recoverable deletion and draft lifecycle |
 | `server/planning_weather.py` | Independent real NWS refresh/cache, stale-input binding and retained official alerts |
 | `server/planning_media.py`, `server/place_photos.py` | Quiet auxiliary, bounded/cached, place-matched free-license imagery |
-| `../workers/atlas_runtime/flight_journey.py` | Sourced same-offer or leg-keyed flight segments, schedule matching and stale-resource checks |
+| `atlas_runtime/flight_journey.py` | Sourced same-offer or leg-keyed flight segments, schedule matching and stale-resource checks |
 | `client/trip_pdf.ts`, `client/trip_pdf_render.ts`, `client/pdf_assets/` | Full saved-trip export model, local vector PDF renderer and embedded licensed fonts |
-| `../workers/atlas_runtime/` | Anthropic interpretation, isolated public research browser and geographic tools |
+| `atlas_runtime/`, `server/embedded_worker.py` | Packaged Anthropic/browser/geographic runtime and optional web-host worker startup |
+| `components/StudioConfirmations.jac` | Manually bookmarked confirmation-email links, independent of booking status |
 | `assets/airlines/`, `studio-weather.css` | Vendored carrier images with provenance and compact visual forecast/alert styles |
 | `offline-worker.js`, `../scripts/finalize-studio-build.py` | Saved-itinerary offline policy and sealed-artifact service-worker replacement |
 
 ## Storage and production boundary
 
-Accounts and accepted trips live in Jac PostgreSQL. Guest work and the last loaded itinerary are cached on the device; an authenticated account provides server save/resume. Internal `Atlas` module/cache names are retained for compatibility and are not a second product. Signing out clears that account's device trip/preferences cache.
+Accounts and accepted trips live in Jac PostgreSQL. Guest work and the last loaded itinerary are cached on the device; an authenticated account provides server save/resume. Trip names are ordinary undoable revisions. Manually saved email bookmarks belong to their trip and remain separate from itinerary revisions or booking status; saving a link does not access the inbox. Internal `Atlas` module/cache names are retained for compatibility and are not a second product. Signing out clears that account's device trip/preferences cache.
 
-The worker queue, captures and uploads are private data under `web/.jac/data/planner` by default, or `PLANNER_DATA_DIR`. They must share persistent storage with the one worker using that queue. Keep secrets in ignored `workers/.env` for local development or the deployment platform's private secret store, outside Jac's packaged `web/` directory. Never commit runtime graph data, captures, uploads or credentials.
+The worker queue, captures and uploads are private data under `web/.jac/data/planner` by default, or `PLANNER_DATA_DIR`. They must share persistent storage with the worker using that queue. The supervisors load ignored `workers/.env` for local development; the embedded runtime can read a private project `.env` or host environment. Keep production secrets in the host's private configuration, never inside the distributed artifact. Never commit runtime graph data, captures, uploads or credentials.
 
 A production deployment needs the Jac server, a supervised Chromium-capable worker, private persistent worker storage, PostgreSQL and stable authentication configuration. Current deployment status is recorded in [implementation status](../docs/trip-planner-implementation-status.md#release-and-deployment-status); local test results alone do not establish public hosting.
 

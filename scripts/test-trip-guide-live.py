@@ -12,6 +12,9 @@ import sys
 import tempfile
 from pathlib import Path
 
+# This opt-in driver claims its own isolated jobs; never start a second worker.
+os.environ["DETOUR_EMBEDDED_WORKER"] = "off"
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / "web"), str(ROOT / "workers")]
 

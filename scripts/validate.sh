@@ -2,6 +2,9 @@
 # Run from any directory; always resolve Jac configuration from web/.
 set -euo pipefail
 
+# Regression tests manage their own queues; never start a live planning worker.
+export DETOUR_EMBEDDED_WORKER=off
+
 repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_dir/web"
 
@@ -18,6 +21,7 @@ fi
 "$jac_bin" build main.jac
 python3 "$repo_dir/scripts/finalize-studio-build.py"
 python3 "$repo_dir/scripts/check-build-secrets.py" "$repo_dir/web/dist/everyday-agent-web.jab"
+python3 "$repo_dir/scripts/check-built-runtime.py" "$repo_dir/web/dist/everyday-agent-web.jab"
 node --test "$repo_dir/scripts/test-client-theme.mjs" "$repo_dir/scripts/test-client-comparison.mjs" "$repo_dir/scripts/test-client-composer.mjs" "$repo_dir/scripts/test-client-atlas.mjs" "$repo_dir/scripts/test-client-atlas-navigation.mjs" "$repo_dir/scripts/test-client-atlas-flow.mjs" "$repo_dir/scripts/test-client-planning-states.mjs" "$repo_dir/scripts/test-client-studio.mjs" "$repo_dir/scripts/test-studio-offline.mjs" "$repo_dir/scripts/test-chat-markdown.mjs" "$repo_dir/scripts/test-studio-weather.mjs" "$repo_dir/scripts/test-studio-options.mjs"
 
 node --test "$repo_dir/scripts/test-trip-pdf.mjs" "$repo_dir/scripts/test-studio-map.mjs" "$repo_dir/scripts/test-studio-agenda.mjs"

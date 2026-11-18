@@ -9,7 +9,8 @@ Run with workers/.venv/bin/python scripts/qa-studio-agenda.py --base http://127.
 import argparse,copy,json,os,secrets,sys,time,shutil,subprocess
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
-sys.path[:0]=[str(ROOT/'web'),str(ROOT/'workers')]
+sys.path[:0]=[str(ROOT/'web'),str(ROOT/'workers'),str(ROOT/'scripts')]
+from qa_map_tiles import mock_map_tiles
 from server.planning_api import fresh
 from server.planning_core import validate_trip,budget_summary
 from playwright.sync_api import sync_playwright
@@ -51,6 +52,7 @@ def run(args):
   checks[name]=True;print('PASS',name,flush=True)
  def rpc(route,value):route.fulfill(status=200,content_type='application/json',body=json.dumps({'ok':True,'type':'response','data':{'result':json.dumps(value),'reports':[]},'error':None}))
  def routes(page):
+  mock_map_tiles(page)
   page.on('pageerror',lambda e:errors.append(str(e)))
   page.on('request',lambda request:args.api_urls.__setitem__(id(page),request.url.split('/function/')[0]) if '/function/' in request.url else None)
   page.route('**/function/planner_guest_weather',lambda route:rpc(route,{'status':'UNAVAILABLE','samples':[]}))
@@ -81,7 +83,7 @@ def run(args):
   check('unknown_restaurant_has_no_city_photo',page.locator('[data-plan-item="team-lunch"]').locator('xpath=ancestor::article[1]').locator('img').count()==0)
   check('day_stay_context_visible','Travel & stay this day' in page.locator('.studio-day-detail').inner_text())
   photo_wait(page);shot(page,'33-detour-bike-day-desktop.jpg')
-  page.get_by_role('button',name='View day map ↗',exact=True).click();page.wait_for_selector('.studio-map');check('day_map_context_retained','Team bike day' in page.locator('.studio-map-day-context').inner_text());page.wait_for_function('Array.from(document.querySelectorAll(".leaflet-tile")).some(image=>image.complete&&image.naturalWidth>0)',timeout=15000);check('real_basemap_tiles_loaded',page.locator('.leaflet-tile').evaluate_all('(images)=>images.some(image=>image.complete&&image.naturalWidth>0)'));check('bike_map_excludes_other_day_airports',page.locator('.studio-map-label').filter(has_text='Detroit').count()==0 and page.locator('.studio-map-label').filter(has_text='(LAX)').count()==0);shot(page,'34-detour-bike-map-desktop.jpg')
+  page.get_by_role('button',name='View day map ↗',exact=True).click();page.wait_for_selector('.studio-map');check('day_map_context_retained','Team bike day' in page.locator('.studio-map-day-context').inner_text());page.wait_for_function('Array.from(document.querySelectorAll(".leaflet-tile")).some(image=>image.complete&&image.naturalWidth>0)',timeout=15000);check('mocked_basemap_tile_layer_loaded',page.locator('.leaflet-tile').evaluate_all('(images)=>images.some(image=>image.complete&&image.naturalWidth>0)'));check('bike_map_excludes_other_day_airports',page.locator('.studio-map-label').filter(has_text='Detroit').count()==0 and page.locator('.studio-map-label').filter(has_text='(LAX)').count()==0);shot(page,'34-detour-bike-map-desktop.jpg')
   if args.layout_only:
    (target/'layout-results.json').write_text(json.dumps({'checks':checks,'errors':errors},indent=2));browser.close();return
   page.get_by_role('button',name='Your trip',exact=True).click();check('map_returns_to_same_day',page.locator('.studio-day-detail h2').inner_text().startswith('Team bike day'))
@@ -114,7 +116,7 @@ def run(args):
   if args.account:
    account_test(browser,args,state,checks,errors,check,routes,target)
   check('no_browser_errors',not errors)
-  result={'checks':checks,'errors':errors,'provenance':HISTORY['fixtureProvenance'],'activityWarning':'User-quoted plan layout fixture; rental/ferry/forecast claims are not live verified.','journeySource':JOURNEY['sourceUrl']}
+  result={'checks':checks,'errors':errors,'provenance':HISTORY['fixtureProvenance'],'activityWarning':'User-quoted plan layout fixture; rental/ferry/forecast claims are not live verified.','mapTiles':'Explicit mocked SVG tiles; provider availability is not tested.','journeySource':JOURNEY['sourceUrl']}
   (target/'results.json').write_text(json.dumps(result,indent=2));print(json.dumps(result),flush=True);browser.close()
 
 def account_test(browser,args,guest,checks,errors,check,routes,target):

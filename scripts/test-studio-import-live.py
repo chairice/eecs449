@@ -4,8 +4,10 @@ import base64
 import copy
 import json
 import os
+import sys
 from pathlib import Path
 import tempfile
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "web"))
 
 from dotenv import load_dotenv
 from PIL import Image, ImageDraw, ImageFont
