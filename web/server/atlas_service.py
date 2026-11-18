@@ -63,9 +63,8 @@ def catalog_response() -> str:
 
 
 def status_response() -> str:
-    from server.embedded_worker import load_project_env
-    load_project_env()
-    return _json({"aiAvailable": bool(os.environ.get("ANTHROPIC_API_KEY", "").strip())})
+    from server.embedded_worker import find_key
+    return _json({"aiAvailable": bool(find_key())})
 
 
 def _string(value: object, maximum: int, field: str) -> str:

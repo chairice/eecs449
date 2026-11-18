@@ -68,18 +68,50 @@ def load_project_env() -> None:
                 os.environ[name] = value
 
 
+def _env_file_names(path: Path) -> list[str]:
+    """Variable names in a .env file, marking empty ones. Never values."""
+    names = []
+    try:
+        lines = path.read_text().splitlines()
+    except OSError:
+        return names
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        name, value = line.removeprefix("export ").split("=", 1)
+        names.append(name.strip() + ("" if value.strip().strip("'\"") else " (empty)"))
+    return names
+
+
+def find_key() -> str:
+    """The Anthropic key, under its usual name or any other a host chose.
+
+    Anthropic keys start with "sk-ant-", so a variable holding one is recognized
+    whatever it is called (e.g. a dashboard that stores secrets as API_KEY).
+    """
+    load_project_env()
+    clean = lambda value: (value or "").strip().strip("'\"").strip()
+    key = clean(os.getenv("ANTHROPIC_API_KEY"))
+    if not key:
+        key = next((clean(v) for v in os.environ.values() if clean(v).startswith("sk-ant-")), "")
+    if key:
+        os.environ["ANTHROPIC_API_KEY"] = key
+    return key
+
+
 def _missing_key_message() -> str:
     # Names only, never values, so the message is safe to show in the chat.
     similar = sorted(name for name in os.environ if "ANTHROPIC" in name.upper() or "API_KEY" in name.upper())
-    files = [path.name + " in " + path.parent.name for path in env_files() if path.is_file()]
+    files = [path.parent.name + "/.env [" + (", ".join(_env_file_names(path)) or "no variables") + "]"
+             for path in env_files() if path.is_file()]
     return ("ANTHROPIC_API_KEY is not set on this server (similar variables: " + (", ".join(similar) or "none")
             + "; .env files: " + (", ".join(files) or "none") + "). Set it in the host's environment and restart.")
 
 
 def _load_runner():
-    load_project_env()
     # Hosting dashboards make it easy to paste a key with quotes or a trailing newline.
-    key = os.getenv("ANTHROPIC_API_KEY", "").strip().strip("'\"").strip()
+    key = find_key()
     if not key:
         raise RuntimeError(_missing_key_message())
     os.environ["ANTHROPIC_API_KEY"] = key
