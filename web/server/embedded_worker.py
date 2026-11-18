@@ -37,8 +37,11 @@ def ensure_started() -> None:
 
 
 def _load_runner():
-    if not os.getenv("ANTHROPIC_API_KEY", "").strip():
+    # Hosting dashboards make it easy to paste a key with quotes or a trailing newline.
+    key = os.getenv("ANTHROPIC_API_KEY", "").strip().strip("'\"").strip()
+    if not key:
         raise RuntimeError("ANTHROPIC_API_KEY is not set on this server.")
+    os.environ["ANTHROPIC_API_KEY"] = key
     workers = Path(__file__).resolve().parents[2] / "workers"
     if workers.is_dir() and str(workers) not in sys.path:
         sys.path.append(str(workers))

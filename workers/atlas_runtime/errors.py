@@ -17,4 +17,9 @@ def public_error(exc: Exception) -> str:
         return "Detour couldn't reach its AI service. Please try again in a moment." + unchanged
     if isinstance(exc, APIStatusError) and exc.status_code >= 500:
         return "Detour's AI service is temporarily unavailable. Please try again shortly." + unchanged
-    return "Planning could not complete. Please try again." + unchanged
+    if isinstance(exc, APIStatusError):
+        # 4xx provider errors are configuration problems (model, request size); name the
+        # status and provider error type, never the body, which can echo request content.
+        kind = (getattr(exc, "body", None) or {}).get("error", {}).get("type", "") if isinstance(getattr(exc, "body", None), dict) else ""
+        return f"Planning could not complete (AI service error {exc.status_code}{' ' + kind if kind else ''}). Please try again." + unchanged
+    return f"Planning could not complete ({type(exc).__name__}). Please try again." + unchanged

@@ -151,10 +151,11 @@ test('trip switcher toggles, dismisses on Escape and outside click, and restores
 });
 test('a failed job shows a recoverable message, preserves work, stops polling and allows retry',async()=>{
   let failed=true;
-  const f=fixture({pollResponse:()=>({id:'job_ui',status:failed?'FAILED':'SUCCEEDED',progress:'Needs attention',error:'private provider traceback',result:{}})});
+  const f=fixture({pollResponse:()=>({id:'job_ui',status:failed?'FAILED':'SUCCEEDED',progress:'Needs attention',error:'Detour\'s AI service is busy. Please wait a moment and try again.',result:{}})});
   await f.send('Plan a short work trip');const poll=f.effects.find(effect=>effect.deps?.[0]==='job_ui');poll.callback();await tick();
   let tree=f.render();assert.equal(f.cells[0].val.activeJob,'');assert.equal(f.cells[0].val.snapshot.title,'My trip');assert.equal(f.cells[0].val.pending.id,'decision_1');
-  assert.ok(find(tree,e=>e.props?.role==='alert'));assert.equal(JSON.stringify(tree).includes('private provider traceback'),false);
+  // The worker stores only public_error() text (workers/atlas_runtime/errors.py), so the reason is shown.
+  assert.ok(JSON.stringify(find(tree,e=>e.props?.role==='alert')).includes('AI service is busy'));
   const polls=f.calls.filter(c=>c.name==='planner_guest_poll').length;poll.callback();await tick();assert.equal(f.calls.filter(c=>c.name==='planner_guest_poll').length,polls);
   failed=false;await f.send('Try planning the work trip again');assert.equal(find(f.render(),e=>e.props?.role==='alert'),null);
   f.effects.find(effect=>effect.deps?.[0]==='job_ui').callback();await tick();assert.equal(f.cells[0].val.snapshot.title,'Updated trip');

@@ -192,7 +192,7 @@ def:pub TripStudio -> JsxElement {
                     }
                 }
             } elif result["status"] in ["FAILED", "CANCELLED"] {
-                error = "That search didn’t finish. Your trip is saved; you can try again or keep planning." if result["status"] == "FAILED" else "";
+                error = (str(result["error"]) if result["error"] else "That search didn’t finish. Your trip is saved; you can try again or keep planning.") if result["status"] == "FAILED" else "";
                 value = JSON.parse(JSON.stringify(current.current)); value["activeJob"] = ""; commit(value);
                 jobId = ""; busy = False;
 
