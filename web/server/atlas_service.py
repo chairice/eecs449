@@ -11,6 +11,7 @@ import gzip
 import json
 import math
 import os
+import sys
 import re
 import threading
 import time
@@ -64,7 +65,9 @@ def catalog_response() -> str:
 
 def status_response() -> str:
     from server.embedded_worker import find_key
-    return _json({"aiAvailable": bool(find_key())})
+    research = sys.modules.get("atlas_runtime.browser")
+    browser = research.STATUS if research else {"state": "not started", "detail": ""}
+    return _json({"aiAvailable": bool(find_key()), "researchBrowser": browser})
 
 
 def _string(value: object, maximum: int, field: str) -> str:

@@ -190,6 +190,9 @@ def _main() -> None:
         _fail_queued(jobs, worker_id, stopped, f"The trip assistant can't run on this server: {exc}")
         return
     try:
+        # Fetch Chromium while the model thinks, so research rarely waits for it.
+        import atlas_runtime.browser as research
+        threading.Thread(target=research.prepare_chromium, name="detour-chromium", daemon=True).start()
         run(worker_id, stopped)
     finally:
         stopped.set()

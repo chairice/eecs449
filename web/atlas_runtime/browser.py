@@ -6,6 +6,8 @@ import json
 import os
 import re
 import socket
+import subprocess
+import threading
 import time
 from pathlib import Path
 from urllib.parse import urlsplit, quote
@@ -24,6 +26,48 @@ def allowed_url(url: str) -> bool:
         return False
 
 
+HOSTED_BROWSERS = Path(__file__).resolve().parents[1] / ".jac/browsers"
+STATUS = {"state": "not started", "detail": ""}
+_INSTALL_LOCK = threading.Lock()
+
+
+def _short(exc) -> str:
+    return " ".join(str(exc).split())[:400]
+
+
+def prepare_chromium() -> None:
+    """Download Chromium's headless shell into the app folder if it is missing.
+
+    Runs Playwright's own installer. As root it also tries the system libraries
+    Chromium needs (--with-deps), then falls back to the browser alone.
+    """
+    with _INSTALL_LOCK:
+        if STATUS["state"] in {"ready", "installed"}:
+            return
+        if (Path(__file__).resolve().parents[2] / "workers/.browsers").is_dir():
+            return  # The local worker setup installs its own browser.
+        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(HOSTED_BROWSERS)
+        try:
+            from playwright._impl._driver import compute_driver_executable, get_driver_env
+            command = [*compute_driver_executable(), "install", "chromium-headless-shell"]
+        except Exception as exc:
+            STATUS.update(state="unavailable", detail="Playwright is not installed: " + _short(exc))
+            return
+        STATUS.update(state="installing", detail="Downloading Chromium")
+        attempts = [command + ["--with-deps"], command] if hasattr(os, "geteuid") and os.geteuid() == 0 else [command]
+        output = ""
+        for attempt in attempts:
+            try:
+                done = subprocess.run(attempt, env=get_driver_env(), capture_output=True, text=True, timeout=900)
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                output = _short(exc); continue
+            if done.returncode == 0:
+                STATUS.update(state="installed", detail="")
+                return
+            output = _short((done.stderr or done.stdout)[-400:])
+        STATUS.update(state="unavailable", detail="Chromium download failed: " + output)
+
+
 class ResearchBrowser:
     def __init__(self):
         self.engine = self.browser = self.context = self.page = None
@@ -38,8 +82,30 @@ class ResearchBrowser:
         local_browsers = Path(__file__).resolve().parents[2] / "workers/.browsers"
         if local_browsers.is_dir():
             os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", str(local_browsers))
-        self.engine = sync_playwright().start()
-        self.browser = self.engine.chromium.launch(headless=True, args=["--disable-dev-shm-usage"])
+        elif HOSTED_BROWSERS.is_dir():
+            os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", str(HOSTED_BROWSERS))
+        for attempt in range(2):
+            self.engine = sync_playwright().start()
+            try:
+                self.browser = self._launch()
+                break
+            except Exception as exc:
+                self.engine.stop(); self.engine = None
+                if attempt or "Executable doesn't exist" not in str(exc):
+                    STATUS.update(state="unavailable", detail=_short(exc))
+                    raise
+                # A host that runs only the Jac app ships no Chromium: fetch it once.
+                prepare_chromium()
+        STATUS.update(state="ready", detail="")
+        self._open_page()
+
+    def _launch(self):
+        args = ["--disable-dev-shm-usage"]
+        if hasattr(os, "geteuid") and os.geteuid() == 0:
+            args.append("--no-sandbox")  # Chromium refuses to sandbox itself as root.
+        return self.engine.chromium.launch(headless=True, args=args)
+
+    def _open_page(self):
         self.context = self.browser.new_context(viewport={"width": 1280, "height": 900}, locale="en-US")
         self.context.route("**/*", self._route)
         self.page = self.context.new_page()
