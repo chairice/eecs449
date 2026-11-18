@@ -17,6 +17,7 @@ zod = "^4.3.6"
 leaflet = "^1.9.4"
 react-markdown = "10.1.0"
 remark-gfm = "4.0.1"
+jspdf = "4.2.1"
 
 [dependencies.npm.dev]
 vite = "^6.4.1"
@@ -39,6 +40,7 @@ base_route_app = "app"
 "client.planning_state" = "client"
 "client.theme_mode" = "client"
 "components.StudioOffers" = "client"
+"components.StudioWeather" = "client"
 
 # What a browser tab and a shared link show.
 [client.app_meta_data]
@@ -66,6 +68,15 @@ content = """
 [client.vite]
 plugins = ["tailwindcss()"]
 lib_imports = ["import tailwindcss from '@tailwindcss/vite'"]
+
+# Resolve the export engine from Jac's managed dependency root, including when
+# imported by a native TypeScript source module outside the generated tree.
+[client.vite.resolve]
+dedupe = ["jspdf"]
+
+# Native TypeScript stays in source; Vite resolves this portable project alias.
+[client.paths]
+"@detour/pdf" = "./client/trip_pdf.ts"
 
 [client.pwa]
 theme_color = "#121715"

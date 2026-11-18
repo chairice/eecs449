@@ -4,71 +4,55 @@ import from react { useEffect, useRef, useMemo }
 import from "@jac/runtime" { useLocation }
 import from .PlannerMap { PlannerMap }
 import from .ChatMarkdown { ChatMarkdown }
-import from .StudioOffers { StudioOffer, conversation_offers }
+import from .StudioOffers { StudioOptions, conversation_offers, offer_groups }
 import from .StudioDetails { StudioDetails }
+import from .StudioTripPlan { TripChoiceCard, TripDayCard, PhotoCredit }
+import from "@detour/pdf" { export_trip_pdf }
 import from .StudioWeather { StudioWeather }
 import from ..client.account { signed_in, account_email, log_in, create_account, log_out, credential_problem }
 import from ..client.planning_state {
     parse_response, parse_job_response, planner_id, guest_token, load_session, save_session, planner_today,
     planner_zone, date_label, time_label, place_label, nights, money_label, file_content, observed_label, offer_context,
-    load_preferences, save_preferences, forget_local, trap_dialog, finish_guest_import, mapped_snapshot, clear_account_cache
+    load_preferences, save_preferences, forget_local, trap_dialog, finish_guest_import, mapped_snapshot, clear_account_cache, selected_offer, trip_place, trip_photo, day_context, day_focus_ids, day_map_snapshot, load_trip_view, save_trip_view
 }
 import from ..browser { paintPage }
 import from server.planning {
     planner_status, planner_blank, planner_guest_start, planner_guest_poll, planner_guest_stage,
-    planner_guest_cancel, planner_guest_upload, planner_guest_undo, planner_guest_weather
+    planner_guest_cancel, planner_guest_upload, planner_guest_undo, planner_guest_weather, planner_guest_media
 }
 import from ..client.planning_rpc {
     planner_list, planner_import, planner_get, planner_start, planner_poll, planner_stage,
     planner_undo, planner_delete, planner_restore, planner_deleted, planner_weather,
-    planner_cancel, planner_upload, planner_preferences, planner_forget_preference
+    planner_cancel, planner_upload, planner_preferences, planner_forget_preference, planner_media
 }
 
-def:pub StudioOverview(snapshot: any, onDay: Callable[[str], None], onContext: Callable[[str, str], None], costs: any = None, weather: any = None) -> JsxElement {
-    return <div className="studio-overview">
-        <StudioWeather weather={weather}/><header className="studio-section-heading"><p className="studio-eyebrow">THE BIG PICTURE</p><h2>{str(snapshot["title"])}</h2><p>{date_label(snapshot["startDate"]) + (" — " + date_label(snapshot["endDate"]) if snapshot["endDate"] else "")}</p></header>
-        {if len(snapshot["stays"]) > 0 { <section aria-label="Overnight bases"><h3>Places to settle in</h3><div className="studio-bases">
-            {for (index, stay) in enumerate(snapshot["stays"]) { <button type="button" className="studio-base" key={stay["id"]} data-plan-item={stay["id"]} onClick={lambda { onContext(str(stay["id"]), place_label(snapshot, str(stay["placeId"]))); }}>
-                <span className="studio-base-number">{str(index + 1).zfill(2)}</span><span><strong>{place_label(snapshot, str(stay["placeId"]))}</strong><small>{nights(stay) + " · " + (str(stay["propertyName"]) or "Stay to find")}</small></span><span className="studio-arrow">↗</span>
-            </button> }}
-        </div></section> }}
-        {if len(snapshot["legs"]) > 0 { <section aria-label="Travel connections"><h3>Getting there & around</h3><div className="studio-connections">
-            {for leg in snapshot["legs"] { <button type="button" key={leg["id"]} data-plan-item={leg["id"]} onClick={lambda { onContext(str(leg["id"]), place_label(snapshot, str(leg["fromId"])) + " → " + place_label(snapshot, str(leg["toId"]))); }}>
-                <span className="studio-mode">{"↗" if leg["mode"] == "FLIGHT" else "↝"}</span><span><strong>{place_label(snapshot, str(leg["fromId"])) + " → " + place_label(snapshot, str(leg["toId"]))}</strong><small>{str(leg["mode"]).capitalize() + " · " + date_label(str(leg["departDate"])) + (" · " + time_label(str(leg["departTime"])) if leg["departTime"] else "")}</small></span>
-                {if leg["locked"] { <span className="studio-tag">Fixed</span> }}
-            </button> }}
-        </div></section> }}
-        {if snapshot["rentals"] and len(snapshot["rentals"]) > 0 { <section aria-label="Car rentals"><h3>A car for the journey</h3><div className="studio-bases">{for rental in snapshot["rentals"] { <button type="button" key={rental["id"]} data-plan-item={rental["id"]} className="studio-base" onClick={lambda { onContext(str(rental["id"]), str(rental["provider"] or "Car rental")); }}><span className="studio-mode">↝</span><span><strong>{str(rental["provider"] or "Car to find") + (" · " + str(rental["vehicle"]) if rental["vehicle"] else "")}</strong><small>{place_label(snapshot, str(rental["pickupPlaceId"])) + " · " + date_label(str(rental["pickupDate"])) + " — " + date_label(str(rental["dropoffDate"]))}</small></span>{if rental["locked"] { <span className="studio-tag">Fixed</span> }}</button> }}</div></section> }}
-        {if len(snapshot["days"]) > 0 and snapshot["detail"] != "LOGISTICS" { <section><div className="studio-heading-row"><h3>Day by day</h3><span>{str(len(snapshot["days"])) + " days"}</span></div><div className="studio-days">
-            {for (index, day) in enumerate(snapshot["days"]) { <button type="button" key={day["id"]} data-plan-item={day["id"]} onClick={lambda { onDay(str(day["id"])); }}>
-                <span className="studio-day-number">{str(index + 1).zfill(2)}</span><span><small>{date_label(str(day["date"]))}</small><strong>{str(day["title"])}</strong><small>{str(len(day["items"])) + " stops" + (" · " + place_label(snapshot, str(day["overnightPlaceId"])) if day["overnightPlaceId"] else "")}</small></span><span className="studio-arrow">→</span>
-            </button> }}
-        </div></section> }}
+def:pub StudioOverview(snapshot: any, onDay: Callable[[str], None], onContext: Callable[[str, str], None], costs: any = None, weather: any = None, resources: any = None, onCompare: Callable[[str, str], None] = lambda (id: str, label: str) {}) -> JsxElement {
+    return <div className={"studio-overview" + (" has-summary-pair" if len(snapshot["stays"]) > 0 and len(snapshot["legs"]) > 0 else "")}>
+        <header className="studio-section-heading"><p className="studio-eyebrow">YOUR TRIP</p><h2>{str(snapshot["title"])}</h2><p>{date_label(snapshot["startDate"]) + (" — " + date_label(snapshot["endDate"]) if snapshot["endDate"] else "")}</p></header><StudioWeather weather={weather}/>
+        {if len(snapshot["legs"]) > 0 { <section className="studio-overview-travel" aria-label="Travel connections"><div className="studio-heading-row"><h3>Travel</h3><small>Your saved journeys</small></div><div className="studio-saved-choices">{for leg in snapshot["legs"] { <TripChoiceCard key={leg["id"]} item={leg} kind="legs" snapshot={snapshot} resources={resources or {}} onOpen={onContext} onCompare={onCompare}/> }}</div></section> }}
+        {if len(snapshot["stays"]) > 0 { <section className="studio-overview-stays" aria-label="Overnight bases"><h3>Where you’re staying</h3><div className="studio-saved-choices">{for stay in snapshot["stays"] { <TripChoiceCard key={stay["id"]} item={stay} kind="stays" snapshot={snapshot} resources={resources or {}} onOpen={onContext} onCompare={onCompare}/> }}</div></section> }}
+        {if len(snapshot["rentals"] or []) > 0 { <section aria-label="Car rentals"><h3>Car rental</h3><div className="studio-saved-choices">{for rental in snapshot["rentals"] { <TripChoiceCard key={rental["id"]} item={rental} kind="rentals" snapshot={snapshot} resources={resources or {}} onOpen={onContext} onCompare={onCompare}/> }}</div></section> }}
+        {if len(snapshot["days"]) > 0 { <section className="studio-overview-agenda"><div className="studio-heading-row"><h3>Your days</h3><span>{str(len(snapshot["days"])) + (" day" if len(snapshot["days"]) == 1 else " days")}</span></div><div className="studio-agenda-days">{for (index, day) in enumerate(snapshot["days"]) { <TripDayCard key={day["id"]} day={day} index={index} snapshot={snapshot} onDay={onDay}/> }}</div></section> }}
         {if len(snapshot["unresolved"]) > 0 { <details className="studio-open-details"><summary>Details to work out</summary>{for note in snapshot["unresolved"] { <p key={note}>{str(note)}</p> }}</details> }}
         {if len(snapshot["bookings"]) > 0 { <section><h3>Your bookings</h3>{for booking in snapshot["bookings"] { <article className="studio-booking" key={booking["id"]}><strong>{str(booking["title"])}</strong><small>{str(booking["status"]).replace("_", " ")}</small><p>{str(booking["details"])}</p></article> }}</section> }}
-        {if costs { <section className="studio-costs"><h3>Known costs</h3>{if snapshot["budget"]["amountMinor"] is not None { <p className="studio-heading-row"><span>{"Budget limit" if snapshot["budget"]["hard"] else "Budget target"}</span><strong>{money_label(int(snapshot["budget"]["amountMinor"]), str(snapshot["budget"]["currency"]))}</strong></p> }}{for currency in Object.keys(costs["bookedSubtotals"] or {}) { <p className="studio-heading-row" key={"booked-" + str(currency)}><span>Bookings you added</span><strong>{money_label(int(costs["bookedSubtotals"][currency]), str(currency))}</strong></p> }}{for currency in Object.keys(costs["selectedQuoteSubtotals"] or {}) { <p className="studio-heading-row" key={"selected-" + str(currency)}><span>Selected offers</span><strong>{money_label(int(costs["selectedQuoteSubtotals"][currency]), str(currency))}</strong></p> }}{for currency in Object.keys(costs["selectedEstimateSubtotals"] or {}) { <p className="studio-heading-row" key={"estimated-" + str(currency)}><span>Selected estimates</span><strong>{money_label(int(costs["selectedEstimateSubtotals"][currency]), str(currency))}</strong></p> }}<small>Partial costs. Estimates use researched starting or unit prices; unpriced travel, activities, food and daily spending are not included.</small></section> }}
+        {if costs and (len(Object.keys(costs["bookedSubtotals"] or {})) > 0 or len(Object.keys(costs["selectedQuoteSubtotals"] or {})) > 0 or len(Object.keys(costs["selectedEstimateSubtotals"] or {})) > 0 or snapshot["budget"]["amountMinor"] is not None) { <section className="studio-costs"><h3>Known costs</h3>{if snapshot["budget"]["amountMinor"] is not None { <p className="studio-heading-row"><span>{"Budget limit" if snapshot["budget"]["hard"] else "Budget target"}</span><strong>{money_label(int(snapshot["budget"]["amountMinor"]), str(snapshot["budget"]["currency"]))}</strong></p> }}{for currency in Object.keys(costs["bookedSubtotals"] or {}) { <p className="studio-heading-row" key={"booked-" + str(currency)}><span>Bookings you added</span><strong>{money_label(int(costs["bookedSubtotals"][currency]), str(currency))}</strong></p> }}{for currency in Object.keys(costs["selectedQuoteSubtotals"] or {}) { <p className="studio-heading-row" key={"selected-" + str(currency)}><span>Selected offers</span><strong>{money_label(int(costs["selectedQuoteSubtotals"][currency]), str(currency))}</strong></p> }}{for currency in Object.keys(costs["selectedEstimateSubtotals"] or {}) { <p className="studio-heading-row" key={"estimated-" + str(currency)}><span>Selected estimates</span><strong>{money_label(int(costs["selectedEstimateSubtotals"][currency]), str(currency))}</strong></p> }}<small>Partial costs. Estimates use researched starting or unit prices; unpriced travel, activities, food and daily spending are not included.</small></section> }}
     </div>;
 }
 
-def:pub StudioDay(day: any, snapshot: any, onBack: Callable[[], None], onContext: Callable[[str, str], None], weather: any = None) -> JsxElement {
+def:pub StudioDay(day: any, snapshot: any, onBack: Callable[[], None], onContext: Callable[[str, str], None], weather: any = None, resources: any = None, onCompare: Callable[[str, str], None] = lambda (id: str, label: str) {}, onMap: Callable[[], None] = lambda {}, onDiscuss: Callable[[str, str], None] = lambda (id: str, label: str) {}, onDay: Callable[[str], None] = lambda (id: str) {}) -> JsxElement {
     timed = len([item for item in day["items"] if item["startTime"]]) > 0;
-    return <div className="studio-day-detail"><button type="button" className="studio-back" onClick={onBack}>← Trip overview</button><p className="studio-eyebrow">{date_label(str(day["date"]))}</p><h2>{str(day["title"])}</h2>
-        <StudioWeather weather={weather} dayDate={str(day["date"])}/>
-        {if day["notes"] { <p className="studio-muted">{str(day["notes"])}</p> }}
-        <button type="button" className="studio-subtle-button" onClick={lambda { onContext(str(day["id"]), str(day["title"])); }}>Day details ↗</button>
-        <div className={"studio-timeline" + (" is-outline" if not timed else "")}>{for item in day["items"] { <button type="button" className={"studio-timeline-item " + ("is-rest" if item["kind"] in ["REST", "FREE"] else "")} key={item["id"]} data-plan-item={item["id"]} onClick={lambda { onContext(str(item["id"]), str(item["title"])); }}>
-            <span className="studio-time">{time_label(str(item["startTime"])) or "Flexible"}{if item["endTime"] { <small>{time_label(str(item["endTime"]))}</small> }}</span>
-            <span className="studio-timeline-dot"/><span className="studio-timeline-body"><strong>{str(item["title"])}</strong>{if item["placeId"] { <small>{place_label(snapshot, str(item["placeId"]))}</small> }}{if item["notes"] { <p>{str(item["notes"])}</p> }}{if item["locked"] or item["timingState"] == "CONFLICT" { <span className="studio-timing-state">{"Fixed" if item["locked"] else "Timing to resolve"}</span> }}</span>
-        </button> }}</div>
-        {if len(day["items"]) == 0 { <div className="studio-gentle-empty"><h3>Room for possibility.</h3><p>Ask Detour to explore this day, or keep it open.</p></div> }}
-    </div>;
-}
-
-def:pub StudioComparison(offers: any, links: any, onContext: Callable[[str, str], None]) -> JsxElement {
-    return <div className="studio-comparison"><p className="studio-eyebrow">YOUR OPTIONS</p><h2>A few good possibilities.</h2>
-        {for offer in offers { <StudioOffer key={offer["id"]} offer={offer} onContext={onContext}/> }}
-        {if len(offers) == 0 { <div className="studio-gentle-empty"><h3>Let's find the right fit.</h3><p>Tell Detour what you're looking for, and we'll explore real options together.</p></div> }}
-        {if len(links) > 0 { <details className="studio-open-details"><summary>Explore more sources</summary>{for link in links { <a key={link["url"]} href={link["url"]} target="_blank" rel="noopener noreferrer">{str(link["label"]) + " ↗"}</a> }}</details> }}
+    related = day_context(day, snapshot);
+    return <div className="studio-day-detail"><button type="button" className="studio-back" onClick={onBack}>← Trip overview</button>
+        <nav className="studio-day-switcher" aria-label="Trip days">{for planned in snapshot["days"] { <button type="button" key={planned["id"]} aria-current={"date" if planned["id"] == day["id"] else None} onClick={lambda { onDay(str(planned["id"])); }}>{date_label(str(planned["date"]))}</button> }}</nav>
+        <div className="studio-day-heading"><div><p className="studio-eyebrow">{date_label(str(day["date"]))}</p><h2>{str(day["title"])}</h2>{if day["overnightPlaceId"] { <p>{place_label(snapshot, str(day["overnightPlaceId"]))}</p> }}</div><div className="studio-day-actions"><button type="button" onClick={onMap}>View day map ↗</button><button type="button" onClick={lambda { onDiscuss(str(day["id"]), str(day["title"])); }}>Ask about this day</button></div></div>
+        {if day["notes"] { <>{if len(str(day["notes"])) > 360 { <details className="studio-day-planning-notes"><summary>Planning notes</summary><p>{str(day["notes"])}</p></details> } else { <p className="studio-day-notes">{str(day["notes"])}</p> }}</> }}<StudioWeather weather={weather} dayDate={str(day["date"])}/>
+        <div className={"studio-timeline" + (" is-outline" if not timed else "")}>{for item in day["items"] { <article className={"studio-timeline-item " + ("is-rest" if item["kind"] in ["REST", "FREE"] else "")} key={item["id"]}>
+            <span className="studio-time">{time_label(str(item["startTime"])) or "Flexible"}{if item["endTime"] { <small>{time_label(str(item["endTime"]))}</small> }}</span><span className="studio-timeline-dot"/><div className="studio-timeline-body"><button type="button" className="studio-timeline-open" data-plan-item={item["id"]} onClick={lambda { onContext(str(item["id"]), str(item["title"])); }}><strong>{str(item["title"])}</strong></button>{if item["placeId"] { <small>{place_label(snapshot, str(item["placeId"]))}</small> }}{if item["notes"] { <p className="studio-timeline-note-preview">{str(item["notes"])}</p> }}
+            {if (item["notes"] and item["kind"] not in ["REST", "FREE"]) or len(item["actions"] or []) > 0 { <div className="studio-timeline-actions">{if item["notes"] and item["kind"] not in ["REST", "FREE"] { <button type="button" onClick={lambda { onContext(str(item["id"]), str(item["title"])); }}>Read details →</button> }}{for action in item["actions"] or [] { <a key={action["url"]} href={str(action["url"])} target="_blank" rel="noopener noreferrer">{str(action["label"])} ↗</a> }}</div> }}
+            {if item["locked"] or item["timingState"] == "CONFLICT" { <span className="studio-timing-state">{"Fixed" if item["locked"] else "Timing to resolve"}</span> }}</div>{if trip_photo(snapshot, item)["photoUrl"] { <div className="studio-timeline-visual"><img className="studio-timeline-photo" src={str(trip_photo(snapshot, item)["photoUrl"])} alt="" loading="lazy" onError={lambda (event: any) { event.currentTarget.parentElement.hidden = True; }}/><PhotoCredit photo={trip_photo(snapshot, item)}/></div> }}
+        </article> }}</div>
+        {if len(related["legs"]) > 0 or len(related["stays"]) > 0 or len(related["rentals"]) > 0 { <section className="studio-day-journeys"><h3>Travel & stay this day</h3><div className="studio-saved-choices">{for leg in related["legs"] { <TripChoiceCard key={leg["id"]} item={leg} kind="legs" snapshot={snapshot} resources={resources or {}} onOpen={onContext} onCompare={onCompare} compact={True}/> }}{for stay in related["stays"] { <div key={stay["id"]}><p className="studio-day-stay-role">{"Check in" if stay["checkIn"] == day["date"] else "Check out" if stay["checkOut"] == day["date"] else "Overnight"}</p><TripChoiceCard item={stay} kind="stays" snapshot={snapshot} resources={resources or {}} onOpen={onContext} onCompare={onCompare} compact={True}/></div> }}{for rental in related["rentals"] { <TripChoiceCard key={rental["id"]} item={rental} kind="rentals" snapshot={snapshot} resources={resources or {}} onOpen={onContext} onCompare={onCompare} compact={True}/> }}</div></section> }}
+        {if len(day["items"]) == 0 and len(related["legs"]) == 0 { <div className="studio-gentle-empty"><h3>Room for possibility.</h3><p>Ask Detour to explore this day, or keep it open.</p></div> }}
     </div>;
 }
 
@@ -80,6 +64,8 @@ def:pub TripStudio -> JsxElement {
     libraryButton = useRef(None);
     viewHistory = useRef([]);
     restorePoint = useRef(None);
+    requestView = useRef("");
+    viewTrip = useRef("");
     alive = useRef(True);
     chatEnd = useRef(None);
     inputRef = useRef(None);
@@ -95,6 +81,8 @@ def:pub TripStudio -> JsxElement {
     has deletedTrips: any = [], showDeleted: bool = False, deletedUndo: str = "";
     has undoDismissed: int = -1, deletedCurrent: bool = False;
     has email: str = "", password: str = "", authProblem: str = "", authBusy: bool = False;
+    has optionGroup: str = "", optionScope: any = None;
+    has exporting: bool = False;
 
     def cacheKey -> str { return account_email() if signed_in() else "guest"; }
     def latestTrip(trips: any) -> str {
@@ -175,9 +163,10 @@ def:pub TripStudio -> JsxElement {
                 save_preferences(cacheKey(), preferences);
 
 
-                inspected = None; selectedId = ""; viewHistory.current = [];
-                pane = "overview"; dayId = "";
-                if value["nextDecision"] and value["nextDecision"]["focusPanel"] == "comparison" { pane = "overview"; }
+                inspected = None; selectedId = dayId;
+                if dayId and not any(planned["id"] == dayId for planned in value["snapshot"]["days"]) { dayId = ""; pane = "overview"; }
+                if requestView.current == "options" { pane = "comparison"; requestView.current = ""; }
+                elif value["nextDecision"] and value["nextDecision"]["focusPanel"] == "comparison" { pane = "comparison"; optionScope = None; optionGroup = ""; }
                 elif value["nextDecision"] and value["nextDecision"]["focusPanel"] == "day" {
                     focus_snapshot = value["snapshot"];
                     for focus_id in value["nextDecision"]["focusIds"] or [] {
@@ -187,7 +176,7 @@ def:pub TripStudio -> JsxElement {
                     }
                 }
             } elif result["status"] in ["FAILED", "CANCELLED"] {
-                error = "That search didn’t finish. Your trip is saved; you can try again or keep planning." if result["status"] == "FAILED" else "";
+                error = "That request didn’t finish. Your trip is saved; you can try again or keep planning." if result["status"] == "FAILED" else "";
                 value = JSON.parse(JSON.stringify(current.current)); value["activeJob"] = ""; commit(value);
                 jobId = ""; busy = False;
 
@@ -209,6 +198,19 @@ def:pub TripStudio -> JsxElement {
         return lambda { browser.clearInterval(timer); };
     }, [jobId]);
     useEffect(lambda { if chatEnd.current { chatEnd.current.scrollIntoView({"block": "nearest", "behavior": "smooth"}); } }, [len(state["conversation"]) if state else 0, busy]);
+    useEffect(lambda {
+        if not state or viewTrip.current == state["id"] { return; }
+        savedView = load_trip_view(str(state["id"]));
+        restoredDay = "";
+        for planned in state["snapshot"]["days"] or [] { if planned["id"] == savedView["dayId"] { restoredDay = str(planned["id"]); } }
+        dayId = restoredDay; pane = "map" if savedView["pane"] == "map" else "day" if restoredDay else "overview";
+        inspected = None; selectedId = restoredDay; viewHistory.current = [];
+        phoneTab = "trip" if restoredDay or savedView["phoneTab"] == "trip" else "chat";
+        viewTrip.current = str(state["id"]);
+    }, [state["id"] if state else ""]);
+    useEffect(lambda {
+        if state and viewTrip.current == state["id"] { save_trip_view(str(state["id"]), {"dayId": dayId, "pane": pane, "phoneTab": phoneTab}); }
+    }, [pane, dayId, phoneTab, state["id"] if state else ""]);
     useEffect(lambda {
         if accountOpen or preferencesOpen { return trap_dialog(lambda { accountOpen = False; preferencesOpen = False; }); }
     }, [accountOpen, preferencesOpen]);
@@ -265,23 +267,64 @@ def:pub TripStudio -> JsxElement {
         return lambda { cancelled = True; browser.clearInterval(timer); };
     }, [state["id"] if state else "", state["revision"] if state else 0, online]);
 
-    async def send(message: str = "") {
+    useEffect(lambda {
+        if not state or not online or len(state["snapshot"]["places"] or []) == 0 { return; }
+        expected = str(state["id"]); browser: any = window; cancelled = False; attempts = 0;
+        async def refreshMedia {
+            if cancelled or not alive.current or not current.current or current.current["id"] != expected { return; }
+            attempts += 1;
+            try {
+                media = parse_response(await planner_media(expected) if signed_in() else await planner_guest_media(JSON.stringify(current.current)));
+                if cancelled or not alive.current or current.current["id"] != expected or media["tripId"] != expected { return; }
+                value = JSON.parse(JSON.stringify(current.current));
+                for location in media["locations"] or [] {
+                    for place in value["snapshot"]["places"] or [] {
+                        if place["id"] == location["id"] and place["query"] == location["query"] and place["lat"] == location["lat"] and place["lon"] == location["lon"] {
+                            found = False;
+                            for existing in value["mapLocations"] or [] { if existing["id"] == location["id"] and existing["query"] == location["query"] { Object.assign(existing, location); found = True; } }
+                            if not found { value["mapLocations"] = (value["mapLocations"] or []) + [location]; }
+                        }
+                    }
+                }
+                commit(value);
+                if not media["pending"] or attempts >= 10 { browser.clearInterval(timer); }
+            } except Exception { browser.clearInterval(timer); }
+        }
+        timer = browser.setInterval(lambda { refreshMedia(); }, 2000); refreshMedia();
+        return lambda { cancelled = True; browser.clearInterval(timer); };
+    }, [state["id"] if state else "", JSON.stringify([[place["id"], place["query"], place["lat"], place["lon"]] for place in state["snapshot"]["places"] or []]) if state else "", online]);
+    useEffect(lambda {
+        if not notice or deletedUndo { return; }
+        browser: any = window;
+        timer = browser.setTimeout(lambda { notice = ""; }, 5000);
+        return lambda { browser.clearTimeout(timer); };
+    }, [notice, deletedUndo]);
+    useEffect(lambda {
+        if not inputRef.current { return; }
+        inputRef.current.style.height = "0px";
+        inputRef.current.style.height = str(Math.min(112, Math.max(44, inputRef.current.scrollHeight))) + "px";
+    }, [prompt]);
+
+    async def send(message: str = "", selectedContext: any = None, keepWorkspace: bool = False) {
         content = message or prompt.strip();
         if not content and len(attachments) > 0 { content = "Help me bring this material into my trip plan. Preserve all supplied details and add them to my plan."; }
         if not state or busy or uploading or not content or not online { return; }
         error = ""; notice = ""; deletedUndo = ""; deletedCurrent = False; busy = True;
+        requestView.current = "options" if keepWorkspace else "";
         request = {"tripId": state["id"], "baseRevision": state["revision"], "snapshot": state["snapshot"], "message": content,
             "clientTurnId": planner_id("turn"), "workingContext": state["workingContext"], "conversation": state["conversation"],
             "summary": state["summary"], "today": planner_today(), "timeZone": planner_zone(), "preferences": preferences or {},
-            "contextRefs": [context] if context else [], "attachments": [item["id"] for item in attachments],
+            "contextRefs": [selectedContext or context] if selectedContext or context else [], "attachments": [] if selectedContext else [item["id"] for item in attachments],
             "proposal": state["pending"], "researchContext": {"weather": state["weather"], "offers": state["offers"], "comparisonOfferIds": [offer["id"] for offer in state["comparisonOffers"] or []], "daylight": state["daylight"] or []}};
         try {
             result = parse_response(await planner_start(str(state["id"]), JSON.stringify(request)) if signed_in() else await planner_guest_start(guest_token(), JSON.stringify(request)));
             value = JSON.parse(JSON.stringify(state));
             value["conversation"].append({"role": "user", "content": content}); value["activeJob"] = result["jobId"];
             commit(value); jobId = str(result["jobId"]); progress = "Understanding your trip";
-            prompt = ""; attachments = []; context = None; phoneTab = "chat"; chatOpen = True;
-        } except Exception { error = "Couldn’t start that request. Your message is still here; please try again."; busy = False; }
+            if not selectedContext { prompt = ""; attachments = []; context = None; }
+            if not keepWorkspace { phoneTab = "chat"; }
+            chatOpen = True;
+        } except Exception { error = "Couldn’t choose that option just now. Your trip is unchanged; please try again." if selectedContext else "Couldn’t start that request. Your message is still here; please try again."; busy = False; }
     }
     async def stop {
         try {
@@ -314,15 +357,51 @@ def:pub TripStudio -> JsxElement {
             pane = str(previous["pane"]); dayId = str(previous["dayId"]); inspected = previous["inspected"]; selectedId = str(previous["selectedId"]); restorePoint.current = previous;
         } else { inspected = None; selectedId = ""; pane = "overview"; dayId = ""; }
     }
-    def openDay(id: str) { rememberView(); dayId = id; pane = "day"; inspected = None; selectedId = id; }
-    def choosePane(name: str) { pane = name; inspected = None; dayId = ""; selectedId = ""; viewHistory.current = []; }
+    def openDay(id: str) { if pane != "day" { rememberView(); } dayId = id; pane = "day"; inspected = None; selectedId = id; phoneTab = "trip"; }
+    def choosePane(name: str) {
+        pane = name; inspected = None;
+        if name == "overview" { dayId = ""; selectedId = ""; }
+        elif name == "day" { selectedId = dayId; }
+        viewHistory.current = [];
+        if name == "comparison" { optionScope = None; optionGroup = ""; }
+    }
+    def openOptions(group_id: str, offers: any) {
+        rememberView(); optionGroup = group_id; optionScope = [offer["id"] for offer in offers];
+        pane = "comparison"; inspected = None; selectedId = "";
+        phoneTab = "trip";
+    }
+    def compareItem(item_id: str, label: str) {
+        item: any = None; kind = "";
+        for field in ["legs", "stays", "rentals"] { for candidate in state["snapshot"][field] or [] { if candidate["id"] == item_id { item = candidate; kind = field; } } }
+        if not item { return; }
+        selected = selected_offer(state, item);
+        if selected {
+            for group in offer_groups(state["offers"]) { if selected["id"] in [offer["id"] for offer in group["offers"]] { openOptions(str(group["id"]), group["offers"]); return; } }
+        }
+        send("Find " + ("flight" if kind == "legs" and item["mode"] == "FLIGHT" else "stay" if kind == "stays" else "travel") + " options for this part of my trip.", {"id": item_id, "label": label, "scope": "APPROVED"});
+    }
+    async def exportPdf {
+        if not state or exporting { return; }
+        exporting = True;
+        try { await export_trip_pdf(state); }
+        except Exception { error = "Couldn’t export the PDF. Your trip is saved; please try again."; }
+        exporting = False;
+    }
+    def chooseOffer(item_id: str, label: str) {
+        # An explicit choice is an instruction; normal validation and the agent
+        # still own the edit. Pass context directly instead of waiting for state.
+        selectedId = item_id;
+        kind: str = "option";
+        for offer in state["offers"] or [] { if offer["id"] == item_id { kind = "flight" if offer["category"] == "FLIGHT" else "stay" if offer["category"] in ["HOTEL", "STAY"] else "rental car"; } }
+        send("Use this " + kind + " for my trip.", {"id": item_id, "label": label, "scope": "APPROVED"}, True);
+    }
     def discuss(item_id: str, label: str) {
         context = {"id": item_id, "label": label, "scope": "APPROVED"}; selectedId = item_id;
         chatOpen = True; phoneTab = "chat";
         if inputRef.current { inputRef.current.focus(); }
     }
     def inspect(item_id: str, label: str) {
-        viewed: any = state["snapshot"];
+        viewed: any = mapped_snapshot(state["snapshot"], state["mapLocations"] or []);
         target: any = None; kind: str = "";
         for field in ["places", "stays", "legs", "rentals", "days", "bookings"] {
             for item in viewed[field] or [] { if item["id"] == item_id { target = item; kind = str(field); } }
@@ -330,7 +409,8 @@ def:pub TripStudio -> JsxElement {
         for planned_day in viewed["days"] {
             for item in planned_day["items"] { if item["id"] == item_id { target = item; } }
         }
-        if target { rememberView(); selectedId = item_id; inspected = {"id": item_id, "label": label, "value": target, "kind": kind, "backLabel": "Day plan" if pane == "day" else "Trip overview"}; phoneTab = "trip"; }
+        if target and kind == "days" { openDay(item_id); return; }
+        if target { rememberView(); selectedId = item_id; inspected = {"id": item_id, "label": label, "value": target, "kind": kind, "backLabel": "Day plan" if pane == "day" else "Map" if pane == "map" else "Trip overview"}; phoneTab = "trip"; }
     }
     async def uploadFile(event: any) {
         files: any = event.target.files;
@@ -345,7 +425,7 @@ def:pub TripStudio -> JsxElement {
             media = str(file.type or "text/plain");
             result = parse_response(await planner_upload(str(file.name), media, content) if signed_in() else await planner_guest_upload(guest_token(), str(file.name), media, content));
             attachments = attachments + [result]; notice = "";
-        } except Exception as exc { error = str(exc); notice = ""; }
+        } except Exception as exc { error = "Couldn’t attach that file. Please try again, or paste the relevant text into your message."; notice = ""; }
         uploading = False;
         event.target.value = "";
     }
@@ -445,43 +525,50 @@ def:pub TripStudio -> JsxElement {
         snapshot = state["snapshot"];
     }
     mapSnapshot: any = useMemo(lambda { return mapped_snapshot(snapshot, state["mapLocations"] or []) if snapshot else None; }, [snapshot, state["mapLocations"] if state else None]);
+    if mapSnapshot { snapshot = mapSnapshot; }
     day: any = None;
     focusIds: any = [];
     if snapshot {
         for candidate in snapshot["days"] { if candidate["id"] == dayId { day = candidate; } }
-        if day and pane == "day" { focusIds = [item["placeId"] for item in day["items"] if item["placeId"]]; if day["overnightPlaceId"] { focusIds.append(day["overnightPlaceId"]); } }
+        if day { focusIds = day_focus_ids(day, snapshot); }
     }
+    dayMapSnapshot: any = useMemo(lambda { return day_map_snapshot(mapSnapshot, day) if day and mapSnapshot else mapSnapshot; }, [mapSnapshot, dayId]);
     visibleOffers: any = state["comparisonOffers"] if state and "comparisonOffers" in Object.keys(state) else state["offers"] if state else [];
     lastAssistant: int = -1;
     if state {
         for (index, turn) in enumerate(state["conversation"]) { if turn["role"] != "user" { lastAssistant = index; } }
     }
-    empty = snapshot and len(snapshot["places"]) == 0 and len(snapshot["days"]) == 0;
-    return <div className={"trip-studio " + ("chat-collapsed " if not chatOpen else "") + "phone-" + phoneTab}>
-        <header className="studio-header"><a className="studio-wordmark" href="/" aria-label="Detour home"><span>◈</span> detour<span className="studio-wordmark-caption">a little further</span></a><div className="studio-trip-title">{str(state["snapshot"]["title"]) if state else "Your next journey"}<span>{"Saved to account" if authenticated else "Saved on this device"}</span></div><nav aria-label="Workspace"><button ref={libraryButton} type="button" className={"is-open" if libraryOpen else ""} aria-expanded={libraryOpen} aria-controls="studio-trip-library" onClick={showLibrary} disabled={busy}>Your trips</button><button type="button" className="studio-preferences-button" onClick={lambda { preferencesOpen = True; }}>Preferences</button>{if authenticated { <button type="button" onClick={signOut} disabled={busy}>Sign out</button> } else { <button type="button" className="studio-account-button" disabled={busy or uploading} onClick={lambda { accountOpen = True; }}>Save & resume anywhere ↗</button> }}</nav></header>
+    hasPlan = bool(snapshot and (len(snapshot["places"]) > 0 or len(snapshot["days"]) > 0 or len(snapshot["legs"]) > 0 or len(snapshot["stays"]) > 0 or len(snapshot["rentals"] or []) > 0 or len(snapshot["bookings"]) > 0));
+    hasResults = bool(state and (len(state["offers"] or []) > 0 or len(state["researchLinks"] or []) > 0));
+    starting = not hasPlan and not hasResults;
+    optionOffers: any = [offer for offer in state["offers"] or [] if offer["id"] in optionScope] if state and optionScope is not None else visibleOffers;
+    selectedOffers: any = [item["offerId"] for field in ["legs", "stays", "rentals"] for item in snapshot[field] or [] if item["offerId"]] if snapshot else [];
+    canUndo = bool(state and state["undo"] and not busy);
+    return <div className={"trip-studio " + ("chat-collapsed " if not chatOpen else "") + "phone-" + phoneTab + (" is-starting" if starting else "") + (" is-map" if pane == "map" and not inspected else "")}>
+        <header className="studio-header"><a className="studio-wordmark" href="/" aria-label="Detour home"><span>◈</span> detour</a><nav aria-label="Workspace">{if canUndo and phoneTab == "chat" { <button type="button" className="studio-phone-undo" onClick={undoEdit} aria-label="Undo last trip change" title="Undo last trip change">↶</button> }}{if not chatOpen and not starting { <button type="button" className="studio-show-chat" onClick={lambda { chatOpen = True; }}>Chat</button> }}<button ref={libraryButton} type="button" className={"is-open" if libraryOpen else ""} aria-expanded={libraryOpen} aria-controls="studio-trip-library" onClick={showLibrary} disabled={busy}>Your trips</button><button type="button" className="studio-preferences-button" onClick={lambda { preferencesOpen = True; }}>Preferences</button>{if authenticated { <button type="button" onClick={signOut} disabled={busy}>Sign out</button> } else { <button type="button" className="studio-account-button" disabled={busy or uploading} onClick={lambda { accountOpen = True; }}>Save trip</button> }}</nav></header>
         {if not online { <div className="studio-offline" role="status">You're offline. Your saved itinerary and booking details are available; maps and research need a connection.</div> }}
         {if error { <div className="studio-error" role="alert"><span>{error}</span><button type="button" aria-label="Dismiss error" onClick={lambda { error = ""; }}>×</button></div> }}
-        {if notice or (state and state["undo"] and not busy and int(state["revision"]) != undoDismissed) { <div className="studio-notice" role="status"><span>{notice or "Trip updated."}</span>{if deletedUndo { <button type="button" onClick={lambda { restoreTrip(deletedUndo); }}>Undo</button> } elif state and state["undo"] and not busy and int(state["revision"]) != undoDismissed { <button type="button" onClick={undoEdit}>Undo last update</button> }}<button type="button" aria-label="Dismiss notice" onClick={lambda { notice = ""; undoDismissed = int(state["revision"]) if state else -1; }}>×</button></div> }}
-        {if libraryOpen { <section ref={libraryRef} id="studio-trip-library" className="studio-library" aria-label="Your trips"><div className="studio-heading-row"><h2>{"Recently Deleted" if showDeleted else "Your trips"}</h2><button type="button" onClick={lambda { libraryOpen = False; }} aria-label="Close your trips">×</button></div><div className="studio-library-actions"><button type="button" onClick={newTrip} disabled={busy}>+ New trip</button>{if authenticated { <button type="button" onClick={lambda { showDeleted = not showDeleted; }}>{"← Your trips" if showDeleted else "Recently Deleted"}</button> }}</div>{if not authenticated { <p>Your current trip stays on this device. Sign in to keep multiple trips and resume anywhere.</p> }}{if showDeleted { <div><p>Removed trips stay here for 30 days.</p>{for trip in deletedTrips { <div className="studio-library-row" key={trip["id"]}><span>{str(trip["title"])}</span><button type="button" onClick={lambda { restoreTrip(str(trip["id"])); }}>Restore</button></div> }}{if len(deletedTrips) == 0 { <p>No recently deleted trips.</p> }}</div> } else { <div>{for trip in savedTrips { <div className="studio-library-row" key={trip["id"]}><button type="button" aria-current={"page" if state and state["id"] == trip["id"] else None} onClick={lambda { openTrip(str(trip["id"])); }}>{str(trip["title"]) + " →"}</button><button type="button" className="studio-delete-trip" aria-label={"Delete " + str(trip["title"])} onClick={lambda { deleteTrip(str(trip["id"])); }}>Remove</button></div> }}</div> }}</section> }}
+        {if notice { <div className="studio-toast" role="status"><span>{notice}</span>{if deletedUndo { <button type="button" onClick={lambda { restoreTrip(deletedUndo); }}>Undo</button> }}<button type="button" aria-label="Dismiss notice" onClick={lambda { notice = ""; }}>×</button></div> }}
+        {if libraryOpen { <section ref={libraryRef} id="studio-trip-library" className="studio-library" aria-label="Your trips"><div className="studio-heading-row"><h2>{"Recently Deleted" if showDeleted else "Your trips"}</h2><button type="button" onClick={lambda { libraryOpen = False; }} aria-label="Close your trips">×</button></div><div className="studio-library-actions"><button type="button" onClick={newTrip} disabled={busy}>+ New trip</button>{if authenticated { <button type="button" onClick={lambda { showDeleted = not showDeleted; }}>{"← Your trips" if showDeleted else "Recently Deleted"}</button> }}</div>{if not authenticated { <p>Your current trip stays on this device. Sign in to keep multiple trips and resume anywhere.</p> }}{if showDeleted { <div><p>Removed trips stay here for 30 days.</p>{for trip in deletedTrips { <div className="studio-library-row" key={trip["id"]}><span>{str(trip["title"])}</span><button type="button" onClick={lambda { restoreTrip(str(trip["id"])); }}>Restore</button></div> }}{if len(deletedTrips) == 0 { <p>No recently deleted trips.</p> }}</div> } else { <div>{for trip in savedTrips { <div className="studio-library-row" key={trip["id"]}><button type="button" aria-current={"page" if state and state["id"] == trip["id"] else None} onClick={lambda { openTrip(str(trip["id"])); }}>{str(trip["title"]) + " →"}</button><button type="button" className="studio-delete-trip" aria-label={"Delete " + str(trip["title"])} onClick={lambda { deleteTrip(str(trip["id"])); }}>Remove</button></div> }}</div> }}<button type="button" className="studio-library-preferences" onClick={lambda { libraryOpen = False; preferencesOpen = True; }}>Preferences</button></section> }}
         {if state { <main className="studio-workspace">
-            <section className="studio-planning-pane" aria-label="Trip planner"><nav className="studio-tabs" aria-label="Trip views"><button type="button" className={"active" if pane in ["overview", "day"] else ""} onClick={lambda { choosePane("overview"); }}>Your trip</button><button type="button" className={"active" if pane == "comparison" else ""} onClick={lambda { choosePane("comparison"); }}>Compare options{if len(visibleOffers) > 0 { <span>{len(visibleOffers)}</span> }}</button></nav>
-                <div className="studio-content" ref={contentRef}>{if inspected { <StudioDetails item={inspected} snapshot={snapshot} resources={state} weather={state["weather"]} onBack={backView} onContext={discuss}/> } elif pane == "comparison" { <StudioComparison offers={visibleOffers} links={state["researchLinks"]} onContext={discuss}/> } elif day and pane == "day" { <StudioDay day={day} snapshot={snapshot} onBack={backView} onContext={inspect} weather={state["weather"]}/> } elif empty { <div className="studio-welcome"><p className="studio-eyebrow">A JOURNEY STARTS WITH A THOUGHT</p><h1>Where are we<br/>headed?</h1><p>A weekend away. A cross-country adventure.<br/>Or just a flight and somewhere to stay.</p><div className="studio-welcome-line"/><small>Talk it through with Detour.<br/>We'll shape the trip together.</small><div className="studio-start-prompts"><button type="button" onClick={lambda { send("I'd like to plan a road trip through Arizona's national parks. Help me start with a route and overnight bases."); }}>Explore Arizona ↗</button><button type="button" onClick={lambda { send("I need help planning a short work trip. Just travel and a hotel, no activity itinerary."); }}>Plan a work trip ↗</button></div></div> } else { <StudioOverview snapshot={snapshot} costs={state["budgetSummary"]} weather={state["weather"]} onDay={openDay} onContext={inspect}/> }}</div>
+            <section className="studio-planning-pane" aria-label="Trip planner"><nav className="studio-tabs" aria-label="Trip views"><button type="button" className={"active" if pane != "map" else ""} onClick={lambda { choosePane("day" if dayId else "overview"); }}>Your trip</button><button type="button" className={"active" if pane == "map" else ""} onClick={lambda { choosePane("map"); }}>Map</button><button type="button" className="studio-export-pdf" onClick={exportPdf} disabled={exporting or not hasPlan}>{"Exporting…" if exporting else "Export PDF"}</button>{if canUndo { <button type="button" className="studio-workspace-undo" onClick={undoEdit} aria-label="Undo last trip change" title="Undo the last trip change">↶ Undo</button> }}</nav>
+                <div className={"studio-content" + (" is-map" if pane == "map" and not inspected else "")} ref={contentRef}>{if inspected { <StudioDetails item={inspected} snapshot={snapshot} resources={state} weather={state["weather"]} onBack={backView} onContext={discuss} onCompare={compareItem} onResearch={lambda (id: str, label: str, message: str) { send(message, {"id": id, "label": label, "scope": "APPROVED"}); }}/> } elif pane == "comparison" { <div className="studio-context-options"><button type="button" className="studio-back" onClick={backView}>← Back to your trip</button><StudioOptions offers={optionOffers} links={state["researchLinks"]} onChoose={chooseOffer} onContext={discuss} groupId={optionGroup} onGroup={lambda (id: str) { optionGroup = id; }} selectedOfferIds={selectedOffers} busy={busy}/></div> } elif pane == "map" { <div className="studio-geography">{if day { <div className="studio-map-day-context"><button type="button" onClick={lambda { choosePane("day"); }}>{date_label(str(day["date"])) + " · " + str(day["title"]) + " →"}</button><button type="button" onClick={lambda { dayId = ""; selectedId = ""; }}>Show whole trip</button></div> }}<PlannerMap snapshot={dayMapSnapshot} resources={state} onLocate={lambda { send("Check this trip's map locations using source-backed locations, and keep the itinerary unchanged."); }} roads={state["routes"] or []} focusIds={focusIds} selectedId={selectedId} onSelect={lambda (id: str) { inspect(id, place_label(snapshot, id)); }}/></div> } elif day and pane == "day" { <StudioDay day={day} snapshot={snapshot} onBack={lambda { choosePane("overview"); }} onContext={inspect} weather={state["weather"]} resources={state} onCompare={compareItem} onMap={lambda { choosePane("map"); }} onDiscuss={discuss} onDay={openDay}/> } elif not hasPlan { <div className="studio-gentle-empty"><h2>A trip, taking shape.</h2><p>Your route and day plans will appear here as we plan.</p><button type="button" className="studio-subtle-button" onClick={lambda { phoneTab = "chat"; chatOpen = True; }}>Continue the conversation</button></div> } else { <StudioOverview snapshot={snapshot} costs={state["budgetSummary"]} weather={state["weather"]} onDay={openDay} onContext={inspect} resources={state} onCompare={compareItem}/> }}</div>
             </section>
-            <div className="studio-geography"><PlannerMap snapshot={mapSnapshot} onLocate={lambda { send("Check the map locations for " + (str(day["title"]) if day else "this trip") + ". Use source-backed locations and keep the itinerary unchanged."); }} roads={state["routes"] or []} focusIds={focusIds} selectedId={selectedId} onSelect={lambda (id: str) { inspect(id, place_label(snapshot, id)); }}/>{if not empty { <div className="studio-map-legend"><span>◦ Places in your plan</span><span>┄ Connections · ━ Sourced road estimates</span></div> }}</div>
-            <aside className="studio-chat" aria-label="Conversation with Detour"><header className="studio-chat-heading"><div><span className="studio-ai-mark">✳</span><strong>Plan with Detour</strong></div><button type="button" aria-label="Collapse chat" onClick={lambda { chatOpen = False; }}>⇥</button></header><div className="studio-chat-log" role="log" aria-label="Planning conversation" aria-live="polite">
-                {if len(state["conversation"]) == 0 { <div className="studio-chat-intro"><span className="studio-ai-mark">✳</span><h2>Let's find your kind of trip.</h2><p>Tell me where you're thinking of going, or paste a plan you've already started.</p></div> }}
-                {for (index, turn) in enumerate(state["conversation"]) { <article className={"studio-message " + ("is-user" if turn["role"] == "user" else "is-atlas")} key={index}><span>{"YOU" if turn["role"] == "user" else "DETOUR"}</span><ChatMarkdown content={str(turn["content"])}/>{if turn["role"] != "user" and len(conversation_offers(turn, state["offers"], visibleOffers if index == lastAssistant else [])) > 0 { <div className="studio-chat-offers">{for offer in conversation_offers(turn, state["offers"], visibleOffers if index == lastAssistant else []) { <StudioOffer key={offer["id"]} offer={offer} onContext={discuss} compact={True}/> }}</div> }}</article> }}
+            <aside className="studio-chat" aria-label="Conversation with Detour"><header className="studio-chat-heading"><strong>Conversation</strong>{if not starting { <button type="button" aria-label="Collapse chat" title="Collapse conversation" onClick={lambda { chatOpen = False; }}>⇥</button> }}</header><div className="studio-chat-log" role="log" aria-label="Planning conversation" aria-live="polite">
+                {if len(state["conversation"]) == 0 { <div className="studio-chat-intro"><span className="studio-ai-mark" aria-hidden="true">✳</span><h1>{"Where would you like to go?" if starting else "What shall we plan next?"}</h1><p>A quick work trip, a weekend away, or a plan you've already started.</p></div> }}
+                {for (index, turn) in enumerate(state["conversation"]) { <article className={"studio-message " + ("is-user" if turn["role"] == "user" else "is-atlas")} key={index} aria-label={"You" if turn["role"] == "user" else "Detour"}><ChatMarkdown content={str(turn["content"])}/>{if turn["role"] != "user" and len(conversation_offers(turn, state["offers"], visibleOffers if index == lastAssistant else [])) > 0 { <div className="studio-research-summary" aria-label="Research results">{for group in offer_groups(conversation_offers(turn, state["offers"], visibleOffers if index == lastAssistant else [])) { <button type="button" key={group["id"]} onClick={lambda { openOptions(str(group["id"]), conversation_offers(turn, state["offers"], visibleOffers if index == lastAssistant else [])); }}><span className="studio-summary-icon" aria-hidden="true">{"↗" if group["category"] == "FLIGHT" else "⌂" if group["category"] == "STAY" else "↝"}</span><span><strong>{str(group["label"])}</strong><small>{str(group["count"]) + (" option · " if group["count"] == 1 else " options · ") + str(group["date"])}</small></span><span aria-hidden="true">→</span></button> }}</div> } elif turn["role"] != "user" and len(turn["researchLinks"] or []) > 0 { <div className="studio-source-handoffs" aria-label="Search sources">{for link in turn["researchLinks"] { <a key={link["url"]} href={str(link["url"])} target="_blank" rel="noopener noreferrer">{str(link["label"])}<span aria-hidden="true"> ↗</span></a> }}</div> }}</article> }}
                 <div ref={chatEnd}/>
             </div>
-                {if not busy and (len(visibleOffers) > 0 or len(state["researchLinks"]) > 0) { <button type="button" className="studio-results-shortcut" onClick={lambda { choosePane("comparison"); phoneTab = "trip"; }}>View search results →</button> }}
-                <div className="studio-composer-area">{if busy { <div className="studio-working" role="status" aria-live="polite"><span className="studio-pulse"/><span>{progress or "Working on your trip"}</span><button type="button" onClick={stop} disabled={not jobId}>Stop</button></div> }}{if not busy and state["nextDecision"] and state["nextDecision"]["quickReplies"] { <div className="studio-quick-replies">{for reply in state["nextDecision"]["quickReplies"] { <button type="button" key={reply["label"]} onClick={lambda { if reply["action"] == "COMPOSE" { prompt = str(reply["message"]); if inputRef.current { inputRef.current.focus(); } } else { send(str(reply["message"])); } }}>{str(reply["label"])}</button> }}</div> }}
-                    {if context { <div className="studio-context-chip"><span>{"About: " + str(context["label"])}</span><button type="button" aria-label="Remove selected context" onClick={lambda { context = None; selectedId = ""; }}>×</button></div> }}
+                <div className="studio-composer-area">{if busy { <div className="studio-working" role="status" aria-live="polite"><span className="studio-pulse"/><span>{progress or "Working on your trip"}</span><button type="button" onClick={stop} disabled={not jobId}>Stop</button></div> }}{if not busy and state["nextDecision"] and state["nextDecision"]["quickReplies"] { <div className="studio-quick-replies" aria-label="Suggested replies">{for reply in state["nextDecision"]["quickReplies"] { <button type="button" key={reply["label"]} onClick={lambda { if reply["action"] == "COMPOSE" { prompt = str(reply["message"]); if inputRef.current { inputRef.current.focus(); } } else { send(str(reply["message"])); } }}>{str(reply["label"])}</button> }}</div> }}
+                    {if context { <div className="studio-context-chip"><span>{str(context["label"])}</span><button type="button" aria-label="Remove selected context" onClick={lambda { context = None; selectedId = ""; }}>×</button></div> }}
                     {if len(attachments) > 0 { <div className="studio-attachments">{for item in attachments { <button type="button" key={item["id"]} data-plan-item={item["id"]} aria-label={"Remove " + str(item["name"])} onClick={lambda { attachments = [a for a in attachments if a["id"] != item["id"]]; }}>{str(item["name"]) + " ×"}</button> }}</div> }}
-                    <form className="studio-composer" onSubmit={lambda (e: FormEvent) { e.preventDefault(); send(); }}><label htmlFor="studio-prompt" className="studio-sr-only">Message Detour</label><textarea ref={inputRef} id="studio-prompt" value={prompt} maxLength={160000} placeholder="Where would you like to go?" rows={3} onChange={lambda (e: ChangeEvent) { prompt = str(e.target.value); }} onKeyDown={lambda (e: any) { if e.key == "Enter" and not e.shiftKey and not e.nativeEvent.isComposing { e.preventDefault(); send(); } }}/><div className="studio-composer-toolbar"><label className="studio-attach" title="Attach a PDF, image, or text file"><span aria-hidden="true">＋</span><span className="studio-sr-only">Attach a file</span><input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.txt" onChange={uploadFile} disabled={busy or uploading or not online}/></label><small>Shift + Enter for a new line</small><button type="submit" className="studio-send" aria-label="Send message" disabled={busy or uploading or not online or (not prompt.strip() and len(attachments) == 0)}>↑</button></div></form><p className="studio-composer-note">Plan in conversation. Changes are easy to undo.</p>
+                    <form className="studio-composer" onSubmit={lambda (e: FormEvent) { e.preventDefault(); send(); }}><label className="studio-attach" title="Attach a PDF, image, or text file"><span aria-hidden="true">＋</span><span className="studio-sr-only">Attach a file</span><input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.txt" onChange={uploadFile} disabled={busy or uploading or not online}/></label><label htmlFor="studio-prompt" className="studio-sr-only">Message Detour</label><textarea ref={inputRef} id="studio-prompt" value={prompt} maxLength={160000} placeholder={"Tell me what you're thinking…" if starting else "Ask or change anything…"} rows={1} onChange={lambda (e: ChangeEvent) { prompt = str(e.target.value); }} onKeyDown={lambda (e: any) { if e.key == "Enter" and not e.shiftKey and not e.nativeEvent.isComposing { e.preventDefault(); send(); } }}/><button type="submit" className="studio-send" aria-label="Send message" title="Send message · Shift + Enter for a new line" disabled={busy or uploading or not online or (not prompt.strip() and len(attachments) == 0)}>↑</button></form>
+                    {if starting and len(state["conversation"]) == 0 { <div className="studio-start-prompts"><button type="button" onClick={lambda { send("I need help planning a short work trip. Just travel and a hotel, no activity itinerary."); }}>A work trip ↗</button><button type="button" onClick={lambda { send("I'd like to plan a weekend away. Help me choose where to go."); }}>A weekend away ↗</button><button type="button" onClick={lambda { prompt = "Help me bring this itinerary into my trip plan: "; if inputRef.current { inputRef.current.focus(); } }}>Bring an itinerary ↗</button></div> }}
                 </div>
-            </aside><button type="button" className="studio-reopen-chat" onClick={lambda { chatOpen = True; }}>✳ Plan with Detour</button>
+            </aside>
         </main> } else { <div className="studio-loading" role="status">Opening your travel studio…</div> }}
-        <nav className="studio-phone-nav" aria-label="Mobile workspace"><button type="button" aria-current={"page" if phoneTab == "trip" else None} onClick={lambda { phoneTab = "trip"; }}>◈ Trip</button><button type="button" aria-current={"page" if phoneTab == "map" else None} onClick={lambda { phoneTab = "map"; }}>⌖ Map</button><button type="button" aria-current={"page" if phoneTab == "chat" else None} onClick={lambda { phoneTab = "chat"; chatOpen = True; }}>✳ Chat{if busy { <span className="studio-pulse"/> }}</button></nav>
+        {if busy and phoneTab != "chat" { <div className="studio-mobile-activity" role="status"><span className="studio-pulse"/><span>{progress or "Working on your trip"}</span><button type="button" onClick={stop} disabled={not jobId}>Stop</button></div> }}
+        {if not starting { <nav className="studio-phone-nav" aria-label="Mobile workspace"><button type="button" aria-current={"page" if phoneTab != "chat" and pane != "map" else None} onClick={lambda { phoneTab = "trip"; if pane == "map" { choosePane("day" if dayId else "overview"); } }}>Trip</button><button type="button" aria-current={"page" if phoneTab != "chat" and pane == "map" else None} onClick={lambda { phoneTab = "trip"; choosePane("map"); }}>Map</button><button type="button" aria-current={"page" if phoneTab == "chat" else None} onClick={lambda { phoneTab = "chat"; chatOpen = True; }}>Chat{if busy { <span className="studio-pulse"/> }}</button></nav> }}
         {if preferencesOpen { <div className="studio-modal-backdrop" onClick={lambda (e: any) { if e.target == e.currentTarget { accountOpen = False; preferencesOpen = False; } }}><section className="studio-modal" role="dialog" aria-modal="true" aria-labelledby="studio-preferences-title"><button type="button" className="studio-modal-close" aria-label="Close preferences" onClick={lambda { preferencesOpen = False; }}>×</button><p className="studio-eyebrow">YOUR WAY OF TRAVELING</p><h2 id="studio-preferences-title">What Detour remembers.</h2><p>Detour learns travel preferences as you plan. Each trip can be different. Forget a preference to stop using it in future suggestions.</p>{if preferences and preferences["values"] and len(Object.keys(preferences["values"])) > 0 { <div className="studio-memory-list">{for key in Object.keys(preferences["values"]) { <div key={key}><strong>{str(key).replace("_", " ")}</strong><p>{str(preferences["values"][key]["value"])}</p><button type="button" onClick={lambda { forgetPreference(str(key)); }}>Forget</button></div> }}</div> } else { <p className="studio-memory-empty">No travel preferences remembered yet.</p> }}</section></div> }}
         {if accountOpen { <div className="studio-modal-backdrop" onClick={lambda (e: any) { if e.target == e.currentTarget { accountOpen = False; preferencesOpen = False; } }}><section className="studio-modal" role="dialog" aria-modal="true" aria-labelledby="studio-account-title"><button type="button" className="studio-modal-close" aria-label="Close account dialog" onClick={lambda { accountOpen = False; }}>×</button><p className="studio-eyebrow">TAKE YOUR PLANS WITH YOU</p><h2 id="studio-account-title">{"Make yourself at home." if signup else "Welcome back."}</h2><p>Your current trip comes with you when you sign in.</p><form onSubmit={lambda (e: FormEvent) { e.preventDefault(); authenticate(); }}><label>Email<input type="email" value={email} required={True} autoComplete="email" onChange={lambda (e: ChangeEvent) { email = str(e.target.value); }}/></label><label>Password<input type="password" value={password} required={True} minLength={8 if signup else 1} autoComplete={"new-password" if signup else "current-password"} onChange={lambda (e: ChangeEvent) { password = str(e.target.value); }}/></label>{if authProblem { <p className="studio-warning" role="alert">{authProblem}</p> }}<button type="submit" className="studio-primary" disabled={authBusy}>{"One moment…" if authBusy else "Create account & save trip" if signup else "Sign in & save trip"}</button></form><button type="button" className="studio-text-button" onClick={lambda { signup = not signup; authProblem = ""; }}>{"Already have an account? Sign in" if signup else "New here? Create an account"}</button></section></div> }}
     </div>;

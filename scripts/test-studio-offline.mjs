@@ -7,12 +7,17 @@ const source = fs.readFileSync(new URL('../web/.jac/client/dist/sw.js', import.m
 function worker(offline = false) {
   const handlers = {}, writes = [], deleted = [];
   const context = {
-    URL, Promise,
+    URL, Promise, Response,
     self: {location: {origin: 'https://atlas.example'}, addEventListener: (name, fn) => handlers[name] = fn,
       skipWaiting: async () => {}, clients: {claim: async () => {}}},
     caches: {open: async () => ({addAll: async assets => writes.push(...assets)}),
       keys: async () => ['atlas-studio-old', 'other-app-cache'], delete: async key => deleted.push(key),
-      match: async request => request === './index.html' ? 'APP_SHELL' : 'CACHED_ASSET'},
+      match: async request => {
+        if(request==='./index.html')return 'APP_SHELL';
+        const response=new Response('CACHED_ASSET',{headers:{'Content-Type':'text/javascript'}});
+        Object.defineProperty(response,'url',{value:new URL(request,'https://atlas.example/').href});
+        return response;
+      }},
     fetch: async () => {if (offline) throw new Error('offline'); return 'NETWORK';},
   };
   vm.runInNewContext(source, context);
@@ -29,7 +34,7 @@ test('offline root and studio navigations reopen the cached application shell', 
   const value = worker(true);
   assert.equal(await value.request('/studio', {mode: 'navigate'}), 'APP_SHELL');
   assert.equal(await value.request('/', {mode: 'navigate'}), 'APP_SHELL');
-  assert.equal(await value.request('/styles.css?hash=build'), 'CACHED_ASSET');
+  assert.equal(await (await value.request('/styles.css?hash=build')).text(), 'CACHED_ASSET');
 });
 
 test('account APIs, uploads, external map tiles and arbitrary pages bypass the offline cache', () => {
@@ -50,4 +55,24 @@ test('installation caches only application assets and activation preserves other
   assert.ok(value.writes.every(name => name.startsWith('./') && !name.startsWith('./function/')));
   value.handlers.activate({waitUntil: promise => pending = promise}); await pending;
   assert.deepEqual(value.deleted, ['atlas-studio-old']);
+});
+
+test('locally bundled airline marks are available offline without caching their provenance or remote images', async () => {
+  const value = worker(true);
+  assert.equal(await (await value.request('/static/assets/airlines/f9.png')).text(), 'CACHED_ASSET');
+  assert.equal(value.request('/static/assets/airlines/sources.json'), undefined);
+  assert.equal(value.request('https://www.gstatic.com/flights/airline_logos/70px/F9.png'), undefined);
+});
+
+test('a first offline PDF export resolves Vite lazy chunks through their exact precached Jac asset alias', async () => {
+  const value=worker(true),installed=worker();
+  let pending;installed.handlers.install({waitUntil:promise=>pending=promise});await pending;
+  const pdf=installed.writes.find(name=>/^\.\/static\/assets\/trip_pdf_render-.*\.js$/.test(name));
+  assert.ok(pdf,'The PDF renderer and embedded fonts must be precached before any export.');
+  const cached=await value.request(pdf.replace('./static/','/'));
+  assert.equal(await cached.text(),'CACHED_ASSET');
+  assert.equal(cached.url,'','Alias responses must retain the request URL as the module base, not /static/assets/.');
+  assert.equal(cached.headers.get('Content-Type'),'text/javascript');
+  assert.equal(value.request('/assets/not-in-this-build.js'),undefined);
+  assert.equal(value.request('/assets/airlines/sources.json'),undefined);
 });

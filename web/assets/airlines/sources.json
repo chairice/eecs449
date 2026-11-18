@@ -1,0 +1,136 @@
+{
+  "description": "Carrier marks served by Google Flights. Trademarks remain with their respective airlines; included solely to identify actual researched airline options. No endorsement is implied.",
+  "retrieved": "2026-11-16",
+  "assets": [
+    {
+      "iata": "F9",
+      "airline": "Frontier",
+      "source": "https://www.gstatic.com/flights/airline_logos/70px/F9.png",
+      "sha256": "2114e6bcfa836827c64b2c524a27e7372d2502210bd9293a7e4fef8b81d8e343",
+      "dimensions": [
+        70,
+        70
+      ]
+    },
+    {
+      "iata": "UA",
+      "airline": "United",
+      "source": "https://www.gstatic.com/flights/airline_logos/70px/UA.png",
+      "sha256": "5e7278c70093df65b8a4c01afedf7a275ce281ec4026222c463bae2d4d279889",
+      "dimensions": [
+        70,
+        70
+      ]
+    },
+    {
+      "iata": "DL",
+      "airline": "Delta",
+      "source": "https://www.gstatic.com/flights/airline_logos/70px/DL.png",
+      "sha256": "bbdb3921cee849c284c77808ecd2415465918385e2865b743ac934f282a05b72",
+      "dimensions": [
+        70,
+        70
+      ]
+    },
+    {
+      "iata": "AA",
+      "airline": "American",
+      "source": "https://www.gstatic.com/flights/airline_logos/70px/AA.png",
+      "sha256": "2d1f3c592c1252bae0066807f4026c5256975bcaa7d2dcff0e52e32003831c68",
+      "dimensions": [
+        70,
+        70
+      ]
+    },
+    {
+      "iata": "AS",
+      "airline": "Alaska",
+      "source": "https://www.gstatic.com/flights/airline_logos/70px/AS.png",
+      "sha256": "a2c5247304bea11ba962f993348d1c902c84dfacf9244ff1f93ca815c3d64e2f",
+      "dimensions": [
+        70,
+        70
+      ]
+    },
+    {
+      "iata": "WN",
+      "airline": "Southwest",
+      "source": "https://www.gstatic.com/flights/airline_logos/70px/WN.png",
+      "sha256": "33d243468c69b7278861a05fa3ea51cad9f011443a2f6064da4128ad6a97d4fc",
+      "dimensions": [
+        70,
+        70
+      ]
+    },
+    {
+      "iata": "B6",
+      "airline": "JetBlue",
+      "source": "https://www.gstatic.com/flights/airline_logos/70px/B6.png",
+      "sha256": "186bd4f904d5460a09c14e99c84f8900b39ef083a20833c503345209606f693c",
+      "dimensions": [
+        70,
+        70
+      ]
+    },
+    {
+      "iata": "NK",
+      "airline": "Spirit",
+      "source": "https://www.gstatic.com/flights/airline_logos/70px/NK.png",
+      "sha256": "7f0a2518026e04f9f8a4f0ec43363e223ce6221732b2bfb571ac01ef7113d0f2",
+      "dimensions": [
+        70,
+        70
+      ]
+    },
+    {
+      "iata": "G4",
+      "airline": "Allegiant",
+      "source": "https://www.gstatic.com/flights/airline_logos/70px/G4.png",
+      "sha256": "bc4b449f0c3043ae3486c3a7992d7e2b94334d44209fa4a61017a95a2bbbbf40",
+      "dimensions": [
+        70,
+        70
+      ]
+    },
+    {
+      "iata": "SY",
+      "airline": "Sun Country",
+      "source": "https://www.gstatic.com/flights/airline_logos/70px/SY.png",
+      "sha256": "abcefed59585738e71cf1775805842380d185892ead215b2ef79b32bcfce0da9",
+      "dimensions": [
+        70,
+        70
+      ]
+    },
+    {
+      "iata": "HA",
+      "airline": "Hawaiian",
+      "source": "https://www.gstatic.com/flights/airline_logos/70px/HA.png",
+      "sha256": "28a3dfc006c6ddfcbb710eebbf23006c8d205f567f3c7b199d2adbefb55e8125",
+      "dimensions": [
+        70,
+        70
+      ]
+    },
+    {
+      "iata": "MX",
+      "airline": "Breeze",
+      "source": "https://www.gstatic.com/flights/airline_logos/70px/MX.png",
+      "sha256": "34fe5abe3671b8a581378a5eff0829a26bbdb62b1a75f506a65a3b6ac326d06c",
+      "dimensions": [
+        70,
+        70
+      ]
+    },
+    {
+      "iata": "XP",
+      "airline": "Avelo",
+      "source": "https://www.gstatic.com/flights/airline_logos/70px/XP.png",
+      "sha256": "b386e2bc654e5e97922a7a5a64c006fa33700a5f6639d79595199b2ed7888d9f",
+      "dimensions": [
+        70,
+        70
+      ]
+    }
+  ]
+}

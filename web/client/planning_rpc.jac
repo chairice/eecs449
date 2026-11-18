@@ -25,3 +25,5 @@ async def:pub planner_delete(trip_id: str) -> str { return str(await __jacCallFu
 async def:pub planner_restore(trip_id: str) -> str { return str(await __jacCallFunction("planner_restore", {"trip_id": trip_id})); }
 async def:pub planner_deleted -> str { return str(await __jacCallFunction("planner_deleted")); }
 async def:pub planner_weather(trip_id: str) -> str { return str(await __jacCallFunction("planner_weather", {"trip_id": trip_id})); }
+
+async def:pub planner_media(trip_id: str) -> str { return str(await __jacCallFunction("planner_media", {"trip_id": trip_id})); }

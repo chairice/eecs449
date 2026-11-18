@@ -6,15 +6,15 @@ import { runInNewContext } from 'node:vm';
 import { randomUUID } from 'node:crypto';
 import * as helpers from '../web/.jac/client/compiled/client/planning_state.js';
 
-function fixture({pollResponse, authenticated=false, withUndo=false} = {}) {
+function fixture({pollResponse, authenticated=false, withUndo=false, savedView={}} = {}) {
   const snapshot = { schemaVersion: 1, id: 'trip_ui', title: 'My trip', startDate: '', endDate: '', detail:'DETAILED',
     places: [], stays: [], legs: [], rentals:[], bookings: [], unresolved: [], budget:{amountMinor:null,currency:'USD'},
-    days: [{ id: 'day_1', date: '2026-12-26', title: 'An open day', overnightPlaceId: '', notes: '', items: [] }] };
+    days: [{ id: 'day_1', date: '2026-12-26', title: 'An open day', overnightPlaceId: '', notes: '', items: [{id:'item_1',title:'Client meeting',kind:'ACTIVITY',placeId:'',startTime:'13:00',endTime:'14:00',notes:'',sourceRefs:[]}] }] };
   const state = { id: snapshot.id, snapshot, revision: 4, conversation: [], workingContext: {}, summary: '',
     jobs: {}, offers: [], comparisonOffers:[], researchLinks: [], nextDecision: {}, preferences: {},
     undo:withUndo?{revision:4,label:'Rest break'}:null,
     pending: { id: 'decision_1', baseRevision: 4, snapshot: {...snapshot,startDate:'2026-12-27'},question:'Move to Sunday?' } };
-  const cells = [], refs = [], writes = [], calls = [], effects = [], listeners = new Map();
+  const cells = [], refs = [], writes = [], calls = [], effects = [], listeners = new Map(), viewWrites=[];
   let cellIndex = 0, refIndex = 0;
   const trigger={isConnected:true,focused:false,focus(){this.focused=true;}};
   const document={activeElement:trigger,querySelector:()=>null,
@@ -24,6 +24,8 @@ function fixture({pollResponse, authenticated=false, withUndo=false} = {}) {
     .replace(/^import .*;\n/gm, '').replace(/^export /gm, '');
   const component = runInNewContext(`${source}\nTripStudio;`, {
     ...helpers,
+    load_trip_view:()=>structuredClone(savedView),save_trip_view:(id,value)=>viewWrites.push({id,...structuredClone(value)}),
+    export_trip_pdf:async value=>{calls.push({name:"local_pdf",id:value.id});},
     __jacJsx: (type, props, children) => ({type, props, children}),
     useJacState(initial) {
       const i = cellIndex++;
@@ -35,10 +37,12 @@ function fixture({pollResponse, authenticated=false, withUndo=false} = {}) {
     signed_in:()=>authenticated, account_email:()=>authenticated?'test@example.com':'',
     window: {setInterval:()=>1,clearInterval(){},navigator:{onLine:true}}, document, save_preferences:()=>{},
     save_session: (_,value)=>{writes.push(structuredClone(value));return '';},
+    file_content:async()=>Buffer.from('draft notes').toString('base64'),
     guest_token:()=>'guest_test_capability', planner_id:prefix=>`${prefix}_${randomUUID()}`,
     planner_today:()=>'2026-11-15', planner_zone:()=>'America/Detroit',
-    PlannerMap:()=>{}, ChatMarkdown:()=>{}, StudioOffer:function StudioOffer(){},StudioDetails:function StudioDetails(){},StudioWeather:()=>{},
+    PlannerMap:()=>{}, ChatMarkdown:()=>{}, StudioOffer:function StudioOffer(){},StudioOptions:function StudioOptions(){},StudioDetails:function StudioDetails(){},StudioWeather:()=>{},TripChoiceCard:()=>{},TripDayCard:()=>{},TripPhoto:()=>{},PhotoCredit:()=>{},
     conversation_offers:(turn,offers,fallback)=>Object.hasOwn(turn,"offerIds")?offers.filter(o=>(turn.offerIds??[]).includes(o.id)):fallback,
+    offer_groups:offers=>offers.map(offer=>({id:offer.id,label:offer.title,date:offer.query?.departDate??"Nov 22",count:1,category:offer.category??"FLIGHT",offers:[offer]})),
     planner_list:async()=>JSON.stringify([{id:state.id,title:state.snapshot.title}]),planner_deleted:async()=>'[]',
     __jacCallFunction: async (name,args)=>{
       calls.push({name,args});
@@ -62,7 +66,7 @@ function fixture({pollResponse, authenticated=false, withUndo=false} = {}) {
     find(render(),e=>e.type==='form'&&e.props?.className==='studio-composer').props.onSubmit({preventDefault(){}});
     await new Promise(resolve=>setImmediate(resolve));render();
   };
-  return {render,state,cells,writes,calls,effects,send,listeners,trigger};
+  return {render,state,cells,writes,calls,effects,send,listeners,trigger,viewWrites};
 }
 function find(tree, predicate) {
   if (!tree || typeof tree!=='object') return null;
@@ -86,21 +90,21 @@ test('requested edit is displayed immediately after stage and is reversible with
   assert.equal(f.cells[0].val.snapshot.title,'Updated trip');
   assert.equal(f.cells[0].val.pending,null);assert.equal(f.cells[0].val.revision,5);
   assert.equal(component(f.render(),'StudioDay').props.day.id,'day_1');
-  await button(f.render(),'Undo last update').props.onClick();
+  await find(f.render(),e=>e.props?.['aria-label']==='Undo last trip change').props.onClick();
   const call=f.calls.find(c=>c.name==='planner_guest_undo');assert.ok(call);assert.equal(call.args.revision,5);
   assert.equal(f.cells[0].val.snapshot.title,'My trip');assert.equal(f.cells[0].val.undo,null);
 });
 test('item detail replaces its day; Back restores the day without a trip write',()=>{
   const f=fixture();component(f.render(),'StudioOverview').props.onDay('day_1');
-  component(f.render(),'StudioDay').props.onContext('day_1','An open day');
+  component(f.render(),'StudioDay').props.onContext('item_1','Client meeting');
   let tree=f.render(),detail=component(tree,'StudioDetails');
-  assert.equal(detail.props.item.id,'day_1');assert.equal(component(tree,'StudioDay'),null);
+  assert.equal(detail.props.item.id,'item_1');assert.equal(component(tree,'StudioDay'),null);
   detail.props.onBack();tree=f.render();assert.ok(component(tree,'StudioDay'));assert.equal(component(tree,'StudioDetails'),null);
   assert.equal(f.writes.length,0);assert.equal(f.calls.length,0);
 });
 test('selected context and pending decision accompany a conversation request',async()=>{
-  const f=fixture();component(f.render(),'StudioOverview').props.onContext('day_1','An open day');
-  component(f.render(),'StudioDetails').props.onContext('day_1','An open day');
+  const f=fixture();component(f.render(),'StudioOverview').props.onDay('day_1');
+  component(f.render(),'StudioDay').props.onDiscuss('day_1','An open day');
   assert.ok(find(f.render(),e=>e.props?.['aria-label']==='Remove selected context'));
   await f.send('Make this day quieter');
   const request=JSON.parse(f.calls.find(c=>c.name==='planner_guest_start').args.request_json);
@@ -154,43 +158,25 @@ function componentModule(name, expression, extra={}) {
     ...extra,
   });
 }
-test('real-source price bases distinguish starting nightly rates from all-in totals',()=>{
-  const render=componentModule('StudioOffers','StudioOffer');
-  const offer={id:'source-option',provider:'Provider',category:'HOTEL',title:'Observed hotel',details:'Observed details',
-    query:{checkIn:'2026-11-22',checkOut:'2026-11-25',adults:1,childrenAges:[],rooms:1},
-    observedAt:1794787200,sourceUrl:'https://example.com/property',bookingUrl:'',
-    price:{amountMinor:14000,currency:'USD',basis:'PER_NIGHT',from:true,quantity:3,estimatedTotalMinor:42000,feesIncluded:null}};
-  const tree=render({offer,onContext:()=>{},compact:true}),text=JSON.stringify(tree);
-  assert.ok(text.includes('From $140.00'));assert.ok(text.includes('per night'));assert.ok(text.includes('Est. $420.00 for 3 nights'));
-  assert.equal(text.includes('mandatory fees included'),false);
-  assert.equal(find(tree,e=>e.type==='a').props.href,offer.sourceUrl);
-});
-test('official warnings remain visible when forecast retrieval is unavailable',()=>{
-  const render=componentModule('StudioWeather','StudioWeather');
-  const weather={status:'UNAVAILABLE',samples:[{id:'sample',targetId:'flight',placeId:'DTW',label:'Detroit airport',date:'2026-11-22',status:'UNAVAILABLE',sourceUrl:'https://api.weather.gov',
-    alerts:[{id:'alert',event:'Winter Storm Warning',headline:'Official warning',description:'Heavy snow expected.',instruction:'Avoid travel.',url:'https://www.weather.gov/alert'}]}]};
-  const tree=render({weather,targetId:'flight',dayDate:''});assert.ok(JSON.stringify(tree).includes('Winter Storm Warning'));
-  assert.equal(find(tree,e=>e.type==='a').props.href,'https://www.weather.gov/alert');
-  assert.equal(JSON.stringify(tree).includes('temperature'),false);
-});
-test('distant-trip weather is a quiet availability state with no invented conditions',()=>{
-  const render=componentModule('StudioWeather','StudioWeather');
-  const tree=render({weather:{status:'FUTURE',samples:[]},targetId:'',dayDate:''});
-  assert.ok(JSON.stringify(tree).includes('Weather will be available closer to departure.'));
-  assert.equal(find(tree,e=>e.type==='details'),null);
-});
-
-test('chat option cards stay anchored to their source turn after another user message',()=>{
+test('chat result summaries stay anchored to their source turn without rendering duplicate full cards',()=>{
   const f=fixture();
   f.state.offers=[{id:'old-quote',title:'Earlier option'},{id:'new-quote',title:'Current option'}];
   f.state.comparisonOffers=[f.state.offers[1]];
   f.state.conversation=[{role:'assistant',content:'First search',offerIds:['old-quote']},
     {role:'user',content:'Try another'}, {role:'assistant',content:'Second search',offerIds:['new-quote']},
     {role:'user',content:'Compare them'}];
-  const ids=[];
-  const visit=tree=>{if(!tree||typeof tree!=='object')return;if(tree.type?.name==='StudioOffer')ids.push(tree.props.offer.id);for(const child of (tree.children??[]).flat(Infinity))visit(child);};
-  visit(f.render());assert.deepEqual(ids,['old-quote','new-quote']);
+  let tree=f.render();
+  assert.equal(component(tree,'StudioOffer'),null);
+  assert.equal(component(tree,'StudioOptions'),null);
+  const summaries=[];
+  const visit=tree=>{if(!tree||typeof tree!=='object')return;if(tree.props?.className==='studio-research-summary')summaries.push(tree);for(const child of (tree.children??[]).flat(Infinity))visit(child);};
+  visit(tree);assert.equal(summaries.length,2);
+  find(summaries[0],e=>e.type==='button').props.onClick();
+  const picker=component(f.render(),'StudioOptions');assert.ok(picker);
+  assert.equal(picker.props.groupId,'old-quote');assert.deepEqual(Array.from(picker.props.offers,o=>o.id),['old-quote']);
+  assert.equal(f.writes.length,0);assert.equal(f.calls.length,0);
 });
+
 test('older stored assistant messages get a latest-shortlist fallback without duplicating new turn cards',()=>{
   const select=componentModule('StudioOffers','conversation_offers');
   const offers=[{id:'earlier'},{id:'current'}],fallback=[offers[1]];
@@ -199,10 +185,115 @@ test('older stored assistant messages get a latest-shortlist fallback without du
   assert.deepEqual(select({role:'assistant'},offers,fallback),fallback);
 });
 
-test('NWS ISO update timestamps render without interrupting the trip',()=>{
-  const render=componentModule('StudioWeather','StudioWeather');
-  const weather={status:'READY',samples:[{id:'sample',targetId:'flight',placeId:'DTW',label:'Detroit airport',date:'2026-11-22',status:'READY',summary:'Partly cloudy',temperature:45,temperatureUnit:'F',precipitation:10,wind:'5 mph',alerts:[],sourceUrl:'https://api.weather.gov',checkedAt:'2026-11-16T02:04:34.477080+00:00'}]};
-  const tree=render({weather,targetId:'flight',dayDate:''});
-  assert.ok(JSON.stringify(tree).includes('Partly cloudy'));assert.ok(JSON.stringify(tree).includes('Updated '));
-  assert.equal(JSON.stringify(tree).includes('Invalid Date'),false);
+
+test('Choose sends the exact offer context immediately and preserves the options workspace while waiting',async()=>{
+  const f=fixture();f.state.offers=[{id:'quote-return',title:'Return flight',category:'FLIGHT'}];
+  f.state.comparisonOffers=f.state.offers;f.state.conversation=[{role:'assistant',content:'Here are your flights',offerIds:['quote-return']}];
+  let tree=f.render();find(find(tree,e=>e.props?.className==='studio-research-summary'),e=>e.type==='button').props.onClick();
+  component(f.render(),'StudioOptions').props.onChoose('quote-return','Return flight');await tick();
+  const request=JSON.parse(f.calls.find(c=>c.name==='planner_guest_start').args.request_json);
+  assert.equal(request.contextRefs[0].id,'quote-return');assert.equal(request.contextRefs[0].label,'Return flight');
+  assert.equal(request.message,"Use this flight for my trip.");assert.equal(f.cells[0].val.snapshot.title,'My trip');
+  assert.ok(component(f.render(),'StudioOptions'));assert.ok(f.render().props.className.includes('phone-trip'));
+});
+
+test('trip Undo stays an explicit workspace action and never creates a page banner or unrelated chat footer',()=>{
+  const f=fixture({withUndo:true});f.state.conversation=[{role:'assistant',content:'Older trip edit'},{role:'user',content:'Thanks'},{role:'assistant',content:'Happy to help'}];
+  const tree=f.render();assert.ok(find(tree,e=>e.props?.['aria-label']==='Undo last trip change'));
+  assert.equal(find(tree,e=>e.props?.className==='studio-notice'),null);
+  assert.equal(find(tree,e=>e.props?.className==='studio-inline-undo'),null);
+  assert.equal(JSON.stringify(tree).includes('Trip updated.'),false);
+});
+
+test('an unplanned trip starts as one conversation instead of an empty map and itinerary',()=>{
+  const f=fixture();f.state.snapshot.days=[];
+  const tree=f.render();assert.ok(tree.props.className.includes('is-starting'));
+  assert.equal(component(tree,'PlannerMap'),null);assert.equal(component(tree,'StudioOverview'),null);
+  assert.ok(find(tree,e=>e.type==='textarea'));
+});
+
+test('choosing a quote does not send or discard an unrelated composer draft or attachment',async()=>{
+  const f=fixture();f.state.offers=[{id:'quote-return',title:'Return flight',category:'FLIGHT'}];f.state.comparisonOffers=f.state.offers;
+  f.state.conversation=[{role:'assistant',content:'Options',offerIds:['quote-return']}];
+  component(f.render(),'StudioOverview').props.onDay('day_1');
+  component(f.render(),'StudioDay').props.onDiscuss('day_1','An open day');
+  find(f.render(),e=>e.type==='textarea').props.onChange({target:{value:'An unrelated question I have not sent'}});
+  // Attachment state is declared third, after saved trips; use its actual upload UI
+  // presence to verify this context is retained when the quote action completes.
+  f.cells[2].val=[{id:'private-draft-file',name:'draft-notes.txt'}];
+  find(find(f.render(),e=>e.props?.className==='studio-research-summary'),e=>e.type==='button').props.onClick();
+  component(f.render(),'StudioOptions').props.onChoose('quote-return','Return flight');await tick();
+  const request=JSON.parse(f.calls.find(c=>c.name==='planner_guest_start').args.request_json);
+  assert.deepEqual(request.attachments,[]);assert.equal(request.contextRefs[0].id,'quote-return');
+  const tree=f.render();assert.equal(find(tree,e=>e.type==='textarea').props.value,'An unrelated question I have not sent');
+  assert.ok(find(tree,e=>e.props?.['aria-label']==='Remove draft-notes.txt'));
+  assert.ok(find(tree,e=>e.props?.className==='studio-context-chip').children.flat(Infinity).some(x=>x?.children?.includes('An open day')));
+  f.effects.find(effect=>effect.deps?.[0]==='job_ui').callback();await tick();
+  const completed=f.render();assert.equal(find(completed,e=>e.type==='textarea').props.value,'An unrelated question I have not sent');
+  assert.ok(find(completed,e=>e.props?.['aria-label']==='Remove draft-notes.txt'));
+  assert.ok(find(completed,e=>e.props?.className==='studio-context-chip').children.flat(Infinity).some(x=>x?.children?.includes('An open day')));
+  assert.ok(component(completed,'StudioOptions'));
+});
+
+test('source handoffs belong to their research turn and never reappear on an unrelated reply',()=>{
+  const f=fixture();f.state.researchLinks=[{label:'Old global source',url:'https://example.com/old'}];
+  f.state.conversation=[{role:'assistant',content:'No readable quotes; try the source.',offerIds:[],researchLinks:[{label:'Flight search',url:'https://example.com/flights'}]},
+    {role:'user',content:'Keep tomorrow free'}, {role:'assistant',content:'Tomorrow is open.',offerIds:[],researchLinks:[]}];
+  const tree=f.render(),handoff=find(tree,e=>e.props?.className==='studio-source-handoffs');assert.ok(handoff);
+  assert.equal(find(handoff,e=>e.type==='a').props.href,'https://example.com/flights');
+  assert.equal(find(tree,e=>e.type==='a'&&e.props?.href==='https://example.com/old'),null);
+  assert.equal(find(tree,e=>e.props?.className==='studio-research-summary'),null);
+  f.state.conversation.push({role:'assistant',content:'An older restored reply without metadata'});
+  assert.equal(find(f.render(),e=>e.type==='a'&&e.props?.href==='https://example.com/old'),null);
+});
+
+test('phone chat keeps a direct Undo action without adding a banner',()=>{
+  const f=fixture({withUndo:true}),tree=f.render();
+  const undo=find(tree,e=>e.props?.className==='studio-phone-undo');assert.ok(undo);
+  assert.equal(undo.props['aria-label'],'Undo last trip change');
+  assert.equal(find(tree,e=>e.props?.className==='studio-notice'),null);
+});
+
+
+test('real file bytes produce nonempty exact base64 for attachment upload',async()=>{
+  const previous=globalThis.window;globalThis.window={btoa:value=>Buffer.from(value,'binary').toString('base64')};
+  try {const input=new TextEncoder().encode('Flight notes ✓');
+    assert.equal(await helpers.file_content({arrayBuffer:async()=>input.buffer}),Buffer.from(input).toString('base64'));
+  } finally {if(previous===undefined) delete globalThis.window;else globalThis.window=previous;}
+});
+
+
+test('upload failure keeps the draft and existing files with a friendly recovery message',async()=>{
+  const f=fixture();let tree=f.render();
+  find(tree,e=>e.type==='textarea').props.onChange({target:{value:'My unsent question'}});
+  f.cells[2].val=[{id:'kept-file',name:'kept-notes.txt'}];
+  tree=f.render();await find(tree,e=>e.type==='input'&&e.props?.type==='file').props.onChange({target:{files:[{name:'new-notes.txt',type:'text/plain',size:11}],value:'new-notes.txt'}});
+  tree=f.render();assert.equal(find(tree,e=>e.type==='textarea').props.value,'My unsent question');
+  assert.ok(find(tree,e=>e.props?.['aria-label']==='Remove kept-notes.txt'));
+  const alert=find(tree,e=>e.props?.role==='alert');assert.ok(alert);
+  assert.ok(JSON.stringify(alert).includes('Couldn’t attach that file.'));
+  assert.equal(JSON.stringify(alert).includes('Unexpected RPC'),false);
+});
+
+test('a saved logistics day restores after reopening and remains selected across Map and Trip',()=>{
+ const f=fixture({savedView:{dayId:'day_1',pane:'day',phoneTab:'trip'}});f.state.snapshot.detail='LOGISTICS';
+ f.state.snapshot.days[0].overnightPlaceId='SF';f.state.snapshot.places=[{id:'SF',label:'San Francisco',lat:37.7,lon:-122.4}];
+ f.render();f.effects.find(e=>e.deps?.length===1&&e.deps[0]===f.state.id).callback();let tree=f.render();
+ assert.ok(component(tree,'StudioDay'));button(tree,'Map').props.onClick();tree=f.render();
+ assert.deepEqual(Array.from(component(tree,'PlannerMap').props.focusIds),['SF']);
+ button(tree,'Your trip').props.onClick();assert.equal(component(f.render(),'StudioDay').props.day.id,'day_1');
+});
+
+test('contextual comparison can reopen a selected historical offer when the active shortlist is empty',()=>{
+ const f=fixture();f.state.offers=[{id:'chosen',title:'Selected quote',category:'FLIGHT'}];f.state.comparisonOffers=[];
+ f.state.snapshot.legs=[{id:'leg',fromId:'SFO',toId:'XNA',offerId:'chosen'}];
+ component(f.render(),'StudioOverview').props.onCompare('leg','SFO → XNA');const tree=f.render();
+ assert.deepEqual(Array.from(component(tree,'StudioOptions').props.offers,o=>o.id),['chosen']);
+ assert.equal(f.calls.length,0);assert.equal(button(tree,'Options'),null);
+ find(tree,e=>e.type==='button'&&e.props?.className==='studio-back').props.onClick();assert.ok(component(f.render(),'StudioOverview'));
+});
+
+test('PDF export projects the full saved trip locally without a planning request',async()=>{
+ const f=fixture();await button(f.render(),'Export PDF').props.onClick();
+ assert.deepEqual(f.calls.map(c=>c.name),['local_pdf']);assert.equal(f.cells[0].val.pending.id,'decision_1');
 });

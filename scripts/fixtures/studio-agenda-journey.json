@@ -1,0 +1,108 @@
+{
+  "captureId": "source-8a5266b31bd54916b128607a2d75555c",
+  "sourceUrl": "https://www.google.com/travel/flights?q=Flights%20from%20SFO%20to%20XNA%20on%202026-11-25%20one%20way%20for%201%20adult",
+  "observedAt": 1794850897.4025831,
+  "query": {
+    "category": "FLIGHT",
+    "origin": "SFO",
+    "destination": "XNA",
+    "departDate": "2026-11-25",
+    "adults": 1,
+    "childrenAges": []
+  },
+  "flight": {
+    "airline": "American",
+    "departDate": "2026-11-25",
+    "arriveDate": "2026-11-25",
+    "departTime": "07:00",
+    "arriveTime": "15:28",
+    "durationMinutes": 388,
+    "stops": 1,
+    "segments": [
+      {
+        "fromCode": "SFO",
+        "toCode": "LAX",
+        "fromAirport": {
+          "code": "SFO",
+          "label": "San Francisco International Airport",
+          "lat": 37.61981,
+          "lon": -122.37482,
+          "timezone": "America/Los_Angeles",
+          "sourceUrl": "https://ourairports.com/"
+        },
+        "toAirport": {
+          "code": "LAX",
+          "label": "Los Angeles International Airport",
+          "lat": 33.9425,
+          "lon": -118.408,
+          "timezone": "America/Los_Angeles",
+          "sourceUrl": "https://ourairports.com/"
+        },
+        "airline": "American",
+        "flightNumber": "AA 2211",
+        "sourceUrl": "https://www.google.com/travel/flights?q=Flights%20from%20SFO%20to%20XNA%20on%202026-11-25%20one%20way%20for%201%20adult",
+        "departDate": "2026-11-25",
+        "arriveDate": "2026-11-25",
+        "departTime": "07:00",
+        "arriveTime": "08:35",
+        "durationMinutes": 95,
+        "layoverMinutes": 86
+      },
+      {
+        "fromCode": "LAX",
+        "toCode": "XNA",
+        "fromAirport": {
+          "code": "LAX",
+          "label": "Los Angeles International Airport",
+          "lat": 33.9425,
+          "lon": -118.408,
+          "timezone": "America/Los_Angeles",
+          "sourceUrl": "https://ourairports.com/"
+        },
+        "toAirport": {
+          "code": "XNA",
+          "label": "Northwest Arkansas National Airport",
+          "lat": 36.2819,
+          "lon": -94.3068,
+          "timezone": "America/Chicago",
+          "sourceUrl": "https://ourairports.com/"
+        },
+        "airline": "American",
+        "flightNumber": "AA 6348",
+        "sourceUrl": "https://www.google.com/travel/flights?q=Flights%20from%20SFO%20to%20XNA%20on%202026-11-25%20one%20way%20for%201%20adult",
+        "departDate": "2026-11-25",
+        "arriveDate": "2026-11-25",
+        "departTime": "10:01",
+        "arriveTime": "15:28",
+        "durationMinutes": 207,
+        "layoverMinutes": null
+      }
+    ]
+  },
+  "rawSegments": [
+    {
+      "fromCode": "SFO",
+      "toCode": "LAX",
+      "airline": "American",
+      "flightNumber": "AA 2211",
+      "departDate": "2026-11-25",
+      "arriveDate": "2026-11-25",
+      "departTime": "07:00",
+      "arriveTime": "08:35",
+      "durationMinutes": 95,
+      "excerpt": "7:00\u202fAMSan Francisco International Airport\u00a0(SFO)\nTravel time: 1 hr 35 min\n8:35\u202fAMLos Angeles International Airport\u00a0(LAX)\nAmericanEconomyBoeing 737AA\u00a02211\nAverage legroom (30 in)\nFree Wi-Fi\nIn-seat power & USB outlets\nStream media to your device\nEmissions estimate: 81 kg CO2e\nContrail warming potential: Low\n1 hr 26 min layoverLos Angeles\u00a0(LAX)\n"
+    },
+    {
+      "fromCode": "LAX",
+      "toCode": "XNA",
+      "airline": "American",
+      "flightNumber": "AA 6348",
+      "departDate": "2026-11-25",
+      "arriveDate": "2026-11-25",
+      "departTime": "10:01",
+      "arriveTime": "15:28",
+      "durationMinutes": 207,
+      "excerpt": "10:01\u202fAMLos Angeles International Airport\u00a0(LAX)\nTravel time: 3 hr 27 min\n3:28\u202fPMNorthwest Arkansas National Airport\u00a0(XNA)\nAmericanEconomyEmbraer 175AA\u00a06348\nPlane and crew by SkyWest Airlines as American Eagle\nAverage legroom (30 in)\nFree Wi-Fi\nIn-seat power & USB outlets\nStream media to your device\nEmissions estimate: 266 kg CO2e\nContrail warming potential: Medium\n"
+    }
+  ]
+}

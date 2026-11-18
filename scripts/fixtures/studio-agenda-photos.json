@@ -1,0 +1,36 @@
+[
+  {
+    "id": "golden-gate",
+    "query": "Golden Gate Bridge, San Francisco, CA",
+    "label": "Golden Gate Bridge",
+    "lat": 37.8199,
+    "lon": -122.4783,
+    "kind": "PLACE",
+    "photoUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/bf/Golden_Gate_Bridge_as_seen_from_Battery_East.jpg/1280px-Golden_Gate_Bridge_as_seen_from_Battery_East.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+    "photoSourceUrl": "https://commons.wikimedia.org/wiki/File:Golden_Gate_Bridge_as_seen_from_Battery_East.jpg",
+    "photoAttribution": "Frank Schulenburg",
+    "photoLicense": "CC BY-SA 4.0",
+    "photoTitle": "Golden Gate Bridge"
+  },
+  {
+    "id": "wharf",
+    "query": "Fisherman's Wharf, San Francisco, CA",
+    "label": "Fisherman's Wharf",
+    "lat": 37.808,
+    "lon": -122.4177,
+    "kind": "PLACE"
+  },
+  {
+    "id": "sausalito",
+    "query": "Sausalito, California",
+    "label": "Sausalito",
+    "lat": 37.8591,
+    "lon": -122.4853,
+    "kind": "CITY",
+    "photoUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e0/Sausalito.jpg/1280px-Sausalito.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+    "photoSourceUrl": "https://commons.wikimedia.org/wiki/File:Sausalito.jpg",
+    "photoAttribution": "en:User:Squirrel 22",
+    "photoLicense": "Public domain",
+    "photoTitle": "Sausalito, California"
+  }
+]

@@ -35,6 +35,39 @@ def test_requested_changes_apply_immediately_with_undo(directory):
     assert api.stage(dumps(staged), "account:a", job) == staged
 
 
+def test_search_handoffs_belong_to_their_research_turn_not_later_edits(directory):
+    state, job_id = completed(directory)
+    link = {"label": "Google Flights", "url": "https://www.google.com/travel/flights"}
+    with jobs.connection() as db:
+        result = __import__('json').loads(db.execute("SELECT result FROM jobs WHERE id=?", (job_id,)).fetchone()[0])
+        result.update(sourceCount=1, researchLinks=[link])
+        db.execute("UPDATE jobs SET result=? WHERE id=?", (dumps(result), job_id))
+    researched = api.stage(dumps(state), "account:a", job_id)
+    assert researched["conversation"][-1]["researchLinks"] == [link]
+
+    request = {"tripId": state["id"], "snapshot": researched["snapshot"], "baseRevision": researched["revision"],
+               "message": "Keep the current plan", "clientTurnId": "turn_2"}
+    followup = jobs.enqueue("account:a", dumps(request))
+    pending = api.record_job(dumps(researched), dumps(request), followup)
+    leased = jobs.claim("worker")
+    jobs.finish(followup, leased["lease_token"], {"operations": [], "assistantMessage": "Your plan is unchanged.",
+                "workingContext": {}, "summary": "Work trip", "nextDecision": {}})
+    updated = api.stage(pending, "account:a", followup)
+    assert updated["researchLinks"] == [link]
+    assert updated["conversation"][-1]["researchLinks"] == []
+    assert updated["conversation"][-3]["researchLinks"] == [link]
+
+
+def test_import_preserves_safe_turn_handoffs_and_rejects_unsafe_links():
+    state = api.fresh()
+    state["conversation"] = [{"role": "assistant", "content": "Here is the provider search.",
+                              "researchLinks": [{"label": "Flights", "url": "https://www.google.com/travel/flights"}]}]
+    assert api.fresh(dumps(state))["conversation"] == state["conversation"]
+    state["conversation"][0]["researchLinks"][0]["url"] = "javascript:alert(1)"
+    with pytest.raises(PlanningError):
+        api.fresh(dumps(state))
+
+
 def test_approval_is_idempotent_and_payload_bound(directory):
     state, job = completed(directory)
     # Retain the old endpoint for previously saved preview states.
@@ -87,6 +120,37 @@ def test_new_offer_selection_requires_a_verified_matching_quote():
     offer["query"]["checkOut"] = "2026-12-29"
     with pytest.raises(PlanningError, match="dates"):
         api.validate_selections(snapshot, {"quote": offer})
+
+
+@pytest.mark.parametrize("query,label,expected", [
+    ("San Francisco International Airport SFO", "San Francisco (SFO)", "SFO"),
+    ("SAN FRANCISCO INTERNATIONAL AIRPORT SFO", "SAN FRANCISCO (SFO)", "SFO"),
+    ("San Francisco International Airport", "San Francisco", "SFO"),
+    ("sfo", "San Francisco (sfo)", "SFO"),
+    ("San Diego International Airport", "San Diego (SAN)", "SAN"),
+    ("San Francisco", "San Francisco", ""),
+    ("DTW SFO", "", ""),
+    ("DTW (SFO)", "", ""),
+    ("San Diego International Airport", "San Francisco (SFO)", ""),
+])
+def test_airport_identity_uses_catalog_and_explicit_codes_not_city_words(query, label, expected):
+    assert api._airport_code({"kind": "AIRPORT", "query": query, "label": label}) == expected
+
+
+def test_selecting_sfo_flight_accepts_full_airport_names_and_still_rejects_san():
+    from server.planning_core import validate_trip
+    snapshot = blank_trip("trip_sfo_selection")
+    snapshot["places"] = [
+        {"id": "sfo", "kind": "AIRPORT", "query": "San Francisco International Airport SFO", "label": "San Francisco (SFO)"},
+        {"id": "xna", "kind": "AIRPORT", "query": "Northwest Arkansas National Airport XNA", "label": "Fayetteville (XNA)"},
+    ]
+    snapshot["legs"] = [{"id": "flight", "fromId": "sfo", "toId": "xna", "mode": "FLIGHT", "departDate": "2026-11-25", "offerId": "quote"}]
+    snapshot = validate_trip(snapshot)
+    quote = {"id": "quote", "category": "FLIGHT", "query": {"origin": "SFO", "destination": "XNA", "departDate": "2026-11-25"}}
+    api.validate_selections(snapshot, {"quote": quote})
+    quote["query"]["origin"] = "SAN"
+    with pytest.raises(PlanningError, match="airports and date"):
+        api.validate_selections(snapshot, {"quote": quote})
 
 
 def test_car_rental_is_separate_from_driving_and_a_booked_car_stays_fixed():

@@ -29,6 +29,7 @@ class ResearchBrowser:
         self.engine = self.browser = self.context = self.page = None
         self.captures: dict[str, dict] = {}
         self.refs = {}
+        self.ref_specs = {}
 
     def start(self):
         if self.page:
@@ -58,12 +59,15 @@ class ResearchBrowser:
             try: handle.dispose()
             except Exception: pass
         self.refs = {}
+        self.ref_specs = {}
+        self.ref_page_url = self.page.url
         self.ref_generation = getattr(self, "ref_generation", 0) + 1
         prefix = "p" + str(self.ref_generation) + "-"
         controls = self.page.locator("a,button,input,select,textarea,[role=button],[role=gridcell],[role=option],[role=combobox],[role=checkbox],[tabindex='0']").evaluate_all("""(es,prefix)=>es.map((e,i)=>({e,i})).filter(({e})=>{if(getComputedStyle(e).visibility==='hidden')return false;const r=e.getBoundingClientRect();return (r.width>0&&r.height>0)||[...e.querySelectorAll('*')].some(c=>{const r=c.getBoundingClientRect();return r.width>0&&r.height>0&&getComputedStyle(c).visibility!=='hidden'})}).sort((a,b)=>{const score=e=>{const r=e.getBoundingClientRect();return (e.closest('[role=dialog],[aria-modal=true],[id*=onetrust],[id*=cookie],[class*=cookie],[class*=consent]')?100:0)+(r.bottom>0&&r.top<innerHeight?10:0)};return score(b.e)-score(a.e)}).slice(0,350).map(({e,i})=>{const ref=prefix+i;e.setAttribute('data-detour-ref',ref);return {ref,tag:e.tagName,text:(e.innerText||e.getAttribute('aria-label')||e.getAttribute('placeholder')||'').slice(0,300),label:e.getAttribute('aria-label')||'',title:e.getAttribute('title')||'',role:e.getAttribute('role')||'',disabled:!!e.disabled||e.getAttribute('aria-disabled')==='true',value:e.value||'',href:e.href||'',type:e.type||'',checked:e.checked,expanded:e.getAttribute('aria-expanded')}})""", prefix)
         for element in self.page.query_selector_all("[data-detour-ref^='" + prefix + "']"):
             ref = element.get_attribute("data-detour-ref")
             self.refs[ref] = element
+        self.ref_specs = {control["ref"]: control for control in controls}
         body = self.page.locator("body").inner_text(timeout=15000)[:90000]
         try: structure = self.page.locator("body").aria_snapshot(timeout=4000)[:30000]
         except Exception: structure = ""
@@ -88,6 +92,41 @@ class ResearchBrowser:
             raise PlanningError("That page control changed. Read the page again.")
         return element
 
+    @staticmethod
+    def _same_control(element, spec):
+        current = element.evaluate("e=>({tag:e.tagName,role:e.getAttribute('role')||'',label:e.getAttribute('aria-label')||'',text:(e.innerText||e.getAttribute('aria-label')||e.getAttribute('placeholder')||'').slice(0,300),href:e.href||''})")
+        clean = lambda value: " ".join(str(value or "").split())
+        return all(clean(current.get(key)) == clean(spec.get(key)) for key in ['tag', 'role', 'label', 'text', 'href'])
+
+    def click_target(self, ref):
+        """Resolve the observed control again after scroll/layout changes.
+
+        A connected ElementHandle may represent a retired client-rendered widget.
+        The exact captured role/name and page scope must still identify one target.
+        No fuzzy matching or silent retargeting is allowed.
+        """
+        element = self.element(ref)
+        spec = self.ref_specs.get(ref)
+        if not spec or self.page.url != self.ref_page_url or not self._same_control(element, spec):
+            raise PlanningError("That page control changed. Read the page again.")
+        scroll_target = element if element.is_visible() else next((child for child in element.query_selector_all('*') if child.is_visible()), None)
+        if scroll_target is None: raise PlanningError("That control is not visible. Read the page again.")
+        scroll_target.scroll_into_view_if_needed()
+        self.page.wait_for_timeout(500)
+        role = spec.get('role') or {'BUTTON': 'button', 'A': 'link'}.get(spec['tag'], '')
+        name = spec.get('label') or spec.get('text') or ''
+        if role and name:
+            target = self.page.get_by_role(role, name=name, exact=True)
+        else:
+            target = self.page.locator('[data-detour-ref="' + ref + '"]')
+        if target.count() != 1 or not self._same_control(target, spec):
+            raise PlanningError("That control changed or is ambiguous. Read the page again.")
+        if not target.is_visible():
+            children = target.locator('*').all()
+            target = next((child for child in children if child.is_visible()), None)
+            if target is None: raise PlanningError("That control is not visible. Read the page again.")
+        return target, spec
+
     def call(self, name: str, args: dict):
         try:
             result = self._call(name, args)
@@ -109,6 +148,7 @@ class ResearchBrowser:
 
     def _call(self, name: str, args: dict):
         self.start()
+        action = None
         if name == "browser_capture":
             source = self.captures.get(args["captureId"])
             if not source: raise PlanningError("That source capture is unavailable.")
@@ -121,20 +161,15 @@ class ResearchBrowser:
                 raise PlanningError("This source is not an accessible public web address.")
             self.page.goto(url, wait_until="domcontentloaded", timeout=30000)
         elif name == "browser_click":
-            element = self.element(args["ref"])
-            label = (element.inner_text() or element.get_attribute("aria-label") or "").strip().lower()
+            element, spec = self.click_target(args["ref"])
+            label = ((spec.get("text") or "") + " " + (spec.get("label") or "")).strip().lower()
             # Date-picker confirmation is safe; transaction confirmation is not.
             if re.search(r"\b(pay|purchase|book now|reserve now|confirm booking|confirm reservation|sign in|log in|captcha|robot|verify you are human)\b", label):
                 raise PlanningError("Research stops before login, reservation, or payment.")
             before = len(self.context.pages)
-            if element.is_visible():
-                element.click()
-            else:
-                # display:contents controls can expose visible descendants while
-                # the accessible parent has no own hit rectangle.
-                target = next((child for child in element.query_selector_all("*") if child.is_visible()), None)
-                if target is None: raise PlanningError("That control is not visible. Read the page again.")
-                target.click()
+            element.click()
+            action = {"type": "click", "label": spec.get("label") or spec.get("text"), "tag": spec["tag"],
+                      "role": spec.get("role", ""), "expandedBefore": spec.get("expanded"), "urlBefore": self.ref_page_url}
             if len(self.context.pages) > before:
                 self.page = self.context.pages[-1]
                 self.page.wait_for_load_state("domcontentloaded", timeout=15000)
@@ -175,7 +210,17 @@ class ResearchBrowser:
         elif name != "browser_read":
             raise PlanningError("Unknown research action.")
         self.page.wait_for_timeout(800)
-        return self.capture()
+        result = self.capture()
+        if action:
+            matching = [control for control in result["controls"] if control["tag"] == action["tag"] and (control.get("label") or control.get("text")) == action["label"]]
+            after = matching[0].get("expanded") if len(matching) == 1 else None
+            action["expandedAfter"] = after
+            if action["urlBefore"] != self.page.url: action["outcome"] = "NAVIGATED"
+            elif action["expandedBefore"] is not None and after is not None:
+                action["outcome"] = "CHANGED" if action["expandedBefore"] != after else "NO_CHANGE"
+            else: action["outcome"] = "OBSERVE_RESULT"
+            result["action"] = action
+        return result
 
     def close(self):
         if self.context:
@@ -391,6 +436,11 @@ def verified_offers(candidates: list, captures: dict, query: dict | None, compon
                         clock(flight[key], key)
                 if flight.get("stops") is not None: integer(flight["stops"], "flight stops", 0, 6)
                 if flight.get("durationMinutes") is not None: integer(flight["durationMinutes"], "flight duration", 1, 3000)
+                flight = dict(flight)
+                if flight.get("segments"):
+                    from .flight_journey import normalized_segments, complete_flight
+                    segments = normalized_segments(flight["segments"], flight, search, corpus, source["url"])
+                    flight = complete_flight(flight, segments)
                 offer["flight"] = flight
             accepted.append(offer)
         except (PlanningError, KeyError, TypeError, ValueError) as exc:

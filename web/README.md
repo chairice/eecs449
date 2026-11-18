@@ -2,6 +2,10 @@
 
 Detour is a conversational U.S. trip planner in Jac. `/` is the familiar landing page; planning entry points open `/studio`, with linked chat, map and itinerary views. Routine requested changes apply immediately with Undo. Consequential assistant suggestions ask a plain-language question in chat, bound to the current trip and pending decision. Fixed bookings and their referenced locations remain protected.
 
+The local trip-guide follow-up keeps every saved day navigable, including logistics-only trips, beside compact conversation. Your trip and Map preserve day/view context; comparisons open from the relevant saved flight, stay or rental. Selected offers resolve practical details, price basis and actual booking status. Real attributed place imagery and sourced connection-airport segments enrich the guide without inventing prices or bookings.
+
+Export PDF downloads the entire saved trip in the browser, with embedded licensed fonts, route/segment diagrams and all saved days. The bundled export works from cached application/trip data offline, including a first export without an earlier online PDF warm-up. See [the trip-guide design and rolling validation record](../docs/trip-guide.md) for evidence and current limits. This local iteration has not been committed, pushed or deployed; the earlier public deployment remains unchanged.
+
 Start with the [repository README](../README.md), [worker guide](../workers/README.md) and [current implementation/evidence](../docs/trip-planner-implementation-status.md#current-detour-implementation). The [product contract](../docs/DETOUR-AGENT-HANDOFF.md) supersedes earlier Atlas branding, universal approval and all-in-price-only rules.
 
 ## Toolchain and first setup
@@ -42,6 +46,17 @@ workers/.venv/bin/python scripts/test-studio-api.py
 
 Validation checks Jac sources, runs Jac tests, creates the complete production client and sealed `web/dist/everyday-agent-web.jab`, finalizes the offline worker in both outputs, verifies sealed payload hashes, scans for packaged secrets, and runs emitted-client, Python and real local Chromium regressions. The deterministic tests require no model key or public-source access; the Chromium binary must already be installed. Live model/source checks are separate opt-in commands in [the worker guide](../workers/README.md#live-verification).
 
+Focused PDF coverage and a cold-offline browser check are also available. Build the complete production client first. Run the preview and the browser check in separate terminals:
+
+```sh
+node --test scripts/test-trip-pdf.mjs
+workers/.venv/bin/python scripts/preview-studio.py
+# In a second terminal:
+workers/.venv/bin/python scripts/test-studio-pdf-offline.py --base http://127.0.0.1:8002
+```
+
+The cold-offline check uses a fresh local browser context and a labelled fixture with intercepted API responses; it does not call the model or modify existing accounts/trips. Source-dependent offsite research is a separate opt-in command: `workers/.venv/bin/python scripts/test-trip-guide-live.py --run-live`. It consumes configured model credits and observes real public pages; its fixture commitments are explicitly user-supplied test inputs.
+
 The emitted client in `web/.jac/client/dist/` is only one part of the application. A static host alone cannot run accounts, graph persistence, planning jobs or browser research. For a direct build from `web/`, run `../scripts/jac build main.jac`, then `python3 ../scripts/finalize-studio-build.py` and the bundle secret scan before distributing the artifact. Restart development after building.
 
 For local production-client/offline QA, `workers/.venv/bin/python scripts/preview-studio.py` serves the built client on port 8002 and proxies the already-running local Jac API. It is a test preview, not a production server.
@@ -53,17 +68,21 @@ Paths below are relative to `web/` unless shown otherwise.
 | Path | Responsibility |
 | --- | --- |
 | `main.jac`, `pages/` | File-based routes, explicit endpoint imports and landing/studio shell selection |
-| `components/TripStudio.jac`, `studio.css` | Conversation, progress/composer, focused workspace and responsive navigation |
-| `components/StudioDetails.jac`, `StudioOffers.jac`, `StudioWeather.jac` | Compact type-specific details, real option cards and auxiliary weather |
+| `components/TripStudio.jac`, `components/StudioTripPlan.jac`, `studio.css` | Saved all-day guide, practical choice cards, compact conversation, context/navigation and responsive layout |
+| `components/StudioDetails.jac`, `StudioOffers.jac`, `StudioWeather.jac` | Focused details, grouped canonical options/compact chat references and visual auxiliary weather |
 | `components/ChatMarkdown.jac` | CommonMark/GFM with inert raw HTML, unsafe links and arbitrary images |
-| `components/PlannerMap.jac` | Linked places and sourced road geometry; provisional connections remain distinct |
+| `components/PlannerMap.jac` | Day-scoped places, sourced road/airport itinerary segments and preserved map/detail context |
 | `client/planning_state.jac`, `client/planning_rpc.jac` | Device cache, current DTO helpers and authenticated protected-endpoint bridge |
 | `client/account.jac`, `components/AuthPanels.jac` | Existing Jac identity system and guest/account handoff |
 | `server/planning.jac` | Account-owned trip/profile/revision graph, atomic writes and protected endpoints |
 | `server/planning_core.py`, `server/planning_api.py` | Structural validation, source/selection/budget checks and worker-result staging |
 | `server/planning_jobs.py`, `server/planning_lifecycle.py` | Private SQLite work queue, leases, recoverable deletion and draft lifecycle |
 | `server/planning_weather.py` | Independent real NWS refresh/cache, stale-input binding and retained official alerts |
+| `server/planning_media.py`, `server/place_photos.py` | Quiet auxiliary, bounded/cached, place-matched free-license imagery |
+| `../workers/atlas_runtime/flight_journey.py` | Sourced same-offer or leg-keyed flight segments, schedule matching and stale-resource checks |
+| `client/trip_pdf.ts`, `client/trip_pdf_render.ts`, `client/pdf_assets/` | Full saved-trip export model, local vector PDF renderer and embedded licensed fonts |
 | `../workers/atlas_runtime/` | Anthropic interpretation, isolated public research browser and geographic tools |
+| `assets/airlines/`, `studio-weather.css` | Vendored carrier images with provenance and compact visual forecast/alert styles |
 | `offline-worker.js`, `../scripts/finalize-studio-build.py` | Saved-itinerary offline policy and sealed-artifact service-worker replacement |
 
 ## Storage and production boundary

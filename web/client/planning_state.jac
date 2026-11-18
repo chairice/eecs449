@@ -103,9 +103,9 @@ def:pub offer_context(offer: any) -> str {
 
 async def:pub file_content(file: any) -> str {
     buffer: any = await file.arrayBuffer();
-    bytes: any = new(Uint8Array, buffer);
+    fileBytes: any = new(Uint8Array, buffer);
     binary: str = "";
-    for index in range(bytes.length) { binary += String.fromCharCode(bytes[index]); }
+    for index in range(fileBytes.length) { binary += String.fromCharCode(fileBytes[index]); }
     browser: any = window;
     return str(browser.btoa(binary));
 }
@@ -173,9 +173,130 @@ def:pub mapped_snapshot(snapshot: any, locations: any) -> any {
     for place in value["places"] {
         for location in locations or [] {
             if place["id"] == location["id"] and place["query"] == location["query"] and Number.isFinite(location["lat"]) and Number.isFinite(location["lon"]) and Math.abs(location["lat"]) <= 90 and Math.abs(location["lon"]) <= 180 {
-                for field in ["lat", "lon", "timezone", "sourceUrl"] { place[field] = location[field]; }
+                for field in ["lat", "lon", "timezone", "sourceUrl", "photoUrl", "photoSourceUrl", "photoAttribution", "photoLicense", "photoTitle", "address"] { if location[field] is not None { place[field] = location[field]; } }
             }
         }
     }
+    return value;
+}
+
+"""Presentation joins never change the accepted trip snapshot."""
+def:pub selected_offer(resources: any, item: any) -> any {
+    for offer in resources["offers"] or [] { if item["offerId"] and offer["id"] == item["offerId"] { return offer; } }
+    return None;
+}
+
+def:pub trip_place(snapshot: any, placeId: str) -> any {
+    for place in snapshot["places"] or [] { if place["id"] == placeId { return place; } }
+    return {};
+}
+
+def:pub trip_photo(snapshot: any, item: any, offer: any = None) -> any {
+    if item["photoUrl"] { return item; }
+    if offer and offer["photoUrl"] { return offer; }
+    place = trip_place(snapshot, str(item["placeId"] or item["overnightPlaceId"] or ""));
+    if item["checkIn"] and place["kind"] != "PROPERTY" { return {}; }
+    if item["kind"] == "MEAL" and place["kind"] == "CITY" { return {}; }
+    return place;
+}
+
+def:pub trip_booking(item: any, snapshot: any) -> any {
+    for booking in snapshot["bookings"] or [] { if item["bookingId"] and booking["id"] == item["bookingId"] { return booking; } }
+    return None;
+}
+
+def:pub trip_item_status(item: any, snapshot: any = None) -> str {
+    booking = trip_booking(item, snapshot) if snapshot else None;
+    if booking {
+        if booking["status"] == "CANCELLED" { return "Cancelled"; }
+        if booking["status"] == "USER_REPORTED" { return "User reported"; }
+        if booking["status"] == "BOOKED" { return "Booked"; }
+    }
+    if item["status"] == "CANCELLED" { return "Cancelled"; }
+    if item["status"] == "USER_REPORTED" { return "User reported"; }
+    if item["bookingId"] { return "Booking details"; }
+    if item["status"] == "BOOKED" { return "Booked"; }
+    if item["offerId"] or item["status"] == "SELECTED" { return "Selected"; }
+    if item["locked"] { return "Fixed"; }
+    return "To plan";
+}
+
+def:pub day_context(day: any, snapshot: any) -> any {
+    date = str(day["date"]);
+    legs = [leg for leg in snapshot["legs"] or [] if leg["departDate"] == date or leg["arriveDate"] == date];
+    stays = [stay for stay in snapshot["stays"] or [] if stay["checkIn"] and stay["checkOut"] and str(stay["checkIn"]) <= date and date <= str(stay["checkOut"])];
+    rentals = [rental for rental in snapshot["rentals"] or [] if rental["pickupDate"] == date or rental["dropoffDate"] == date];
+    return {"legs": legs, "stays": stays, "rentals": rentals};
+}
+
+def:pub day_focus_ids(day: any, snapshot: any) -> any {
+    ids = [item["placeId"] for item in day["items"] or [] if item["placeId"]];
+    if day["overnightPlaceId"] { ids.append(day["overnightPlaceId"]); }
+    context = day_context(day, snapshot);
+    for leg in context["legs"] {
+        if leg["departDate"] == day["date"] { ids.append(leg["fromId"]); }
+        if leg["arriveDate"] == day["date"] { ids.append(leg["toId"]); }
+    }
+    for stay in context["stays"] { ids.append(stay["placeId"]); }
+    for rental in context["rentals"] {
+        if rental["pickupDate"] == day["date"] and rental["pickupPlaceId"] { ids.append(rental["pickupPlaceId"]); }
+        if rental["dropoffDate"] == day["date"] and rental["dropoffPlaceId"] { ids.append(rental["dropoffPlaceId"]); }
+    }
+    return ids;
+}
+
+def:pub day_photo(day: any, snapshot: any) -> any {
+    for item in day["items"] or [] {
+        photo = trip_photo(snapshot, item);
+        if photo["photoUrl"] { return photo; }
+    }
+    return trip_place(snapshot, str(day["overnightPlaceId"] or ""));
+}
+
+def:pub load_trip_view(tripId: str) -> any {
+    try {
+        browser: any = window;
+        raw = browser.localStorage.getItem("atlas.studio.view.v1." + tripId);
+        return JSON.parse(str(raw)) if raw else {};
+    } except Exception { return {}; }
+}
+
+def:pub save_trip_view(tripId: str, view: any) {
+    try {
+        browser: any = window;
+        browser.localStorage.setItem("atlas.studio.view.v1." + tripId, JSON.stringify(view));
+    } except Exception { }
+}
+
+"""Sourced journeys enrich a selected/user-supplied leg without inventing a fare."""
+def:pub trip_flight(resources: any, item: any, snapshot: any = None) -> any {
+    selected = selected_offer(resources, item);
+    selectedFlight = selected["flight"] if selected else None;
+    selectedMatches = True;
+    if selectedFlight {
+        for field in ["departDate", "departTime", "arriveDate", "arriveTime", "durationMinutes"] {
+            if item[field] is not None and item[field] != "" and selectedFlight[field] is not None and selectedFlight[field] != "" and item[field] != selectedFlight[field] { selectedMatches = False; }
+        }
+    }
+    if selectedFlight and selectedMatches and len(selectedFlight["segments"] or []) > 0 { return selectedFlight; }
+    for journey in resources["flightJourneys"] or [] {
+        flight = journey["flight"];
+        if journey["legId"] != item["id"] or not flight { continue; }
+        signature = journey["legSignature"];
+        if not signature or not snapshot { continue; }
+        matches = True;
+        for field in ["fromId", "toId", "mode", "departDate", "arriveDate", "departTime", "arriveTime", "durationMinutes", "offerId", "bookingId"] { if item[field] != signature[field] { matches = False; } }
+        first = trip_place(snapshot, str(item["fromId"])); last = trip_place(snapshot, str(item["toId"]));
+        if first["query"] != signature["fromQuery"] or first["label"] != signature["fromLabel"] or last["query"] != signature["toQuery"] or last["label"] != signature["toLabel"] { matches = False; }
+        if matches { return flight; }
+    }
+    return selectedFlight if selectedFlight and selectedMatches else item;
+}
+
+
+"""Day map projection excludes unrelated journeys without editing the saved trip."""
+def:pub day_map_snapshot(snapshot: any, day: any) -> any {
+    value = JSON.parse(JSON.stringify(snapshot));
+    value["legs"] = day_context(day, snapshot)["legs"];
     return value;
 }

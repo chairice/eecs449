@@ -25,9 +25,26 @@ self.addEventListener('fetch', event => {
     event.respondWith(fetch(request).catch(() => caches.match('./index.html')));
     return;
   }
-  const relative = '.' + url.pathname;
+  let relative = '.' + url.pathname;
+  // Vite's lazy imports use /assets/; Jac also serves that same directory at
+  // /static/assets/, which is the canonical precache URL. Only alias files
+  // explicitly present in this build's allowlist, never arbitrary requests.
+  if (url.pathname.startsWith('/assets/')) {
+    const canonical = './static' + url.pathname;
+    if (PRECACHE_ASSETS.includes(canonical)) relative = canonical;
+  }
   if (PRECACHE_ASSETS.includes(relative)) {
+    // Includes local carrier marks at /static/assets/; source metadata, API
+    // responses and remote images remain outside the application cache.
     // Jac appends a content hash query to its stylesheet URL.
-    event.respondWith(caches.match(relative).then(cached => cached || fetch(request)));
+    event.respondWith(caches.match(relative).then(cached => {
+      if (!cached) return fetch(request);
+      // A cached response's URL normally becomes an ES module's base URL. For
+      // an alias, retain the requested /assets/ base so ../client.js imports
+      // resolve correctly, instead of becoming /static/client.js.
+      return relative !== '.' + url.pathname
+        ? new Response(cached.body, {status: cached.status, statusText: cached.statusText, headers: cached.headers})
+        : cached;
+    }));
   }
 });

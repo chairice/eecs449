@@ -127,7 +127,7 @@ def resolve(query, kind):
             if value:
                 lon, lat = value["geometry"]["coordinates"]
                 props = value["properties"]
-                result = {"lat": lat, "lon": lon, "sourceUrl": "https://www.openstreetmap.org/" + {"N": "node", "W": "way", "R": "relation"}.get(props.get("osm_type"), "node") + "/" + str(props.get("osm_id", ""))}
+                result = {"address": ", ".join(str(props[k]) for k in ["housenumber", "street", "city", "state", "postcode"] if props.get(k)), "lat": lat, "lon": lon, "sourceUrl": "https://www.openstreetmap.org/" + {"N": "node", "W": "way", "R": "relation"}.get(props.get("osm_type"), "node") + "/" + str(props.get("osm_id", ""))}
         except Exception:
             pass
     if result:
@@ -156,4 +156,22 @@ def enrich(snapshot, update, maximum=35, seconds=90, kinds=None):
         lookups += 1
         if found:
             place.update(found)
+    # Photos enrich already located places too, so old saved trips can gain imagery.
+    # A bounded pool limits serial network latency and failed images never reject a plan.
+    from concurrent.futures import ThreadPoolExecutor, wait
+    from .place_photos import resolve_photo
+    targets = [place for place in snapshot["places"] if place.get("lat") is not None and not place.get("photoUrl") and place.get("kind") != "AIRPORT"][:8]
+    if targets and time.monotonic() - started < seconds:
+        update("Finding place photographs")
+        pool = ThreadPoolExecutor(max_workers=4)
+        futures = {pool.submit(resolve_photo, place): place for place in targets}
+        done, pending = wait(futures, timeout=min(7, max(0, seconds - (time.monotonic() - started))))
+        for future in done:
+            try:
+                photo = future.result()
+                if photo: futures[future].update(photo)
+            except Exception:
+                pass
+        for future in pending: future.cancel()
+        pool.shutdown(wait=False, cancel_futures=True)
     return snapshot

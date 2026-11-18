@@ -2,6 +2,8 @@
 
 A conversational U.S. trip planner built in Jac. Start at the familiar Detour landing page, then talk through a professional trip or multi-day vacation in the linked map, itinerary and chat workspace. Routine requested edits apply immediately with Undo; consequential changes proposed by the assistant are confirmed in plain chat.
 
+**Local trip-guide follow-up — November 16:** The current branch adds a useful all-days saved guide, selected travel/stay summaries, contextual comparisons, real place photos, sourced flight segments and whole-trip PDF download beside compact chat. This iteration is local-only; it has not been committed, pushed or deployed. Validation is complete: 75 Jac source checks, 134 Jac tests, 141 final Node checks and 203 Python tests passed, along with the final sealed build, 31/31 browser checks and 18/18 cold-offline PDF checks. Public-only model flight and real offsite source checks also passed. The public link below still refers to the earlier production release. See [trip-guide design and validation status](docs/trip-guide.md) and [the prior workspace refresh](docs/studio-ux-refresh.md).
+
 **Open Detour: [https://activity-fed-fame-sense.trycloudflare.com/](https://activity-fed-fame-sense.trycloudflare.com/)** · [Trip studio](https://activity-fed-fame-sense.trycloudflare.com/studio)
 
 This free public deployment runs on the existing Mac through a temporary Cloudflare Quick Tunnel. The Mac, app and tunnel must remain running; the hostname changes if the tunnel is recreated. Setup, persistence and hosting limits are documented in [the deployment guide](deploy/README.md).
@@ -29,18 +31,24 @@ Open [Detour](http://localhost:8000/); Plan a trip opens [the studio](http://loc
 ## The experience
 
 - Start as a guest, then save to an account and resume across devices. The recognizable landing page is `/`; the conversational workspace is `/studio`.
-- Plan logistics-only business trips or detailed vacations with mixed flights and driving. Move through overview → day → item in a focused pane with Back, restored scroll/focus and phone Trip/Map/Chat navigation.
+- Plan logistics-only business trips or detailed vacations with mixed flights and driving. Every saved day remains navigable beside compact chat, with visual itinerary cards and selected travel/stay summaries. Your trip and Map preserve day/view context when reopening.
 - Discuss selected places and activities in the main chat. Routine edits apply with Undo; consequential assistant suggestions ask a plain-language question bound to the current trip. Booked/fixed commitments stay protected.
 - Paste a plan or upload text, PDFs and images. Review or forget learned preferences. Delete trips with Undo or restore them from Recently Deleted for 30 days; abandoned near-empty shells are cleaned after 24 hours while meaningful plans and retained drafts are protected.
-- See real researched flight, stay and car options as compact source cards in chat, with a larger comparison view. Prices retain their observed starting/unit/total basis; estimates remain separate from paid bookings. Provider results/property pages can be valid handoffs. Choosing an option does not book it.
-- Follow one persistent line showing actual current work. Independently refreshed NWS forecasts and official warnings cover ground locations along the trip, with source details on demand and quiet long-range availability states.
-- Read the last saved itinerary and booking details offline after loading the production app online. Maps and research need a connection.
+- Open contextual comparisons from the flight, stay or car you are planning; flight alternatives remain grouped by leg/date/party. Choose uses the existing agent pipeline and preserves unsent work. Saved choices show their available price basis and actual booking status; selection remains distinct from booking.
+- Follow one persistent line showing actual work. Compact weather tiles show conditions, temperature, precipitation and wind; official warnings remain available on demand, and distant trips use quiet forecast-availability states.
+- Read the last saved itinerary and booking details offline after loading the app online. Export PDF downloads the entire saved guide, including all days and available journey diagrams, from the browser; maps, new photos and research require a connection.
 
 ![Detour landing page](docs/screenshots/17-detour-home.jpg)
 
-![Detour conversational workspace](docs/screenshots/19-detour-studio-desktop.jpg)
+Earlier published workspace; the local refresh is described in [the design note](docs/studio-ux-refresh.md).
+
+![Earlier Detour conversational workspace](docs/screenshots/19-detour-studio-desktop.jpg)
 
 ## What is verified
+
+The latest saved-guide/photo/flight-segment/PDF follow-up is complete: 75 Jac source checks, 134 Jac tests, 110 client + 31 PDF Node checks (141 total), 203 Python tests, final sealed build, 31/31 browser and 18/18 cold-offline PDF checks passed; [its validation status](docs/trip-guide.md#validation-status) is the source of truth. The results below are earlier implementation evidence, not final acceptance of the follow-up.
+
+The prior local compact-workspace pass completed **74 Jac source checks, 134 Jac tests, 106 Node tests and 181 Python tests**, the sealed build, 27/27 layout checks and 6/6 handoff/mobile checks. Actual model-backed Choose → Undo passed 15/15 checks using unchanged genuine historical quotes. The separate fresh search found no qualifying offers. See [the refresh validation](docs/studio-ux-refresh.md#validation-status) for the exact evidence. The following paragraphs describe the earlier published release, not a deployment of this local refresh.
 
 Current browser QA passed **28/28 checks with zero page errors**, including desktop/phone navigation, real Markdown rendering, trip lifecycle and source-card presentation. Live conversational checks exercised an actual rest-break edit and Undo while preserving fixed commitments and unrelated days; separate model-stage checks exercised consequential questions and bound confirmation. A real NWS adapter check returned a forecast and an official warning.
 

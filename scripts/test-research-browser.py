@@ -40,7 +40,52 @@ def main():
             else:
                 raise AssertionError('A prior capture ref must not retarget a current widget')
             assert len(list((Path(directory) / 'evidence').glob('source-*.json'))) == 3
-            print('Passed: focusable span date-picker, real click/result, stale-ref rejection; no network or user-trip writes.')
+            browser.page.set_content('''<!doctype html><title>Delayed client rendering test</title>
+                <p>Local synthetic public widget</p><div style="height:1300px"></div>
+                <button id="retired" aria-label="Show journey" aria-expanded="false">Details</button>
+                <p id="details"></p>
+                <script>window.addEventListener('scroll',()=>setTimeout(()=>{
+                  const old=document.querySelector('#retired'); const fresh=old.cloneNode(true);
+                  old.hidden=true; old.setAttribute('aria-hidden','true'); fresh.id='current';
+                  fresh.removeAttribute('data-detour-ref');fresh.addEventListener('click',()=>{
+                    fresh.setAttribute('aria-expanded','true');document.querySelector('#details').textContent='Segment details loaded';
+                  });old.after(fresh);
+                },30),{once:true});</script>''')
+            page = browser.capture()
+            disclosure = next(c for c in page['controls'] if c['label'] == 'Show journey')
+            opened = browser.call('browser_click', {'ref': disclosure['ref']})
+            assert 'Segment details loaded' in opened['text']
+            assert opened['action']['outcome'] == 'CHANGED' and opened['action']['expandedAfter'] == 'true'
+            assert browser.page.locator('#retired').evaluate('e=>e.isConnected')
+
+            browser.page.set_content('''<button aria-label="Show details" aria-expanded="false">Details</button>''')
+            page = browser.capture(); control = next(c for c in page['controls'] if c['tag'] == 'BUTTON')
+            unchanged = browser.call('browser_click', {'ref': control['ref']})
+            assert unchanged['action']['outcome'] == 'NO_CHANGE'
+
+            browser.page.set_content('''<button aria-label="Unique control">Details</button>''')
+            page = browser.capture(); control = next(c for c in page['controls'] if c['tag'] == 'BUTTON')
+            browser.page.evaluate("()=>document.querySelector('button').setAttribute('aria-label','Changed control')")
+            try:
+                browser.call('browser_click', {'ref': control['ref']})
+            except PlanningError as exc: assert 'changed' in str(exc)
+            else: raise AssertionError('Semantic mutation must reject the captured reference')
+
+            browser.page.set_content('''<button aria-label="Ambiguous control">Details</button>''')
+            page = browser.capture(); control = next(c for c in page['controls'] if c['tag'] == 'BUTTON')
+            browser.page.evaluate("()=>{const clone=document.querySelector('button').cloneNode(true);clone.removeAttribute('data-detour-ref');document.body.append(clone)}")
+            try:
+                browser.call('browser_click', {'ref': control['ref']})
+            except PlanningError as exc: assert 'ambiguous' in str(exc)
+            else: raise AssertionError('Fresh semantic resolution must reject ambiguity')
+
+            browser.page.set_content('''<button aria-label="Book now">Continue</button>''')
+            page = browser.capture(); control = next(c for c in page['controls'] if c['tag'] == 'BUTTON')
+            try:
+                browser.call('browser_click', {'ref': control['ref']})
+            except PlanningError as exc: assert 'payment' in str(exc)
+            else: raise AssertionError('A short visual label must not hide a transaction action')
+            print('Passed: native widget selection, stale refs, delayed client rerender, semantic mutation/ambiguity rejection, observed disclosure outcome, and transaction guard; no network or user-trip writes.')
         finally:
             browser.close()
             if previous is None: os.environ.pop('PLANNER_DATA_DIR', None)

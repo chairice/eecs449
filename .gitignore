@@ -4,6 +4,10 @@ __pycache__/
 .DS_Store
 web/dist/
 
+# Local PDF previews and rendered QA pages.
+output/pdf/
+tmp/pdfs/
+
 # Jac compiler installed by scripts/render-build.sh
 .render/
 

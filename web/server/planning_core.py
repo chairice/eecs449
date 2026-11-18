@@ -189,6 +189,10 @@ def validate_trip(raw: object) -> dict:
         place["timezone"] = text(place.get("timezone", ""), "place time zone", 100)
         place["sourceUrl"] = public_url(place.get("sourceUrl", ""))
         place["photoUrl"] = public_url(place.get("photoUrl", ""))
+        for key in ["photoSourceUrl"]:
+            place[key] = public_url(place.get(key, ""))
+        for key in ["photoAttribution", "photoLicense", "photoTitle", "address"]:
+            place[key] = text(place.get(key, ""), key, 1000)
     place_ids = {p["id"] for p in places}
 
     def place_ref(item: dict, field: str, required: bool = False) -> None:
@@ -289,6 +293,9 @@ def validate_trip(raw: object) -> dict:
             item["locked"] = bool(item.get("locked", False))
             item["timingState"] = choice(item.get("timingState", "PROVISIONAL"), {"PROVISIONAL", "CHECKED", "CONFLICT", "UNRESOLVED"}, "timing evidence state")
             item["sourceRefs"] = [identifier(ref, "evidence reference") for ref in sequence(item.get("sourceRefs", []), "evidence references", 30)]
+            item["actions"] = [{"label": text(record(action, "activity action").get("label"), "action label", 100, empty=False),
+                                "url": public_url(action.get("url", ""), empty=False)}
+                               for action in sequence(item.get("actions", []), "activity actions", 6)]
     days.sort(key=lambda d: d["date"] or "9999-12-31")
     for booking in sequence(base["bookings"], "bookings", 200):
         record(booking, "booking"); claim(booking, "booking")
@@ -496,3 +503,15 @@ def apply_operations_json(snapshot: str, operations: str) -> str:
 
 def change_summary_json(before: str, after: str) -> str:
     return dumps(change_summary(validate_trip(loads(before)), validate_trip(loads(after))))
+
+
+def journey_signature(snapshot: dict, leg: dict) -> dict:
+    """Bind auxiliary flight details to the exact saved leg and airport identity."""
+    places = {p['id']: p for p in snapshot['places']}
+    keys = ['fromId', 'toId', 'mode', 'departDate', 'arriveDate', 'departTime', 'arriveTime', 'durationMinutes', 'offerId', 'bookingId']
+    value = {key: leg.get(key) for key in keys}
+    for side, place_id in [('from', leg['fromId']), ('to', leg['toId'])]:
+        place = places.get(place_id, {})
+        for key in ['query', 'label']:
+            value[side + key.title()] = place.get(key, '')
+    return value

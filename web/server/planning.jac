@@ -17,6 +17,7 @@ import from server.planning_lifecycle {
     abandoned as _abandoned, recent_deleted as _recent_deleted
 }
 import from server.planning_weather { weather_json as _weather_json }
+import from server.planning_media { media_json as _media_json }
 
 node PlannerTrip {
     has uid: str, state_json: str;
@@ -282,4 +283,12 @@ def:protect planner_forget_preference(key: str) -> str {
         return profile.preferences_json;
     }
     return "{}";
+}
+
+# Auxiliary reads return cached media immediately and schedule bounded public lookups.
+def:pub planner_guest_media(state_json: str) -> str {
+    try { return _media_json(state_json); } except Exception as exc { return _failure(exc); }
+}
+def:protect planner_media(trip_id: str) -> str {
+    try { return _media_json(_find_trip(trip_id).state_json); } except Exception as exc { return _failure(exc); }
 }

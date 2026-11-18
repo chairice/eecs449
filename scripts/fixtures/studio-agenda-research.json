@@ -1,0 +1,799 @@
+{
+  "fixtureProvenance": "Genuine historical quotes from an isolated source-backed QA research run. Not current inventory; unchanged original offer IDs, prices, queries and timestamps. Presentation-only fixture, not authorized trusted_history for new queue selection.",
+  "offers": [
+    {
+      "bookingUrl": "https://www.google.com/travel/flights?q=Flights%20from%20DTW%20to%20SFO%20on%202026-11-22%20one%20way%20for%201%20adult",
+      "category": "FLIGHT",
+      "componentId": "flight1",
+      "currency": "USD",
+      "details": "8:31 PM \u2013 12:43 AM+1, 7 hr 12 min, 1 stop (52 min in Denver). 0 carry-on bags included. Lands after midnight on Nov 23.",
+      "evidence": {
+        "captureId": "source-aeb1943c532245208476ec4996fd40b5",
+        "componentId": "flight1",
+        "currencyExcerpt": "From 255 US dollars",
+        "details": "8:31 PM \u2013 12:43 AM+1, 7 hr 12 min, 1 stop (52 min in Denver). 0 carry-on bags included. Lands after midnight on Nov 23.",
+        "feesExcerpt": "Prices include required taxes + fees for 1 adult",
+        "flight": {
+          "airline": "Frontier",
+          "arriveDate": "2026-11-23",
+          "arriveTime": "00:43",
+          "departDate": "2026-11-22",
+          "departTime": "20:31",
+          "durationMinutes": 432,
+          "stops": 1
+        },
+        "flightExcerpt": "1 stop flight with Frontier. Leaves Detroit Metropolitan Wayne County Airport at 8:31 PM on Sunday, November 22 and arrives at San Francisco International Airport at 12:43 AM on Monday, November 23. Total duration 7 hr 12 min.",
+        "nameExcerpt": "1 stop flight with Frontier",
+        "observedQuery": {
+          "adults": 1,
+          "category": "FLIGHT",
+          "childrenAges": [],
+          "departDate": "2026-11-22",
+          "destination": "SFO",
+          "origin": "DTW"
+        },
+        "price": {
+          "amount": "255",
+          "basis": "PER_PERSON",
+          "currency": "USD",
+          "feesIncluded": true,
+          "from": false
+        },
+        "priceExcerpt": "From 255 US dollars. 1 stop flight with Frontier",
+        "query": {
+          "adults": 1,
+          "category": "FLIGHT",
+          "childrenAges": [],
+          "departDate": "2026-11-22",
+          "destination": "SFO",
+          "origin": "DTW"
+        },
+        "queryEvidence": {
+          "adults": "1 passenger",
+          "departDate": "Sun, Nov 22",
+          "destination": "San Francisco SFO",
+          "origin": "Detroit DTW"
+        },
+        "title": "Frontier DTW\u2192SFO, 1 stop via Denver"
+      },
+      "flight": {
+        "airline": "Frontier",
+        "arriveDate": "2026-11-23",
+        "arriveTime": "00:43",
+        "departDate": "2026-11-22",
+        "departTime": "20:31",
+        "durationMinutes": 432,
+        "stops": 1
+      },
+      "id": "offer-7377cc1cead94423ad92393bcb3ef258",
+      "location": "",
+      "observedAt": 1794795466.868232,
+      "photoUrl": "",
+      "price": {
+        "amountMinor": 25500,
+        "basis": "PER_PERSON",
+        "currency": "USD",
+        "estimatedTotalMinor": 25500,
+        "feesIncluded": true,
+        "from": false,
+        "quantity": 1
+      },
+      "provider": "Google Travel",
+      "providerHost": "google.com",
+      "query": {
+        "adults": 1,
+        "category": "FLIGHT",
+        "childrenAges": [],
+        "departDate": "2026-11-22",
+        "destination": "SFO",
+        "origin": "DTW"
+      },
+      "sourceUrl": "https://www.google.com/travel/flights?q=Flights%20from%20DTW%20to%20SFO%20on%202026-11-22%20one%20way%20for%201%20adult",
+      "title": "Frontier DTW\u2192SFO, 1 stop via Denver"
+    },
+    {
+      "bookingUrl": "https://www.google.com/travel/flights?q=Flights%20from%20DTW%20to%20SFO%20on%202026-11-22%20one%20way%20for%201%20adult",
+      "category": "FLIGHT",
+      "componentId": "flight1",
+      "currency": "USD",
+      "details": "4:00 PM \u2013 6:11 PM, 5 hr 11 min, nonstop. 1 carry-on bag included.",
+      "evidence": {
+        "captureId": "source-aeb1943c532245208476ec4996fd40b5",
+        "componentId": "flight1",
+        "currencyExcerpt": "From 544 US dollars",
+        "details": "4:00 PM \u2013 6:11 PM, 5 hr 11 min, nonstop. 1 carry-on bag included.",
+        "feesExcerpt": "Prices include required taxes + fees for 1 adult",
+        "flight": {
+          "airline": "Delta",
+          "arriveDate": "2026-11-22",
+          "arriveTime": "18:11",
+          "departDate": "2026-11-22",
+          "departTime": "16:00",
+          "durationMinutes": 311,
+          "stops": 0
+        },
+        "flightExcerpt": "Nonstop flight with Delta. Leaves Detroit Metropolitan Wayne County Airport at 4:00 PM on Sunday, November 22 and arrives at San Francisco International Airport at 6:11 PM on Sunday, November 22. Total duration 5 hr 11 min.",
+        "nameExcerpt": "Nonstop flight with Delta",
+        "observedQuery": {
+          "adults": 1,
+          "category": "FLIGHT",
+          "childrenAges": [],
+          "departDate": "2026-11-22",
+          "destination": "SFO",
+          "origin": "DTW"
+        },
+        "price": {
+          "amount": "544",
+          "basis": "PER_PERSON",
+          "currency": "USD",
+          "feesIncluded": true,
+          "from": false
+        },
+        "priceExcerpt": "From 544 US dollars. Nonstop flight with Delta",
+        "query": {
+          "adults": 1,
+          "category": "FLIGHT",
+          "childrenAges": [],
+          "departDate": "2026-11-22",
+          "destination": "SFO",
+          "origin": "DTW"
+        },
+        "queryEvidence": {
+          "adults": "1 passenger",
+          "departDate": "Sun, Nov 22",
+          "destination": "San Francisco SFO",
+          "origin": "Detroit DTW"
+        },
+        "title": "Delta nonstop DTW\u2192SFO"
+      },
+      "flight": {
+        "airline": "Delta",
+        "arriveDate": "2026-11-22",
+        "arriveTime": "18:11",
+        "departDate": "2026-11-22",
+        "departTime": "16:00",
+        "durationMinutes": 311,
+        "stops": 0
+      },
+      "id": "offer-fd1882009d2043af8aed7529c0dc12e0",
+      "location": "",
+      "observedAt": 1794795466.868232,
+      "photoUrl": "",
+      "price": {
+        "amountMinor": 54400,
+        "basis": "PER_PERSON",
+        "currency": "USD",
+        "estimatedTotalMinor": 54400,
+        "feesIncluded": true,
+        "from": false,
+        "quantity": 1
+      },
+      "provider": "Google Travel",
+      "providerHost": "google.com",
+      "query": {
+        "adults": 1,
+        "category": "FLIGHT",
+        "childrenAges": [],
+        "departDate": "2026-11-22",
+        "destination": "SFO",
+        "origin": "DTW"
+      },
+      "sourceUrl": "https://www.google.com/travel/flights?q=Flights%20from%20DTW%20to%20SFO%20on%202026-11-22%20one%20way%20for%201%20adult",
+      "title": "Delta nonstop DTW\u2192SFO"
+    },
+    {
+      "bookingUrl": "https://www.google.com/travel/flights?q=Flights%20from%20DTW%20to%20SFO%20on%202026-11-22%20one%20way%20for%201%20adult",
+      "category": "FLIGHT",
+      "componentId": "flight1",
+      "currency": "USD",
+      "details": "5:05 PM \u2013 7:31 PM, 5 hr 26 min, nonstop. 1 carry-on bag included.",
+      "evidence": {
+        "captureId": "source-aeb1943c532245208476ec4996fd40b5",
+        "componentId": "flight1",
+        "currencyExcerpt": "From 544 US dollars",
+        "details": "5:05 PM \u2013 7:31 PM, 5 hr 26 min, nonstop. 1 carry-on bag included.",
+        "feesExcerpt": "Prices include required taxes + fees for 1 adult",
+        "flight": {
+          "airline": "United",
+          "arriveDate": "2026-11-22",
+          "arriveTime": "19:31",
+          "departDate": "2026-11-22",
+          "departTime": "17:05",
+          "durationMinutes": 326,
+          "stops": 0
+        },
+        "flightExcerpt": "Nonstop flight with United. Leaves Detroit Metropolitan Wayne County Airport at 5:05 PM on Sunday, November 22 and arrives at San Francisco International Airport at 7:31 PM on Sunday, November 22. Total duration 5 hr 26 min.",
+        "nameExcerpt": "Nonstop flight with United",
+        "observedQuery": {
+          "adults": 1,
+          "category": "FLIGHT",
+          "childrenAges": [],
+          "departDate": "2026-11-22",
+          "destination": "SFO",
+          "origin": "DTW"
+        },
+        "price": {
+          "amount": "544",
+          "basis": "PER_PERSON",
+          "currency": "USD",
+          "feesIncluded": true,
+          "from": false
+        },
+        "priceExcerpt": "From 544 US dollars. Nonstop flight with United",
+        "query": {
+          "adults": 1,
+          "category": "FLIGHT",
+          "childrenAges": [],
+          "departDate": "2026-11-22",
+          "destination": "SFO",
+          "origin": "DTW"
+        },
+        "queryEvidence": {
+          "adults": "1 passenger",
+          "departDate": "Sun, Nov 22",
+          "destination": "San Francisco SFO",
+          "origin": "Detroit DTW"
+        },
+        "title": "United nonstop DTW\u2192SFO"
+      },
+      "flight": {
+        "airline": "United",
+        "arriveDate": "2026-11-22",
+        "arriveTime": "19:31",
+        "departDate": "2026-11-22",
+        "departTime": "17:05",
+        "durationMinutes": 326,
+        "stops": 0
+      },
+      "id": "offer-99497eca84b74540bea30991812de401",
+      "location": "",
+      "observedAt": 1794795466.868232,
+      "photoUrl": "",
+      "price": {
+        "amountMinor": 54400,
+        "basis": "PER_PERSON",
+        "currency": "USD",
+        "estimatedTotalMinor": 54400,
+        "feesIncluded": true,
+        "from": false,
+        "quantity": 1
+      },
+      "provider": "Google Travel",
+      "providerHost": "google.com",
+      "query": {
+        "adults": 1,
+        "category": "FLIGHT",
+        "childrenAges": [],
+        "departDate": "2026-11-22",
+        "destination": "SFO",
+        "origin": "DTW"
+      },
+      "sourceUrl": "https://www.google.com/travel/flights?q=Flights%20from%20DTW%20to%20SFO%20on%202026-11-22%20one%20way%20for%201%20adult",
+      "title": "United nonstop DTW\u2192SFO"
+    },
+    {
+      "bookingUrl": "https://www.google.com/travel/flights?q=Flights%20from%20SFO%20to%20XNA%20on%202026-11-25%20one%20way%20for%201%20adult",
+      "category": "FLIGHT",
+      "componentId": "flight2",
+      "currency": "USD",
+      "details": "6:38 AM \u2013 6:10 PM, 9 hr 32 min, 1 stop (4 hr 35 min in Dallas), operated by Envoy Air. 1 carry-on bag included.",
+      "evidence": {
+        "captureId": "source-a49992f3242549d5a96da6bf9dd7e095",
+        "componentId": "flight2",
+        "currencyExcerpt": "From 453 US dollars",
+        "details": "6:38 AM \u2013 6:10 PM, 9 hr 32 min, 1 stop (4 hr 35 min in Dallas), operated by Envoy Air. 1 carry-on bag included.",
+        "feesExcerpt": "Prices include required taxes + fees for 1 adult",
+        "flight": {
+          "airline": "American",
+          "arriveDate": "2026-11-25",
+          "arriveTime": "18:10",
+          "departDate": "2026-11-25",
+          "departTime": "06:38",
+          "durationMinutes": 572,
+          "stops": 1
+        },
+        "flightExcerpt": "1 stop flight with American. Operated by Envoy Air as American Eagle. Leaves San Francisco International Airport at 6:38 AM on Wednesday, November 25 and arrives at Northwest Arkansas National Airport at 6:10 PM on Wednesday, November 25. Total duration 9 hr 32 min.",
+        "nameExcerpt": "1 stop flight with American",
+        "observedQuery": {
+          "adults": 1,
+          "category": "FLIGHT",
+          "childrenAges": [],
+          "departDate": "2026-11-25",
+          "destination": "XNA",
+          "origin": "SFO"
+        },
+        "price": {
+          "amount": "453",
+          "basis": "PER_PERSON",
+          "currency": "USD",
+          "feesIncluded": true,
+          "from": false
+        },
+        "priceExcerpt": "From 453 US dollars. 1 stop flight with American",
+        "query": {
+          "adults": 1,
+          "category": "FLIGHT",
+          "childrenAges": [],
+          "departDate": "2026-11-25",
+          "destination": "XNA",
+          "origin": "SFO"
+        },
+        "queryEvidence": {
+          "adults": "1 passenger",
+          "departDate": "Wed, Nov 25",
+          "destination": "Fayetteville XNA",
+          "origin": "San Francisco SFO"
+        },
+        "title": "American Eagle SFO\u2192XNA, 1 stop via Dallas (lowest fare)"
+      },
+      "flight": {
+        "airline": "American",
+        "arriveDate": "2026-11-25",
+        "arriveTime": "18:10",
+        "departDate": "2026-11-25",
+        "departTime": "06:38",
+        "durationMinutes": 572,
+        "stops": 1
+      },
+      "id": "offer-26d825db8aef47f884786c020d7fab0d",
+      "location": "",
+      "observedAt": 1794795470.7678819,
+      "photoUrl": "",
+      "price": {
+        "amountMinor": 45300,
+        "basis": "PER_PERSON",
+        "currency": "USD",
+        "estimatedTotalMinor": 45300,
+        "feesIncluded": true,
+        "from": false,
+        "quantity": 1
+      },
+      "provider": "Google Travel",
+      "providerHost": "google.com",
+      "query": {
+        "adults": 1,
+        "category": "FLIGHT",
+        "childrenAges": [],
+        "departDate": "2026-11-25",
+        "destination": "XNA",
+        "origin": "SFO"
+      },
+      "sourceUrl": "https://www.google.com/travel/flights?q=Flights%20from%20SFO%20to%20XNA%20on%202026-11-25%20one%20way%20for%201%20adult",
+      "title": "American Eagle SFO\u2192XNA, 1 stop via Dallas (lowest fare)"
+    },
+    {
+      "bookingUrl": "https://www.google.com/travel/flights?q=Flights%20from%20SFO%20to%20XNA%20on%202026-11-25%20one%20way%20for%201%20adult",
+      "category": "FLIGHT",
+      "componentId": "flight2",
+      "currency": "USD",
+      "details": "3:54 PM \u2013 11:51 PM, 5 hr 57 min, 1 stop (1 hr 5 min in Dallas), operated by Envoy Air. 1 carry-on bag included.",
+      "evidence": {
+        "captureId": "source-a49992f3242549d5a96da6bf9dd7e095",
+        "componentId": "flight2",
+        "currencyExcerpt": "From 503 US dollars",
+        "details": "3:54 PM \u2013 11:51 PM, 5 hr 57 min, 1 stop (1 hr 5 min in Dallas), operated by Envoy Air. 1 carry-on bag included.",
+        "feesExcerpt": "Prices include required taxes + fees for 1 adult",
+        "flight": {
+          "airline": "American",
+          "arriveDate": "2026-11-25",
+          "arriveTime": "23:51",
+          "departDate": "2026-11-25",
+          "departTime": "15:54",
+          "durationMinutes": 357,
+          "stops": 1
+        },
+        "flightExcerpt": "1 stop flight with American. Operated by Envoy Air as American Eagle. Leaves San Francisco International Airport at 3:54 PM on Wednesday, November 25 and arrives at Northwest Arkansas National Airport at 11:51 PM on Wednesday, November 25. Total duration 5 hr 57 min.",
+        "nameExcerpt": "1 stop flight with American",
+        "observedQuery": {
+          "adults": 1,
+          "category": "FLIGHT",
+          "childrenAges": [],
+          "departDate": "2026-11-25",
+          "destination": "XNA",
+          "origin": "SFO"
+        },
+        "price": {
+          "amount": "503",
+          "basis": "PER_PERSON",
+          "currency": "USD",
+          "feesIncluded": true,
+          "from": false
+        },
+        "priceExcerpt": "From 503 US dollars. 1 stop flight with American",
+        "query": {
+          "adults": 1,
+          "category": "FLIGHT",
+          "childrenAges": [],
+          "departDate": "2026-11-25",
+          "destination": "XNA",
+          "origin": "SFO"
+        },
+        "queryEvidence": {
+          "adults": "1 passenger",
+          "departDate": "Wed, Nov 25",
+          "destination": "Fayetteville XNA",
+          "origin": "San Francisco SFO"
+        },
+        "title": "American Eagle SFO\u2192XNA, 1 stop via Dallas (afternoon)"
+      },
+      "flight": {
+        "airline": "American",
+        "arriveDate": "2026-11-25",
+        "arriveTime": "23:51",
+        "departDate": "2026-11-25",
+        "departTime": "15:54",
+        "durationMinutes": 357,
+        "stops": 1
+      },
+      "id": "offer-0111428b356e481eb19943931c2d65f2",
+      "location": "",
+      "observedAt": 1794795470.7678819,
+      "photoUrl": "",
+      "price": {
+        "amountMinor": 50300,
+        "basis": "PER_PERSON",
+        "currency": "USD",
+        "estimatedTotalMinor": 50300,
+        "feesIncluded": true,
+        "from": false,
+        "quantity": 1
+      },
+      "provider": "Google Travel",
+      "providerHost": "google.com",
+      "query": {
+        "adults": 1,
+        "category": "FLIGHT",
+        "childrenAges": [],
+        "departDate": "2026-11-25",
+        "destination": "XNA",
+        "origin": "SFO"
+      },
+      "sourceUrl": "https://www.google.com/travel/flights?q=Flights%20from%20SFO%20to%20XNA%20on%202026-11-25%20one%20way%20for%201%20adult",
+      "title": "American Eagle SFO\u2192XNA, 1 stop via Dallas (afternoon)"
+    },
+    {
+      "bookingUrl": "https://www.google.com/travel/flights?q=Flights%20from%20SFO%20to%20XNA%20on%202026-11-25%20one%20way%20for%201%20adult",
+      "category": "FLIGHT",
+      "componentId": "flight2",
+      "currency": "USD",
+      "details": "1:00 PM \u2013 8:32 PM, 5 hr 32 min, 1 stop (1 hr 4 min in Denver). 1 carry-on bag included.",
+      "evidence": {
+        "captureId": "source-a49992f3242549d5a96da6bf9dd7e095",
+        "componentId": "flight2",
+        "currencyExcerpt": "From 534 US dollars",
+        "details": "1:00 PM \u2013 8:32 PM, 5 hr 32 min, 1 stop (1 hr 4 min in Denver). 1 carry-on bag included.",
+        "feesExcerpt": "Prices include required taxes + fees for 1 adult",
+        "flight": {
+          "airline": "United",
+          "arriveDate": "2026-11-25",
+          "arriveTime": "20:32",
+          "departDate": "2026-11-25",
+          "departTime": "13:00",
+          "durationMinutes": 332,
+          "stops": 1
+        },
+        "flightExcerpt": "1 stop flight with United. Leaves San Francisco International Airport at 1:00 PM on Wednesday, November 25 and arrives at Northwest Arkansas National Airport at 8:32 PM on Wednesday, November 25. Total duration 5 hr 32 min.",
+        "nameExcerpt": "1 stop flight with United",
+        "observedQuery": {
+          "adults": 1,
+          "category": "FLIGHT",
+          "childrenAges": [],
+          "departDate": "2026-11-25",
+          "destination": "XNA",
+          "origin": "SFO"
+        },
+        "price": {
+          "amount": "534",
+          "basis": "PER_PERSON",
+          "currency": "USD",
+          "feesIncluded": true,
+          "from": false
+        },
+        "priceExcerpt": "From 534 US dollars. 1 stop flight with United",
+        "query": {
+          "adults": 1,
+          "category": "FLIGHT",
+          "childrenAges": [],
+          "departDate": "2026-11-25",
+          "destination": "XNA",
+          "origin": "SFO"
+        },
+        "queryEvidence": {
+          "adults": "1 passenger",
+          "departDate": "Wed, Nov 25",
+          "destination": "Fayetteville XNA",
+          "origin": "San Francisco SFO"
+        },
+        "title": "United SFO\u2192XNA, 1 stop via Denver"
+      },
+      "flight": {
+        "airline": "United",
+        "arriveDate": "2026-11-25",
+        "arriveTime": "20:32",
+        "departDate": "2026-11-25",
+        "departTime": "13:00",
+        "durationMinutes": 332,
+        "stops": 1
+      },
+      "id": "offer-dfe65f92afc9449caf06961be68c208c",
+      "location": "",
+      "observedAt": 1794795470.7678819,
+      "photoUrl": "",
+      "price": {
+        "amountMinor": 53400,
+        "basis": "PER_PERSON",
+        "currency": "USD",
+        "estimatedTotalMinor": 53400,
+        "feesIncluded": true,
+        "from": false,
+        "quantity": 1
+      },
+      "provider": "Google Travel",
+      "providerHost": "google.com",
+      "query": {
+        "adults": 1,
+        "category": "FLIGHT",
+        "childrenAges": [],
+        "departDate": "2026-11-25",
+        "destination": "XNA",
+        "origin": "SFO"
+      },
+      "sourceUrl": "https://www.google.com/travel/flights?q=Flights%20from%20SFO%20to%20XNA%20on%202026-11-25%20one%20way%20for%201%20adult",
+      "title": "United SFO\u2192XNA, 1 stop via Denver"
+    },
+    {
+      "bookingUrl": "https://www.airbnb.com/s/San-Francisco--CA/homes?checkin=2026-11-22&checkout=2026-11-25&adults=1&children=0",
+      "category": "HOTEL",
+      "componentId": "hotel1",
+      "currency": "USD",
+      "details": "Hotel in Union Square, 4.64 (291 reviews). $283 for 3 nights, all fees included, per Airbnb.",
+      "evidence": {
+        "captureId": "source-ff3d51c60937452d9c978c8197aa7cb3",
+        "componentId": "hotel1",
+        "currencyExcerpt": "$\nUSD",
+        "details": "Hotel in Union Square, 4.64 (291 reviews). $283 for 3 nights, all fees included, per Airbnb.",
+        "feesExcerpt": "Prices include all fees",
+        "location": "Union Square, San Francisco",
+        "nameExcerpt": "Touchstone Hotel",
+        "observedQuery": {
+          "adults": 1,
+          "category": "HOTEL",
+          "checkIn": "2026-11-22",
+          "checkOut": "2026-11-25",
+          "childrenAges": [],
+          "location": "San Francisco",
+          "rooms": 1
+        },
+        "price": {
+          "amount": "283",
+          "basis": "TOTAL",
+          "currency": "USD",
+          "feesIncluded": true,
+          "from": false
+        },
+        "priceExcerpt": "$283 for 3 nights",
+        "query": {
+          "adults": 1,
+          "category": "HOTEL",
+          "checkIn": "2026-11-22",
+          "checkOut": "2026-11-25",
+          "childrenAges": [],
+          "location": "San Francisco",
+          "rooms": 1
+        },
+        "queryEvidence": {
+          "adults": "1 guest",
+          "checkIn": "Nov 22 \u2013 25",
+          "checkOut": "Nov 22 \u2013 25",
+          "location": "Homes in San Francisco",
+          "rooms": "Touchstone Hotel"
+        },
+        "roomBasis": "SINGLE_LISTING",
+        "title": "Touchstone Hotel, Union Square"
+      },
+      "id": "offer-fa50c3bcc20e4d34b456d54c268ada14",
+      "location": "Union Square, San Francisco",
+      "observedAt": 1794795476.332077,
+      "photoUrl": "",
+      "price": {
+        "amountMinor": 28300,
+        "basis": "TOTAL",
+        "currency": "USD",
+        "estimatedTotalMinor": null,
+        "feesIncluded": true,
+        "from": false,
+        "quantity": 1
+      },
+      "provider": "Airbnb",
+      "providerHost": "airbnb.com",
+      "query": {
+        "adults": 1,
+        "category": "HOTEL",
+        "checkIn": "2026-11-22",
+        "checkOut": "2026-11-25",
+        "childrenAges": [],
+        "location": "San Francisco",
+        "rooms": 1
+      },
+      "sourceUrl": "https://www.airbnb.com/s/San-Francisco--CA/homes?checkin=2026-11-22&checkout=2026-11-25&adults=1&children=0",
+      "title": "Touchstone Hotel, Union Square",
+      "totalMinor": 28300
+    },
+    {
+      "bookingUrl": "https://www.airbnb.com/s/San-Francisco--CA/homes?checkin=2026-11-22&checkout=2026-11-25&adults=1&children=0",
+      "category": "HOTEL",
+      "componentId": "hotel1",
+      "currency": "USD",
+      "details": "Hotel in San Francisco, 4.48 (112 reviews). $384 for 3 nights, free cancellation options, per Airbnb.",
+      "evidence": {
+        "captureId": "source-ff3d51c60937452d9c978c8197aa7cb3",
+        "componentId": "hotel1",
+        "currencyExcerpt": "$\nUSD",
+        "details": "Hotel in San Francisco, 4.48 (112 reviews). $384 for 3 nights, free cancellation options, per Airbnb.",
+        "feesExcerpt": "Prices include all fees",
+        "location": "San Francisco",
+        "nameExcerpt": "Andrews Hotel",
+        "observedQuery": {
+          "adults": 1,
+          "category": "HOTEL",
+          "checkIn": "2026-11-22",
+          "checkOut": "2026-11-25",
+          "childrenAges": [],
+          "location": "San Francisco",
+          "rooms": 1
+        },
+        "price": {
+          "amount": "384",
+          "basis": "TOTAL",
+          "currency": "USD",
+          "feesIncluded": true,
+          "from": false
+        },
+        "priceExcerpt": "$384 for 3 nights",
+        "query": {
+          "adults": 1,
+          "category": "HOTEL",
+          "checkIn": "2026-11-22",
+          "checkOut": "2026-11-25",
+          "childrenAges": [],
+          "location": "San Francisco",
+          "rooms": 1
+        },
+        "queryEvidence": {
+          "adults": "1 guest",
+          "checkIn": "Nov 22 \u2013 25",
+          "checkOut": "Nov 22 \u2013 25",
+          "location": "Homes in San Francisco",
+          "rooms": "Andrews Hotel"
+        },
+        "roomBasis": "SINGLE_LISTING",
+        "title": "Andrews Hotel, San Francisco"
+      },
+      "id": "offer-eecc1f9baa1f41f390175cc74ffef5e2",
+      "location": "San Francisco",
+      "observedAt": 1794795476.332077,
+      "photoUrl": "",
+      "price": {
+        "amountMinor": 38400,
+        "basis": "TOTAL",
+        "currency": "USD",
+        "estimatedTotalMinor": null,
+        "feesIncluded": true,
+        "from": false,
+        "quantity": 1
+      },
+      "provider": "Airbnb",
+      "providerHost": "airbnb.com",
+      "query": {
+        "adults": 1,
+        "category": "HOTEL",
+        "checkIn": "2026-11-22",
+        "checkOut": "2026-11-25",
+        "childrenAges": [],
+        "location": "San Francisco",
+        "rooms": 1
+      },
+      "sourceUrl": "https://www.airbnb.com/s/San-Francisco--CA/homes?checkin=2026-11-22&checkout=2026-11-25&adults=1&children=0",
+      "title": "Andrews Hotel, San Francisco",
+      "totalMinor": 38400
+    },
+    {
+      "bookingUrl": "https://www.airbnb.com/s/San-Francisco--CA/homes?checkin=2026-11-22&checkout=2026-11-25&adults=1&children=0",
+      "category": "HOTEL",
+      "componentId": "hotel1",
+      "currency": "USD",
+      "details": "Hotel in San Francisco, 4.73 (1443 reviews). $430 for 3 nights, all fees included, per Airbnb.",
+      "evidence": {
+        "captureId": "source-ff3d51c60937452d9c978c8197aa7cb3",
+        "componentId": "hotel1",
+        "currencyExcerpt": "$\nUSD",
+        "details": "Hotel in San Francisco, 4.73 (1443 reviews). $430 for 3 nights, all fees included, per Airbnb.",
+        "feesExcerpt": "Prices include all fees",
+        "location": "San Francisco",
+        "nameExcerpt": "Hotel Zetta San Francisco",
+        "observedQuery": {
+          "adults": 1,
+          "category": "HOTEL",
+          "checkIn": "2026-11-22",
+          "checkOut": "2026-11-25",
+          "childrenAges": [],
+          "location": "San Francisco",
+          "rooms": 1
+        },
+        "price": {
+          "amount": "430",
+          "basis": "TOTAL",
+          "currency": "USD",
+          "feesIncluded": true,
+          "from": false
+        },
+        "priceExcerpt": "$430 for 3 nights",
+        "query": {
+          "adults": 1,
+          "category": "HOTEL",
+          "checkIn": "2026-11-22",
+          "checkOut": "2026-11-25",
+          "childrenAges": [],
+          "location": "San Francisco",
+          "rooms": 1
+        },
+        "queryEvidence": {
+          "adults": "1 guest",
+          "checkIn": "Nov 22 \u2013 25",
+          "checkOut": "Nov 22 \u2013 25",
+          "location": "Homes in San Francisco",
+          "rooms": "Hotel Zetta San Francisco"
+        },
+        "roomBasis": "SINGLE_LISTING",
+        "title": "Hotel Zetta San Francisco"
+      },
+      "id": "offer-f7a836b3eba646d6b0faf1727e11c655",
+      "location": "San Francisco",
+      "observedAt": 1794795476.332077,
+      "photoUrl": "",
+      "price": {
+        "amountMinor": 43000,
+        "basis": "TOTAL",
+        "currency": "USD",
+        "estimatedTotalMinor": null,
+        "feesIncluded": true,
+        "from": false,
+        "quantity": 1
+      },
+      "provider": "Airbnb",
+      "providerHost": "airbnb.com",
+      "query": {
+        "adults": 1,
+        "category": "HOTEL",
+        "checkIn": "2026-11-22",
+        "checkOut": "2026-11-25",
+        "childrenAges": [],
+        "location": "San Francisco",
+        "rooms": 1
+      },
+      "sourceUrl": "https://www.airbnb.com/s/San-Francisco--CA/homes?checkin=2026-11-22&checkout=2026-11-25&adults=1&children=0",
+      "title": "Hotel Zetta San Francisco",
+      "totalMinor": 43000
+    }
+  ],
+  "researchSources": [
+    {
+      "captureId": "source-aeb1943c532245208476ec4996fd40b5",
+      "observedAt": 1794795466.868232,
+      "title": "Detroit to San Francisco | Google Flights",
+      "url": "https://www.google.com/travel/flights?q=Flights%20from%20DTW%20to%20SFO%20on%202026-11-22%20one%20way%20for%201%20adult"
+    },
+    {
+      "captureId": "source-a49992f3242549d5a96da6bf9dd7e095",
+      "observedAt": 1794795470.7678819,
+      "title": "San Francisco to Fayetteville | Google Flights",
+      "url": "https://www.google.com/travel/flights?q=Flights%20from%20SFO%20to%20XNA%20on%202026-11-25%20one%20way%20for%201%20adult"
+    },
+    {
+      "captureId": "source-ff3d51c60937452d9c978c8197aa7cb3",
+      "observedAt": 1794795476.332077,
+      "title": "Airbnb | San Francisco - Vacation Rentals & Places to Stay - California",
+      "url": "https://www.airbnb.com/s/San-Francisco--CA/homes?checkin=2026-11-22&checkout=2026-11-25&adults=1&children=0"
+    }
+  ]
+}

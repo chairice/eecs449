@@ -7,6 +7,15 @@ from server import planning_jobs as jobs
 from server.planning_lifecycle import needs_decision, remember_undo, bound_undo
 
 
+def _research_links(raw):
+    links = []
+    for value in sequence(raw or [], "research links", 100)[:12]:
+        link = record(value, "research link")
+        links.append({"label": text(link.get("label", ""), "link label", 200),
+                      "url": public_url(link.get("url"), empty=False)})
+    return links
+
+
 def fresh(raw=""):
     value = record(loads(raw), "trip import") if raw else {}
     if value.get("activeJob"):
@@ -18,9 +27,11 @@ def fresh(raw=""):
         if turn.get("role") not in {"user", "assistant"}:
             raise PlanningError("Invalid conversation role.")
         text(turn.get("content"), "conversation message", 160000)
+        if "researchLinks" in turn:
+            turn["researchLinks"] = _research_links(turn["researchLinks"])
     state = {"id": snapshot["id"], "snapshot": snapshot, "revision": 0, "conversation": conversation,
             "workingContext": record(value.get("workingContext", {}), "working context"), "summary": text(value.get("summary", ""), "conversation summary", 20000),
-            "pending": None, "offers": [], "comparisonOffers": [], "researchLinks": [], "nextDecision": value.get("nextDecision", {}), "jobs": {}, "updatedAt": now(),
+            "pending": None, "offers": [], "comparisonOffers": [], "researchLinks": [], "flightJourneys": [], "nextDecision": value.get("nextDecision", {}), "jobs": {}, "updatedAt": now(),
             "preferences": value.get("preferences", {"values": {}, "forgotten": [], "applied": []}),
             "undo": None, "undoHistory": [], "retainedDraft": bool(value.get("retainedDraft")), "hasImportedMaterial": bool(value.get("hasImportedMaterial"))}
     if value.get("pending"):
@@ -49,6 +60,7 @@ def prepare_request(state_json: str, request_json: str, preferences_json: str = 
     request["workingContext"] = state["workingContext"]
     request["proposal"] = state.get("pending")
     request["researchContext"] = {"offers": state.get("offers", []), "comparisonOfferIds": [offer["id"] for offer in state.get("comparisonOffers", [])],
+                                  "flightJourneys": state.get("flightJourneys", []),
                                   "routes": [{k: v for k, v in source.items() if k != "points"} for source in state.get("routes", [])], "daylight": state.get("daylight", [])}
     from server.planning_weather import cached_weather
     request["researchContext"]["weather"] = cached_weather(state["snapshot"], state.get("routes", []))
@@ -92,7 +104,7 @@ def stage(state_json, owner_id, job_id):
     expected_places = {p["id"]: p for p in expected["places"]}
     for place in check["places"]:
         old = expected_places.get(place["id"], {})
-        for key in ["lat", "lon", "timezone", "sourceUrl", "photoUrl"]:
+        for key in ["lat", "lon", "timezone", "sourceUrl", "photoUrl", "photoSourceUrl", "photoAttribution", "photoLicense", "photoTitle", "address"]:
             if key in old:
                 place[key] = old[key]
     if check != expected:
@@ -121,17 +133,26 @@ def stage(state_json, owner_id, job_id):
     selected = {item.get("offerId") for field in ["stays", "legs", "rentals"] for item in proposed.get(field, [])}
     recent = list(quotes)[-60:]
     state["offers"] = [offer for key, offer in quotes.items() if key in selected or key in recent]
+    current_links = []
     if result.get("sourceCount") or result.get("researchQuery") or result.get("offers") or result.get("researchLinks"):
         state["comparisonOffers"] = result.get("offers", [])
-        state["researchLinks"] = [{"label": text(link.get("label"), "link label", 200), "url": public_url(link.get("url"), empty=False)} for link in result.get("researchLinks", [])[:12]]
+        current_links = _research_links(result.get("researchLinks", []))
+        state["researchLinks"] = current_links
     state["nextDecision"] = result.get("nextDecision", {})
-    for field in ["routes", "daylight", "researchSources", "mapLocations"]:
+    for field in ["routes", "daylight", "researchSources", "mapLocations", "flightJourneys"]:
         previous = {item.get("id", item.get("captureId")): item for item in state.get(field, [])}
         previous.update({item.get("id", item.get("captureId")): item for item in result.get(field, [])})
         state[field] = list(previous.values())[-200:]
+    # A schedule resource belongs to this precise leg and airport identity.
+    # Editing/Undo can reuse IDs, so never expose a stale connection under that ID.
+    from server.planning_core import journey_signature
+    current_legs = {leg["id"]: leg for leg in state["snapshot"]["legs"]}
+    state["flightJourneys"] = [journey for journey in state.get("flightJourneys", [])
+        if journey.get("legId") in current_legs and journey.get("legSignature") == journey_signature(state["snapshot"], current_legs[journey["legId"]])]
     state["preferences"] = learn(state.get("preferences", {}), result.get("memoryUpdates", []), job_id)
     state["conversation"].append({"role": "assistant", "content": result["assistantMessage"], "jobId": job_id,
                                    "offerIds": [offer["id"] for offer in result.get("offers", [])],
+                                   "researchLinks": copy.deepcopy(current_links),
                                    "decisionId": state["pending"]["id"] if state.get("pending") else ""})
     state["updatedAt"] = now()
     state["activeJob"] = ""
@@ -276,6 +297,16 @@ def validate_selections(snapshot, quotes, before=None):
                 returning = (query.get("destination"), query.get("origin"), query.get("returnDate"))
                 if not first or not last or (first, last, item.get("departDate")) not in {outbound, returning}:
                     raise PlanningError("The selected flight does not match this leg's airports and date.")
+                # Old aggregate-only records remain usable. New choices and edited
+                # known schedule fields must agree with the retained sourced fare.
+                if (first, last, item.get("departDate")) == outbound:
+                    flight = offer.get("flight", {})
+                    for key in ["departDate", "arriveDate", "departTime", "arriveTime", "durationMinutes"]:
+                        known_item = item.get(key) is not None and item.get(key) != ""
+                        known_offer = flight.get(key) is not None and flight.get(key) != ""
+                        changed = old.get("offerId") != ref or old.get(key) != item.get(key)
+                        if known_item and known_offer and item[key] != flight[key] and changed:
+                            raise PlanningError("The selected flight's schedule differs from this leg. Keep its observed times or research another flight.")
             if not item.get("bookingId") and item.get("status") != "BOOKED":
                 for key in ["adults", "driverAge"]:
                     expected = snapshot["party"].get(key)
@@ -292,8 +323,29 @@ def _airport_code(place):
     from server.atlas_service import _catalog
     if place.get("kind") != "AIRPORT":
         return ""
-    fields = (place.get("query", "") + " " + place.get("label", "")).upper()
-    candidates = {item["code"] for item in _catalog() if item["kind"] == "AIRPORT" and item["code"] and re.search(r"(?<![A-Z])" + re.escape(item["code"]) + r"(?![A-Z])", fields)}
+    airports = [item for item in _catalog() if item["kind"] == "AIRPORT" and item["code"]]
+    codes = {item["code"] for item in airports}
+    identities = {}
+    for item in airports:
+        code, name = item["code"], item.get("name", "")
+        for identity in [code, name, name + " " + code, name + " (" + code + ")"]:
+            key = " ".join(identity.casefold().split())
+            if key:
+                identities.setdefault(key, set()).add(code)
+    candidates = set()
+    for field in [place.get("query", ""), place.get("label", "")]:
+        exact = identities.get(" ".join(field.casefold().split()))
+        if exact:
+            candidates.update(exact)
+            continue
+        parenthesized = {code.upper() for code in re.findall(r"\(([A-Za-z]{3})\)", field) if code.upper() in codes}
+        if parenthesized:
+            candidates.update(parenthesized)
+            outside = re.sub(r"\([A-Za-z]{3}\)", " ", field)
+            candidates.update(identities.get(" ".join(outside.casefold().split()), set()))
+        else:
+            # Preserve case: the city word "San" is not the IATA code SAN.
+            candidates.update(code for code in re.findall(r"\b[A-Z]{3}\b", field) if code in codes)
     return next(iter(candidates)) if len(candidates) == 1 else ""
 
 
@@ -309,8 +361,12 @@ def import_resources_json(raw: str, token: str, account: str) -> str:
         if job["request"]["tripId"] != state["id"] or job["status"] != "SUCCEEDED":
             continue
         for offer in job["result"].get("offers", []): quotes[offer["id"]] = offer
-        for field in ["routes", "daylight", "researchSources", "mapLocations"]:
+        for field in ["routes", "daylight", "researchSources", "mapLocations", "flightJourneys"]:
             state[field] = state.get(field, []) + job["result"].get(field, [])
+    from server.planning_core import journey_signature
+    legs = {leg["id"]: leg for leg in state["snapshot"]["legs"]}
+    state["flightJourneys"] = [journey for journey in state.get("flightJourneys", [])
+        if journey.get("legId") in legs and journey.get("legSignature") == journey_signature(state["snapshot"], legs[journey["legId"]])]
     state["offers"] = list(quotes.values())
     active_ids = {offer.get("id") for offer in source.get("comparisonOffers", source.get("offers", []))}
     state["comparisonOffers"] = [offer for offer in quotes.values() if offer["id"] in active_ids]

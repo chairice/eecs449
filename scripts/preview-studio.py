@@ -39,6 +39,8 @@ class Handler(SimpleHTTPRequestHandler):
             self.proxy(); return
         if self.path.split("?")[0] in {"/", "/studio"}:
             self.path = "/index.html"
+        elif self.path.startswith("/static/assets/"):
+            self.path = self.path.removeprefix("/static")
         super().do_GET()
 
     def do_POST(self):
