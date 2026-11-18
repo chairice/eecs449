@@ -34,7 +34,7 @@ class ResearchBrowser:
         if self.page:
             return
         from playwright.sync_api import sync_playwright
-        os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", str(Path(__file__).resolve().parents[1] / ".browsers"))
+        os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", str(Path(__file__).resolve().parents[2] / "workers/.browsers"))
         self.engine = sync_playwright().start()
         self.browser = self.engine.chromium.launch(headless=True, args=["--disable-dev-shm-usage"])
         self.context = self.browser.new_context(viewport={"width": 1280, "height": 900}, locale="en-US")

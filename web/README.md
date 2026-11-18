@@ -63,7 +63,7 @@ Paths below are relative to `web/` unless shown otherwise.
 | `server/planning_core.py`, `server/planning_api.py` | Structural validation, source/selection/budget checks and worker-result staging |
 | `server/planning_jobs.py`, `server/planning_lifecycle.py` | Private SQLite work queue, leases, recoverable deletion and draft lifecycle |
 | `server/planning_weather.py` | Independent real NWS refresh/cache, stale-input binding and retained official alerts |
-| `../workers/atlas_runtime/` | Anthropic interpretation, isolated public research browser and geographic tools |
+| `atlas_runtime/` | Anthropic interpretation, isolated public research browser and geographic tools |
 | `offline-worker.js`, `../scripts/finalize-studio-build.py` | Saved-itinerary offline policy and sealed-artifact service-worker replacement |
 
 ## Storage and production boundary

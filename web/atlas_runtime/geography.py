@@ -20,14 +20,14 @@ _request_lock = threading.Lock()
 
 @lru_cache(maxsize=1)
 def catalog():
-    with gzip.open(Path(__file__).resolve().parents[2] / "web/fixtures/atlas/places.json.gz", "rt") as handle:
+    with gzip.open(Path(__file__).resolve().parents[1] / "fixtures/atlas/places.json.gz", "rt") as handle:
         return json.load(handle)
 
 
 
 @lru_cache(maxsize=1)
 def states():
-    with open(Path(__file__).resolve().parents[2] / "web/fixtures/atlas/states.geojson") as handle:
+    with open(Path(__file__).resolve().parents[1] / "fixtures/atlas/states.geojson") as handle:
         return sorted([feature["properties"] for feature in json.load(handle)["features"]], key=lambda value: len(value["name"]), reverse=True)
 
 

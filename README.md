@@ -62,7 +62,7 @@ The runtime requires one supervised Jac server/worker host, a persistent Jac Pos
 
 ## Design and source
 
-The current [Detour handoff](docs/DETOUR-AGENT-HANDOFF.md) supersedes conflicting historical product rules. The earlier [adopted decisions](docs/trip-planner-decisions.md), [interaction blueprint](docs/trip-planner-ux-blueprint.md), [architecture](docs/trip-planner-design.md) and [implementation plan](docs/trip-planner-implementation-plan.md) describe the product. Core code lives in `web/components/TripStudio.jac`, `web/server/planning.jac`, `web/server/planning_core.py`, and `workers/atlas_runtime/`.
+The current [Detour handoff](docs/DETOUR-AGENT-HANDOFF.md) supersedes conflicting historical product rules. The earlier [adopted decisions](docs/trip-planner-decisions.md), [interaction blueprint](docs/trip-planner-ux-blueprint.md), [architecture](docs/trip-planner-design.md) and [implementation plan](docs/trip-planner-implementation-plan.md) describe the product. Core code lives in `web/components/TripStudio.jac`, `web/server/planning.jac`, `web/server/planning_core.py`, and `web/atlas_runtime/`.
 
 The earlier commuter preview remains at `/commuter`, `/plan` and `/trips`; the earlier Atlas journal remains at `/atlas`. Their fixture and browser-local contracts are separate from the new studio. Historical documentation is retained in [the previous README](docs/commuter-readme-legacy.md) and [historical web reference](web/README-legacy.md).
 

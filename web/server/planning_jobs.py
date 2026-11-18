@@ -107,7 +107,12 @@ def _wake_worker() -> None:
 
 
 def enqueue(owner: str, request_json: str, *, deferred: bool = False, kind: str = "PLAN") -> str:
-    _wake_worker()
+    job_id = _insert_job(owner, request_json, deferred, kind)
+    _wake_worker()  # After the insert, so the worker never races the store's first creation.
+    return job_id
+
+
+def _insert_job(owner: str, request_json: str, deferred: bool, kind: str) -> str:
     request = validated_request(request_json)
     digest = fingerprint(request)
     with connection() as db:
@@ -132,9 +137,9 @@ def enqueue(owner: str, request_json: str, *, deferred: bool = False, kind: str 
 
 
 def activate(owner: str, job_id: str) -> None:
-    _wake_worker()
     with connection() as db:
         db.execute("UPDATE jobs SET status='QUEUED',updated=? WHERE id=? AND owner=? AND status='PREPARED'", (time.time(), job_id, owner))
+    _wake_worker()
 
 
 def claim(worker_id: str, lease_seconds: float = 300) -> dict | None:

@@ -9,8 +9,13 @@ DETOUR_EMBEDDED_WORKER=off.
 """
 from __future__ import annotations
 
+import importlib
+import importlib.util
 import logging
 import os
+import shutil
+import sqlite3
+import subprocess
 import sys
 import threading
 import time
@@ -42,11 +47,48 @@ def _load_runner():
     if not key:
         raise RuntimeError("ANTHROPIC_API_KEY is not set on this server.")
     os.environ["ANTHROPIC_API_KEY"] = key
-    workers = Path(__file__).resolve().parents[2] / "workers"
-    if workers.is_dir() and str(workers) not in sys.path:
-        sys.path.append(str(workers))
+    # The Jac server resolves only modules its .jac files import; put the project root
+    # (which holds atlas_runtime/) on the plain Python path for the worker package.
+    root = Path(__file__).resolve().parents[1]
+    if str(root) not in sys.path:
+        sys.path.append(str(root))
+    _ensure_libraries(root)
     from atlas_runtime.__main__ import run
     return run
+
+
+WORKER_LIBRARIES = ["anthropic", "pydantic", "dotenv", "timezonefinder", "astral", "pypdf", "PIL"]
+
+
+def _missing_libraries() -> list[str]:
+    importlib.invalidate_caches()
+    return [name for name in WORKER_LIBRARIES if importlib.util.find_spec(name) is None]
+
+
+def _ensure_libraries(root: Path) -> None:
+    """Install jac.toml's [dependencies] once if the host started the app without them.
+
+    `jac run --serve` builds the client but does not install Python dependencies, so a
+    host that skips `jac install` would otherwise never have the worker's libraries.
+    """
+    for site in sorted(root.glob(".jac/venv/lib/python*/site-packages")):
+        if str(site) not in sys.path:
+            sys.path.append(str(site))
+    if not _missing_libraries():
+        return
+    jac = os.getenv("JAC_BIN") or shutil.which("jac")
+    if not jac:
+        raise RuntimeError("its Python libraries are missing and the jac command was not found to install them.")
+    log.warning("Installing the planning worker's Python libraries with 'jac install'")
+    done = subprocess.run([jac, "install", "--no-npm"], cwd=root, capture_output=True, text=True, timeout=900)
+    if done.returncode != 0:
+        raise RuntimeError("'jac install' failed: " + (done.stderr or done.stdout).strip()[-300:])
+    for site in sorted(root.glob(".jac/venv/lib/python*/site-packages")):
+        if str(site) not in sys.path:
+            sys.path.append(str(site))
+    missing = _missing_libraries()
+    if missing:
+        raise RuntimeError("these Python libraries are still missing after 'jac install': " + ", ".join(missing))
 
 
 def _main() -> None:
@@ -55,17 +97,23 @@ def _main() -> None:
 
     worker_id = uid("worker")
     for _ in range(16):
-        if jobs.heartbeat(worker_id):
-            break
+        try:
+            if jobs.heartbeat(worker_id):
+                break
+        except sqlite3.OperationalError:  # e.g. "database is locked" while the store is first created
+            log.warning("Embedded planning worker is waiting for the job store")
         time.sleep(1)
     else:
-        return  # A separate worker owns the queue.
+        return  # A separate worker owns the queue, or the store stayed unavailable.
     stopped = threading.Event()
 
     def beat():
         while not stopped.wait(4):
-            if not jobs.heartbeat(worker_id):
-                stopped.set()
+            try:
+                if not jobs.heartbeat(worker_id):
+                    stopped.set()
+            except sqlite3.OperationalError:
+                continue  # A busy store is retried; the 12-second lease outlasts one missed beat.
     threading.Thread(target=beat, name="detour-embedded-heartbeat", daemon=True).start()
     try:
         run = _load_runner()

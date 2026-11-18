@@ -1,4 +1,4 @@
-"""Run with: workers/.venv/bin/python -m atlas_runtime (PYTHONPATH=workers:web)."""
+"""Run with: workers/.venv/bin/python -m atlas_runtime (PYTHONPATH=web). Lives in web/ so web-only hosts get it."""
 import logging
 import os
 import signal
