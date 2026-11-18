@@ -11,6 +11,7 @@ import from .ChatMarkdown { ChatMarkdown }
 import from .StudioOffers { StudioOffer, conversation_offers }
 import from .StudioDetails { StudioDetails }
 import from .StudioWeather { StudioWeather }
+import from .StudioConfirmations { StudioConfirmations }
 import from ..client.account { signed_in, account_email, log_in, create_account, log_out, credential_problem }
 import from ..client.planning_state {
     parse_response, parse_job_response, planner_id, guest_token, load_session, save_session, planner_today,
@@ -20,11 +21,12 @@ import from ..client.planning_state {
 import from ..browser { paintPage }
 import from server.planning {
     planner_status, planner_blank, planner_guest_start, planner_guest_poll, planner_guest_stage,
-    planner_guest_cancel, planner_guest_upload, planner_guest_undo, planner_guest_weather, planner_guest_rename
+    planner_guest_cancel, planner_guest_upload, planner_guest_undo, planner_guest_weather, planner_guest_rename,
+    planner_guest_confirmations
 }
 import from ..client.planning_rpc {
     planner_list, planner_import, planner_get, planner_start, planner_poll, planner_stage,
-    planner_undo, planner_rename, planner_delete, planner_restore, planner_deleted, planner_weather,
+    planner_undo, planner_rename, planner_confirmations, planner_delete, planner_restore, planner_deleted, planner_weather,
     planner_cancel, planner_upload, planner_preferences, planner_forget_preference
 }
 
@@ -326,6 +328,20 @@ def:pub TripStudio -> JsxElement {
         } except Exception as exc { error = str(exc) or "Couldn't rename the trip. Please try again."; }
         busy = False;
     }
+    async def saveConfirmations(updated: any) -> bool {
+        if not state { return False; }
+        try {
+            payload = JSON.stringify(updated);
+            saved = parse_response(await planner_confirmations(str(state["id"]), payload) if signed_in() else await planner_guest_confirmations(JSON.stringify(state), payload));
+            # Keep whatever else changed meanwhile (a planning result may have landed); take only the list.
+            value = JSON.parse(JSON.stringify(current.current or state)); value["confirmations"] = saved["confirmations"];
+            commit(value);
+            return True;
+        } except Exception as exc {
+            error = str(exc) or "Couldn't save that confirmation. Please try again.";
+            return False;
+        }
+    }
     def rememberView {
         doc: any = document;
         viewHistory.current = viewHistory.current + [{"pane": pane, "dayId": dayId, "inspected": inspected, "selectedId": selectedId, "top": contentRef.current.scrollTop if contentRef.current else 0, "focus": doc.activeElement, "focusId": doc.activeElement.getAttribute("data-plan-item") if doc.activeElement and doc.activeElement.getAttribute else ""}];
@@ -505,8 +521,8 @@ def:pub TripStudio -> JsxElement {
         {if notice or (state and state["undo"] and not busy and int(state["revision"]) != undoDismissed) { <div className="studio-notice" role="status"><span>{notice or "Trip updated."}</span>{if deletedUndo { <button type="button" onClick={lambda { restoreTrip(deletedUndo); }}>Undo</button> } elif state and state["undo"] and not busy and int(state["revision"]) != undoDismissed { <button type="button" onClick={undoEdit}>Undo last update</button> }}<button type="button" aria-label="Dismiss notice" onClick={lambda { notice = ""; undoDismissed = int(state["revision"]) if state else -1; }}>×</button></div> }}
         {if libraryOpen { <section ref={libraryRef} id="studio-trip-library" className="studio-library" aria-label="Your trips"><div className="studio-heading-row"><h2>{"Recently Deleted" if showDeleted else "Your trips"}</h2><button type="button" onClick={lambda { libraryOpen = False; }} aria-label="Close your trips">×</button></div><div className="studio-library-actions"><button type="button" onClick={newTrip} disabled={busy}>+ New trip</button>{if authenticated { <button type="button" onClick={lambda { showDeleted = not showDeleted; }}>{"← Your trips" if showDeleted else "Recently Deleted"}</button> }}</div>{if not authenticated { <p>Your current trip stays on this device. Sign in to keep multiple trips and resume anywhere.</p> }}{if showDeleted { <div><p>Removed trips stay here for 30 days.</p>{for trip in deletedTrips { <div className="studio-library-row" key={trip["id"]}><span>{str(trip["title"])}</span><button type="button" onClick={lambda { restoreTrip(str(trip["id"])); }}>Restore</button></div> }}{if len(deletedTrips) == 0 { <p>No recently deleted trips.</p> }}</div> } else { <div>{for trip in savedTrips { <div className="studio-library-row" key={trip["id"]}><button type="button" aria-current={"page" if state and state["id"] == trip["id"] else None} onClick={lambda { openTrip(str(trip["id"])); }}>{str(trip["title"]) + " →"}</button><button type="button" className="studio-delete-trip" aria-label={"Delete " + str(trip["title"])} onClick={lambda { deleteTrip(str(trip["id"])); }}>Remove</button></div> }}</div> }}</section> }}
         {if state { <main className="studio-workspace">
-            <section className="studio-planning-pane" aria-label="Trip planner"><nav className="studio-tabs" aria-label="Trip views"><button type="button" className={"active" if pane in ["overview", "day"] else ""} onClick={lambda { choosePane("overview"); }}>Your trip</button><button type="button" className={"active" if pane == "comparison" else ""} onClick={lambda { choosePane("comparison"); }}>Compare options{if len(visibleOffers) > 0 { <span>{len(visibleOffers)}</span> }}</button></nav>
-                <div className="studio-content" ref={contentRef}>{if inspected { <StudioDetails item={inspected} snapshot={snapshot} resources={state} weather={state["weather"]} onBack={backView} onContext={discuss}/> } elif pane == "comparison" { <StudioComparison offers={visibleOffers} links={state["researchLinks"]} onContext={discuss}/> } elif day and pane == "day" { <StudioDay day={day} snapshot={snapshot} onBack={backView} onContext={inspect} weather={state["weather"]}/> } elif empty { <div className="studio-welcome"><p className="studio-eyebrow">A JOURNEY STARTS WITH A THOUGHT</p><h1>Where are we<br/>headed?</h1><p>A weekend away. A cross-country adventure.<br/>Or just a flight and somewhere to stay.</p><div className="studio-welcome-line"/><small>Talk it through with Detour.<br/>We'll shape the trip together.</small><div className="studio-start-prompts"><button type="button" onClick={lambda { send("I'd like to plan a road trip through Arizona's national parks. Help me start with a route and overnight bases."); }}>Explore Arizona ↗</button><button type="button" onClick={lambda { send("I need help planning a short work trip. Just travel and a hotel, no activity itinerary."); }}>Plan a work trip ↗</button></div></div> } else { <StudioOverview snapshot={snapshot} costs={state["budgetSummary"]} weather={state["weather"]} onDay={openDay} onContext={inspect}/> }}</div>
+            <section className="studio-planning-pane" aria-label="Trip planner"><nav className="studio-tabs" aria-label="Trip views"><button type="button" className={"active" if pane in ["overview", "day"] else ""} onClick={lambda { choosePane("overview"); }}>Your trip</button><button type="button" className={"active" if pane == "comparison" else ""} onClick={lambda { choosePane("comparison"); }}>Compare options{if len(visibleOffers) > 0 { <span>{len(visibleOffers)}</span> }}</button><button type="button" className={"active" if pane == "confirmations" else ""} onClick={lambda { choosePane("confirmations"); }}>Confirmations{if len(state["confirmations"] or []) > 0 { <span>{len(state["confirmations"])}</span> }}</button></nav>
+                <div className="studio-content" ref={contentRef}>{if inspected { <StudioDetails item={inspected} snapshot={snapshot} resources={state} weather={state["weather"]} onBack={backView} onContext={discuss}/> } elif pane == "confirmations" { <StudioConfirmations entries={state["confirmations"] or []} busy={not state} onSave={saveConfirmations}/> } elif pane == "comparison" { <StudioComparison offers={visibleOffers} links={state["researchLinks"]} onContext={discuss}/> } elif day and pane == "day" { <StudioDay day={day} snapshot={snapshot} onBack={backView} onContext={inspect} weather={state["weather"]}/> } elif empty { <div className="studio-welcome"><p className="studio-eyebrow">A JOURNEY STARTS WITH A THOUGHT</p><h1>Where are we<br/>headed?</h1><p>A weekend away. A cross-country adventure.<br/>Or just a flight and somewhere to stay.</p><div className="studio-welcome-line"/><small>Talk it through with Detour.<br/>We'll shape the trip together.</small><div className="studio-start-prompts"><button type="button" onClick={lambda { send("I'd like to plan a road trip through Arizona's national parks. Help me start with a route and overnight bases."); }}>Explore Arizona ↗</button><button type="button" onClick={lambda { send("I need help planning a short work trip. Just travel and a hotel, no activity itinerary."); }}>Plan a work trip ↗</button></div></div> } else { <StudioOverview snapshot={snapshot} costs={state["budgetSummary"]} weather={state["weather"]} onDay={openDay} onContext={inspect}/> }}</div>
             </section>
             <div className="studio-geography"><PlannerMap snapshot={mapSnapshot} onLocate={lambda { send("Check the map locations for " + (str(day["title"]) if day else "this trip") + ". Use source-backed locations and keep the itinerary unchanged."); }} roads={state["routes"] or []} focusIds={focusIds} selectedId={selectedId} onSelect={lambda (id: str) { inspect(id, place_label(snapshot, id)); }}/>{if not empty { <div className="studio-map-legend"><span>◦ Places in your plan</span><span>┄ Connections · ━ Sourced road estimates</span></div> }}</div>
             <aside className="studio-chat" aria-label="Conversation with Detour"><header className="studio-chat-heading"><div><span className="studio-ai-mark">✳</span><strong>Plan with Detour</strong></div><button type="button" aria-label="Collapse chat" onClick={lambda { chatOpen = False; }}>⇥</button></header><div className="studio-chat-log" role="log" aria-label="Planning conversation" aria-live="polite">

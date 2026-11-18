@@ -13,7 +13,7 @@ import from server.planning_jobs {
 }
 
 import from server.planning_lifecycle {
-    undo_json as _undo_json, rename_json as _rename_json, delete_json as _delete_json, restore_json as _restore_json,
+    undo_json as _undo_json, rename_json as _rename_json, confirmations_json as _confirmations_json, delete_json as _delete_json, restore_json as _restore_json,
     abandoned as _abandoned, recent_deleted as _recent_deleted
 }
 import from server.planning_weather { weather_json as _weather_json }
@@ -136,6 +136,18 @@ def:protect planner_rename(trip_id: str, title: str, revision: int, command_id: 
         if state["revision"] != before {
             trip ++> PlannerRevision(version=state["revision"], snapshot_json=json.dumps(state["snapshot"]), command_id=command_id);
         }
+        return trip.state_json;
+    } except Exception as exc { return _failure(exc); }
+}
+
+def:pub planner_guest_confirmations(state_json: str, confirmations_json: str) -> str {
+    try { return _confirmations_json(state_json, confirmations_json); } except Exception as exc { return _failure(exc); }
+}
+
+def:protect planner_confirmations(trip_id: str, confirmations_json: str) -> str {
+    try {
+        trip = _find_trip(trip_id);
+        trip.state_json = _confirmations_json(trip.state_json, confirmations_json);
         return trip.state_json;
     } except Exception as exc { return _failure(exc); }
 }

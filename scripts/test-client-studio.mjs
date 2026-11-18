@@ -37,7 +37,7 @@ function fixture({pollResponse, authenticated=false, withUndo=false} = {}) {
     save_session: (_,value)=>{writes.push(structuredClone(value));return '';},
     guest_token:()=>'guest_test_capability', planner_id:prefix=>`${prefix}_${randomUUID()}`,
     planner_today:()=>'2026-11-15', planner_zone:()=>'America/Detroit',
-    HEADER:'', Brand:function Brand(){}, PlannerMap:()=>{}, ChatMarkdown:()=>{}, StudioOffer:function StudioOffer(){},StudioDetails:function StudioDetails(){},StudioWeather:()=>{},
+    HEADER:'', Brand:function Brand(){}, StudioConfirmations:function StudioConfirmations(){}, PlannerMap:()=>{}, ChatMarkdown:()=>{}, StudioOffer:function StudioOffer(){},StudioDetails:function StudioDetails(){},StudioWeather:()=>{},
     conversation_offers:(turn,offers,fallback)=>Object.hasOwn(turn,"offerIds")?offers.filter(o=>(turn.offerIds??[]).includes(o.id)):fallback,
     planner_list:async()=>JSON.stringify([{id:state.id,title:state.snapshot.title}]),planner_deleted:async()=>'[]',
     __jacCallFunction: async (name,args)=>{
@@ -51,6 +51,10 @@ function fixture({pollResponse, authenticated=false, withUndo=false} = {}) {
       if(name==='planner_guest_undo') {
         const value=JSON.parse(args.state_json);
         value.snapshot=snapshot;value.pending=null;value.revision++;value.undo=null;
+        return JSON.stringify(value);
+      }
+      if(name==='planner_guest_confirmations') {
+        const value=JSON.parse(args.state_json);value.confirmations=JSON.parse(args.confirmations_json);
         return JSON.stringify(value);
       }
       if(name==='planner_guest_rename') {
@@ -108,6 +112,16 @@ test('the header renames the trip in place, trimming spaces, and Escape cancels'
   const call=f.calls.find(c=>c.name==='planner_guest_rename');assert.ok(call);
   assert.equal(call.args.title,'Chicago weekend');assert.equal(call.args.revision,f.state.revision);
   assert.equal(f.cells[0].val.snapshot.title,'Chicago weekend');assert.equal(field(),null);
+});
+test('the Confirmations tab saves bookmarks beside the plan without changing its revision',async()=>{
+  const f=fixture();
+  button(f.render(),'Confirmations').props.onClick();
+  const pane=component(f.render(),'StudioConfirmations');assert.equal(JSON.stringify(pane.props.entries),'[]');
+  const entry={id:'c1',nickname:'Hotel',link:'https://mail.google.com/mail/u/0/#inbox/x'};
+  assert.equal(await pane.props.onSave([entry]),true);
+  const call=f.calls.find(c=>c.name==='planner_guest_confirmations');assert.ok(call);
+  assert.equal(JSON.stringify(f.cells[0].val.confirmations),JSON.stringify([entry]));assert.equal(f.cells[0].val.revision,f.state.revision);
+  assert.equal(JSON.stringify(component(f.render(),'StudioConfirmations').props.entries),JSON.stringify([entry]));
 });
 test('item detail replaces its day; Back restores the day without a trip write',()=>{
   const f=fixture();component(f.render(),'StudioOverview').props.onDay('day_1');

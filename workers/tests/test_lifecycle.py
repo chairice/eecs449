@@ -5,7 +5,7 @@ import pytest
 
 from server import planning_api as api, planning_jobs as jobs
 from server.planning_core import PlanningError, blank_trip, dumps, loads, validate_trip, budget_summary
-from server.planning_lifecycle import abandoned, meaningful, needs_decision, undo_json, rename_json, delete_json, restore_json, recent_deleted
+from server.planning_lifecycle import abandoned, meaningful, needs_decision, undo_json, rename_json, confirmations_json, delete_json, restore_json, recent_deleted
 
 
 @pytest.fixture(autouse=True)
@@ -162,3 +162,20 @@ def test_rename_is_an_undoable_revision_with_validation():
     assert restored["snapshot"]["title"] == state["snapshot"]["title"]
     busy = dict(state, activeJob="job-1")
     with pytest.raises(PlanningError, match="Stop the current"): rename_json(dumps(busy), "Bay trip", revision, "rename-busy")
+
+
+def test_confirmations_are_validated_bookmarks_beside_the_plan():
+    state = planned()
+    links = [{"id": "c1", "nickname": "  Hotel   booking ", "link": "https://mail.google.com/mail/u/0/#inbox/FMfcgz"}]
+    saved = loads(confirmations_json(dumps(state), dumps(links)))
+    assert saved["confirmations"] == [{"id": "c1", "nickname": "Hotel booking", "link": "https://mail.google.com/mail/u/0/#inbox/FMfcgz"}]
+    assert saved["revision"] == state["revision"] and saved["snapshot"] == state["snapshot"]
+    for bad, message in [([{"id": "c2", "nickname": "", "link": "https://example.com"}], "nickname"),
+                         ([{"id": "c2", "nickname": "X", "link": "javascript:alert(1)"}], "https://"),
+                         ([{"id": "c2", "nickname": "X", "link": "http://localhost/x"}], "https://"),
+                         ([{"id": "c2", "nickname": "A", "link": "https://a.com"}, {"id": "c2", "nickname": "B", "link": "https://b.com"}], "share an ID")]:
+        with pytest.raises(PlanningError, match=message): confirmations_json(dumps(state), dumps(bad))
+    with pytest.raises(PlanningError): confirmations_json(dumps(state), dumps([{"id": f"c{i}", "nickname": "X", "link": "https://a.com"} for i in range(51)]))
+    # A guest's bookmarks come along when the trip is saved to an account.
+    assert api.fresh(dumps(saved))["confirmations"] == saved["confirmations"]
+    assert api.fresh(dumps(state))["confirmations"] == []

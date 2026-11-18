@@ -4,7 +4,7 @@ from datetime import date
 from server.planning_core import (PlanningError, apply_operations, blank_trip, change_summary, dumps, fingerprint,
     identifier, loads, now, public_url, record, sequence, text, uid, validate_trip, budget_summary)
 from server import planning_jobs as jobs
-from server.planning_lifecycle import needs_decision, remember_undo, bound_undo
+from server.planning_lifecycle import needs_decision, remember_undo, bound_undo, clean_confirmations
 
 
 def fresh(raw=""):
@@ -30,6 +30,7 @@ def fresh(raw=""):
             raise PlanningError("The preview belongs to a different trip.")
         state["pending"] = {"id": identifier(pending["id"]), "snapshot": proposed, "baseRevision": 0,
                             "changes": change_summary(snapshot, proposed), "warnings": pending.get("warnings", []), "createdAt": now()}
+    state["confirmations"] = clean_confirmations(value.get("confirmations", []))
     state["budgetSummary"] = budget_summary(snapshot, [])
     return state
 
