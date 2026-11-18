@@ -12,7 +12,7 @@ def:pub PlannerMap(snapshot: any, focusIds: any, selectedId: str, onSelect: Call
     useEffect(lambda {
         instance: any = createMap(host.current, {"zoomControl": False, "scrollWheelZoom": True, "maxZoom": 18, "minZoom": 2});
         view.current = instance;
-        tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {"maxZoom": 19, "attribution": "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors", "className": "studio-map-tiles"}).addTo(instance);
+        tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {"maxZoom": 19, "attribution": "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors", "className": "studio-map-tiles", "referrerPolicy": "strict-origin-when-cross-origin"}).addTo(instance);
         overlay.current = layerGroup().addTo(instance);
         instance.setView([38.8, -105], 4);
         observer = ResizeObserver(lambda (_entries: any, _observer: any) { instance.invalidateSize(); });
