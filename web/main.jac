@@ -9,7 +9,7 @@ import from server.planning {
     planner_guest_cancel, planner_guest_upload, planner_guest_approve, planner_guest_reject,
     planner_list, planner_import, planner_get, planner_start, planner_poll, planner_stage,
     planner_approve, planner_reject, planner_cancel, planner_upload, planner_preferences, planner_forget_preference,
-    planner_undo, planner_guest_undo, planner_delete, planner_restore, planner_deleted, planner_weather, planner_guest_weather
+    planner_undo, planner_guest_undo, planner_rename, planner_guest_rename, planner_delete, planner_restore, planner_deleted, planner_weather, planner_guest_weather
 }
 import from client.theme_mode { initialize_theme }
 
